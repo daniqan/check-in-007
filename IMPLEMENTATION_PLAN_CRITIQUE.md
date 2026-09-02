@@ -1,6 +1,36 @@
+# Check-In 007 Plan Critique
+
+**Plan Score:** 92/100
+**Current Score**: 92/100
+**Status:** NOT APPROVED (gate is ≥95)
+**Latest review:** Revision 2 (re-review) — `IMPLEMENTATION_PLAN.md` v1 @ commit `affa721`, 2026-09-02
+
+---
+
+## Revision 2 — re-review (2026-09-02)
+
+**Result: no change. Score holds at 92/100. NOT APPROVED.**
+
+The plan under review (`IMPLEMENTATION_PLAN.md`, header "v1") is **byte-identical** to the
+version critiqued in Revision 1 — verified: `git diff affa721 HEAD -- IMPLEMENTATION_PLAN.md`
+is empty, and there are **no commits** between the baseline critique (`28afe6f`) and now.
+The generator has not yet revised the plan in response to Revision 1.
+
+Because nothing in the plan changed, there is no new evidence on which to move any of the
+eight dimension scores. Re-scoring an unchanged artifact to a different number would be
+inflation, not judgement. **The score therefore remains 92**, and the three blocking issues
+plus two testability gaps from Revision 1 (below) are still the exact, complete path to ≥95.
+
+**Generator's required action (State 1 — plan < 95): revise the plan**, addressing the five
+"Path to ≥95" items below, then resubmit for re-critique. Do not begin implementation.
+
+The full Revision 1 analysis is retained verbatim below — it remains the authoritative
+critique of the current plan text.
+
+---
+
 # Check-In 007 Plan Critique — Revision 1
 
-**Current Score**: 92/100
 **Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `affa721`
 **Plan Under Review:** IMPLEMENTATION_PLAN.md v1
 **Score:** **92 / 100** (first review)
@@ -142,3 +172,8 @@ genuinely risky under-specified component (the module-inlining build step), one 
 wrong platform assumption (zoom disabling on iOS Safari), and one in-scope-but-unplanned
 deliverable (VoiceOver/ARIA). Fix the three blocking items plus the two minor testability
 gaps and this comfortably clears 95.
+
+---
+
+**Authoritative score (this file): Plan Score 92/100 — NOT APPROVED. Plan unchanged since
+Revision 1; generator must revise, not implement.**
