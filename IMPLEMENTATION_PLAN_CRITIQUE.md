@@ -1,13 +1,184 @@
 # Check-In 007 — Implementation Plan Critique (Cycle 5: Node 24 LTS Toolchain)
 
-**Plan Score:** **94/100**
+**Plan Score:** **93/100**
 **Implementation Score:** _n/a — Cycle 5 plan is below the ≥95 gate; not yet implemented_
-**Status:** **NOT APPROVED** (Rev 1 — one gate-relevant feasibility/verification gap below)
+**Status:** **NOT APPROVED** (Rev 2 — every Rev-1 item resolved, but the fix introduced one new gate-blocking flaw of commission)
 
 > Cycle 4 (scan blip audio) is complete and **VERIFIED** (Implementation Verification v5 =
-> 98/100; see the archived critique further down this file). Cycle 5 opens a new, unrelated
-> plan: `IMPLEMENTATION_PLAN.md` v12, the optional Node 24 LTS toolchain bump. This is its
-> first review (Rev 1). Loop state: **State 1 — revise plan** (plan < 95).
+> 98/100; see the archived critique further down this file). Cycle 5's plan is
+> `IMPLEMENTATION_PLAN.md` v13 (optional Node 24 LTS toolchain bump). Rev 2 review below.
+> Loop state: **State 1 — revise plan** (plan < 95).
+
+---
+
+## Plan Critique — Cycle 5, Revision 2
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `cbdabe3`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v13
+**Score:** **93 / 100** (previous: 94 — Rev 1, plan v12)
+**Status:** NOT APPROVED — one **new** gate-blocking flaw of commission introduced by the v12→v13 fix; otherwise the plan is now excellent.
+
+Plan v13 is a clean, focused revision that **resolves every single item from Rev 1** — the sole
+gate-blocker (no verification path on a non-24 shell) and all three Path-to-100 nits (fragile
+main-module idiom, understated §9 perf claim, README/lockfile-edit hygiene). Verified against the
+v12→v13 diff (`git show cbdabe3`):
+
+1. **Gate-blocker #1 (Rev 1) — RESOLVED.** Phase 4 now carries a "Verifying on a non-24 shell"
+   subsection (lines 278-300) and §11 a "Non-24 local shell procedure" (lines 420-430): both state
+   the current shell is Node `v26.3.0`, require `nvm install && nvm use` (with asdf/mise/nodejs.org
+   equivalents) before the guarded commands, and enumerate the exact direct-tool bypass set
+   (`node scripts/check-node-version.mjs`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`,
+   `npx playwright test`, `node scripts/build.mjs`) as the auditor's escape hatch. This is precisely
+   the fix Rev 1 asked for.
+2. **Path-to-100 (Rev 1 Commission #2 / §9 perf) — RESOLVED.** Phase 3 now invokes the guard
+   directly (`node scripts/check-node-version.mjs && …`, lines 213-217) instead of `npm run
+   check:node && …`, and §9 (lines 356-358) is corrected to describe the direct invocation "avoiding
+   an extra nested `npm run check:node` startup." The <50 ms claim is now accurate.
+3. **Path-to-100 (Rev 1 Omissions #2/#3) — RESOLVED.** Phase 1 adds "verify the hand-edited lockfile
+   with `npm ci`; do not run `npm install` this cycle" (lines 149-150), and Phase 3 adds "keep README
+   edits Prettier-formatted because `README.md` is checked by `prettier --check .`" (lines 231-232).
+
+Every source claim re-verified against the working tree: `package.json` engines `">=22"`
+(`package.json:6-8`); lockfile root `packages[""].engines.node` `">=22"` (`package-lock.json:17-18`),
+distinct from transitive `>=20`/`>=12` dep floors; no `.github/`; `README.md` **not** in
+`.prettierignore`; `node --version` → **v26.3.0**.
+
+Had v13 only closed the Rev-1 list, it would score ~98. It does not, because the *way* it closed the
+main-module Path-to-100 nit introduces a new, gate-blocking flaw of commission in the guard's core
+mechanism.
+
+## Issues resolved in revision 2
+
+All four Rev-1 items are closed (enumerated above): the non-24-shell verification gate-blocker plus
+the three Path-to-100 nits (main-module idiom, §9 perf claim, README/lockfile hygiene). The v12→v13
+diff is otherwise purely additive/clarifying.
+
+## Remaining issues
+
+1. **`import.meta.main` makes the guard silently no-op — and therefore *pass* — on the older Node
+   majors it is built to reject (NEW, gate-blocking flaw of commission).**
+   Rev 1 offered two ways to replace the fragile URL comparison: `import.meta.main` **or**
+   `import.meta.url === pathToFileURL(process.argv[1]).href`. v13 chose `import.meta.main` (§4.5 lines
+   95-100; Phase-2 executable tail lines 194-198: `if (import.meta.main) { process.exitCode = main(); }`;
+   §7.3 line 319). But `import.meta.main` was **added in Node v24.2.0 and backported only to v22.18.0**
+   (verified against the Node.js ESM docs version history). On any runtime older than those —
+   **all of Node 23.x, Node 22.0–22.17.x, and Node 20.x** — `import.meta.main` is `undefined`
+   (property access, does not throw), so the executable tail `if (import.meta.main)` is falsy, `main()`
+   **never runs**, and `node scripts/check-node-version.mjs` exits `0`. Wired as
+   `node scripts/check-node-version.mjs && …`, the `&&` then proceeds to run prettier / node:test /
+   Playwright / build **on the unsupported Node**. This directly defeats the plan's own core purpose
+   ("fail fast on unsupported Node majors," §2 item 4; §Phase 3) and contradicts its own Phase-2
+   acceptance criterion (lines 202-204): *"Node `22.x`, `23.x`, `25.x`, `26.x`, empty strings, and
+   malformed values exit `1`."* Under the chosen idiom, running the CLI on Node 22.17 or Node 23.x
+   exits `0`, not `1`. The guard fires correctly only on runtimes *newer* than 24.2 (25, 26) — while
+   Node 20 and Node 22 (the prior two LTS lines, the most likely "wrong-but-installed" versions) sail
+   straight through. Because npm's `engines` only warns without `engine-strict` (the plan relies on
+   the guard for "the hard failure," §8), the guard is the *only* hard gate — and it is exactly the
+   layer that fails open here. The planned §10 unit tests call `main({version})` directly (pure
+   function) so they stay green, giving false confidence: the suite passes while the shipped CLI is
+   broken on common runtimes.
+   *Fix (one of):* (a) Use the version-agnostic robust form Rev 1 also offered —
+   `import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href` — which
+   evaluates correctly on **all** Node versions, so the guard fires and rejects on 20/22/23; or
+   (b) keep `import.meta.main` but fall back when it is `undefined`:
+   `if (import.meta.main ?? (import.meta.url === pathToFileURL(process.argv[1]).href)) { … }`; or
+   (c) if `import.meta.main` is kept as-is, the plan must explicitly scope the guard's contract to
+   "detects unsupported Node **≥ 22.18 / ≥ 24.2**" and revise the Phase-2 acceptance criteria and §2
+   accordingly (weaker — it leaves Node 20 / early-22 / all-23 unguarded, which undercuts the feature).
+   Option (a) is cleanest and keeps every stated acceptance criterion true.
+
+## Scope Check
+
+Unchanged from Rev 1 and still adequate.
+- **Audit findings in scope but not addressed:** None. `CONSOLIDATED_AUDIT.md` reports all Required
+  Actions #1–#8 DONE and zero open defects.
+- **Backlog items in scope but not addressed:** None mis-scoped. The plan addresses the in-progress
+  item ("Optional toolchain bump to Node 24 LTS", `BACKLOG.md:16`, `[/]`); the two remaining `- [ ]`
+  items (native SwiftUI iPad build, on-device static-HTTPS helper) are independent subsystems
+  correctly deferred (§2 Out of scope).
+- **Integration points analyzed:** Yes — §7's five contracts (npm engines, dev validation scripts,
+  test runner, static build, operator docs), each with failure mode and migration path.
+- **Alternatives considered:** Yes — §4 justifies `>=24 <25` over `>=24`, a local guard over the
+  `check-node-version` package, pinned deps, both version files, `import.meta.main` over the URL
+  comparison (the choice that backfired), and deferring CI.
+- **Score cap applied:** None. Scope is adequate; the score reflects the one commission defect, not scope.
+
+## Flaws of Commission
+
+1. **The `import.meta.main` executable-tail idiom (Remaining issue #1)** is a genuine flaw of
+   commission: for a guard whose entire job is to *reject* Node ≠ 24, choosing a detection mechanism
+   that is `undefined` on the sub-24 majors (20, 22.0–22.17, 23.x) means the guard fails **open** —
+   the most dangerous failure mode for a safety gate. It also makes the plan internally inconsistent:
+   §4.5's idiom cannot satisfy §Phase 2's "Node 22.x, 23.x … exit 1" acceptance criterion.
+
+No other flaws of commission. The engine range `>=24 <25` is valid semver and consistent with the
+guard's major-only logic; the direct-invocation script wiring is correct; the lockfile edit target is
+right and, edited in place with `npm ci` verification, changes no dependency versions or hashes.
+
+## Flaws of Omission
+
+1. **No test exercises the executable tail across runtimes.** §10 tests only the pure functions
+   (`parseNodeMajor`/`isSupportedNodeVersion`/`main({version})`), so the CLI-dispatch behavior that
+   Remaining issue #1 breaks is never asserted. Even after fixing the idiom, a child-process smoke
+   test — spawn `node scripts/check-node-version.mjs` under the current runtime and assert the exit
+   code matches the major — would lock in that `main()` actually runs when invoked as a script.
+   (Path-to-100 once #1 is fixed; today it is the reason the defect hides behind a green suite.)
+
+No other omissions. The Rev-1 omissions (README Prettier hygiene, `npm ci`-not-`npm install`) are now
+addressed.
+
+## Regressions
+
+No regressions to the shipped product — the plan still touches no `src/` file, fixture, style, screen,
+build output, or storage key (§5). The one *plan-level* regression is internal to this cycle: the
+v12→v13 edit **traded a cosmetic robustness nit for a functional gate-blocker** — v12's
+`import.meta.url === \`file://${process.argv[1]}\`` idiom, while fragile on spaces/symlinks/Windows,
+at least *ran on every Node version* and so would have rejected Node 20/22/23 correctly on this repo's
+space-free POSIX path. v13's `import.meta.main` is more elegant on the target runtime but fails open on
+older majors. Net, the guard's rejection behavior on sub-24 runtimes regressed from "works" to "silently
+passes."
+
+## Why 93 and not 94
+
+Rev 1 (v12) scored 94 for a single mechanically-fixable *verification/process* gap. v13 closes that
+gap and all three polish nits — real progress — but replaces them with a *functional correctness*
+defect in the deliverable's core mechanism: a safety guard that fails open on the common older LTS
+lines (Node 20, Node 22) it exists to catch, plus a resulting internal inconsistency (§4.5 vs Phase-2
+acceptance) and a test suite that stays green while the CLI is broken. A false-pass in a guard is
+strictly worse than a missing "how to verify" note, so it lands one point below Rev 1's 94 rather than
+at the ~98 the Rev-1 fixes alone would have earned.
+
+## Path to ≥95
+
+Address the following in one revision pass:
+
+1. **Fix the executable-tail idiom (Remaining issue #1).** Prefer option (a): replace
+   `if (import.meta.main)` with `import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href`
+   so the guard fires (and `main()` runs) on **every** Node version, keeping the Phase-2 acceptance
+   criteria ("Node 22.x, 23.x … exit 1") true. Update §4.5's rationale (the `import.meta.main`
+   "added in 24.2.0 / target is 24.20.0" reasoning is the logic gap — the guard must run on the
+   runtimes it *rejects*, not the one it wants) and §7.3's migration path to match.
+
+Doing #1 clears the gate (expected ~97-98). Folding in the Path-to-100 item below would land 98-99.
+
+## Path to 100
+
+- Add a child-process CLI smoke test (spawn `node scripts/check-node-version.mjs`, assert the exit
+  code matches the running major) to §10 so the executable-tail dispatch is actually exercised, not
+  just the pure functions (Flaws of Omission #1). This is the assertion that would have caught the
+  Rev-2 defect.
+
+## Summary
+
+Plan v13 resolves the entire Rev-1 list — the non-24-shell verification gate-blocker and all three
+Path-to-100 nits — and is, in every other respect, an excellent, correctly-scoped, dependency-free
+toolchain plan. But the fix for the (cosmetic) main-module nit reached for `import.meta.main`, which
+was **added in v24.2.0 and backported only to v22.18.0**; on Node 20, Node 22.0–22.17, and all of
+Node 23.x the property is `undefined`, so the guard's executable tail never runs and the CLI exits
+`0` — failing open on exactly the sub-24 majors it must reject, contradicting its own Phase-2
+acceptance criteria, and hiding behind a green pure-function unit suite. Swap to the version-agnostic
+`pathToFileURL(process.argv[1]).href` comparison (Rev 1's other offered option) and the plan clears
+≥95. **State 1 — revise plan.** Score **93/100 — NOT APPROVED.**
 
 ---
 

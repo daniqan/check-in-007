@@ -56,13 +56,16 @@ assertion) was folded into `tests/unit/audio.test.mjs` as recommended. No regres
 inactivity decay resets to 0.
 
 **Cycle 5 is open** (State 1 — revise plan): the "Optional toolchain bump to Node 24 LTS" item is now
-in progress (`[/]`). `IMPLEMENTATION_PLAN.md` v12 (Node 24 LTS toolchain) was critiqued at
-**94/100 — NOT APPROVED** (Plan Critique Cycle 5 Rev 1): one mechanically-fixable gate-relevant gap —
-for a toolchain plan it does not state how its acceptance criteria are verified on the current
-**Node 26.3.0** shell (where the new guard makes `lint`/`test`/`build` fail until Node 24 is
-installed) and gives no direct-tool bypass for the audit. Three Path-to-100 nits (fragile
-`import.meta.url` main-check; understated §9 perf claim; README/lockfile-edit hygiene). See
-`IMPLEMENTATION_PLAN_CRITIQUE.md` and `CONSOLIDATED_AUDIT.md` v21.
+in progress (`[/]`). `IMPLEMENTATION_PLAN.md` was revised v12 → v13 and re-critiqued at
+**93/100 — NOT APPROVED** (Plan Critique Cycle 5 Rev 2). v13 **resolved every Rev-1 item** (the
+non-24-shell verification gate-blocker + all three Path-to-100 nits — guard invoked directly with §9
+perf claim corrected, README-Prettier and `npm ci`-not-`install` hygiene notes). But the fix for the
+main-module nit adopted **`import.meta.main`** (added Node v24.2.0, backported only v22.18.0), which is
+`undefined` on Node 20 / 22.0–22.17 / all 23.x → the guard's executable tail no-ops and exits `0`,
+**failing open** on the sub-24 majors it must reject and contradicting its own Phase-2 acceptance
+("Node 22.x, 23.x … exit 1"). NEW gate-blocking flaw of commission. Fix: use
+`import.meta.url === pathToFileURL(process.argv[1]).href` (version-agnostic). See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` and `CONSOLIDATED_AUDIT.md` v22.
 
 With Node 24 now `[/]`, two items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build and
 the on-device static-HTTPS helper — for a backlog deduction of −1 (2 unchecked, 1 pt per 2, round
