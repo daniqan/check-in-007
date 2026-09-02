@@ -45,7 +45,9 @@ backlog deduction of −1 (1 pt per 2 unchecked, round down): native SwiftUI, of
 and the optional Node 24 toolchain bump each remain separate subsystems and candidates for future
 planning cycles.
 
-**Cycle 4 is in progress** (State 1 — revise plan): `IMPLEMENTATION_PLAN.md` v8 (optional scan
-"blip" audio, gesture-gated) is critiqued at **93/100 — NOT APPROVED** (Plan Critique Rev 1). The
-scan-audio item stays `[/]` until the plan clears the ≥95 gate and passes Implementation
-Verification. See `IMPLEMENTATION_PLAN_CRITIQUE.md` for the three gate-blocking revisions.
+**Cycle 4 is in progress** (State 2 — implement the approved plan): `IMPLEMENTATION_PLAN.md` v10
+(optional scan "blip" audio, gesture-gated) is **APPROVED at 99/100** (Plan Critique Rev 3). The
+plan cleared the ≥95 gate at v9 (Rev 2 = 97) and v10 folded in all four Rev-2 Path-to-100 nits
+(e2e mock initial `suspended` state, ms→s `durationSeconds` conversion, admin inline
+normalization, interrupted-cue skip footnote). The scan-audio item stays `[/]` until the approved
+plan is implemented and passes Implementation Verification. See `IMPLEMENTATION_PLAN_CRITIQUE.md`.
