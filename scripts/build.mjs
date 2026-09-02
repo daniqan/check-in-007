@@ -8,6 +8,7 @@ const modules = [
   'src/config.mjs',
   'src/lib/format.mjs',
   'src/lib/roster.mjs',
+  'src/lib/virtual-list.mjs',
   'src/lib/csv.mjs',
   'src/lib/store.mjs',
   'src/screens/loading.mjs',

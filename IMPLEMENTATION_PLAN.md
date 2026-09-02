@@ -132,7 +132,7 @@ Playwright `1.62.1`, Prettier `3.9.6`, and `node:test`.
 
 ## 6. Implementation Phases
 
-### Phase 1: Configuration and Pure Window Math
+### Phase 1: Configuration and Pure Window Math [COMPLETE]
 
 Add constants:
 
@@ -174,7 +174,7 @@ Acceptance criteria:
   the last bottom-clamped window where `endIndex === total`.
 - `shouldVirtualize(500, 500)` is false and `shouldVirtualize(501, 500)` is true.
 
-### Phase 2: Roster DOM Integration
+### Phase 2: Roster DOM Integration [COMPLETE]
 
 Modify `mountRoster` so `render(items)` chooses between small-list rendering and
 virtualized rendering.
@@ -242,7 +242,7 @@ Acceptance criteria:
 - Search resets `scrollTop` to `0` and recomputes the window against filtered results.
 - Cleanup removes scroll/resize listeners and cancels pending rAF.
 
-### Phase 2b: Build Artifact Module Ordering
+### Phase 2b: Build Artifact Module Ordering [COMPLETE]
 
 Modify the hardcoded `modules` array in `scripts/build.mjs`:
 
@@ -266,7 +266,7 @@ Acceptance criteria:
 - The large-roster e2e test runs against the built artifact or otherwise performs a
   browser load of `dist/index.html` and confirms `window.CheckIn007.start` completed.
 
-### Phase 3: Styling and Accessibility
+### Phase 3: Styling and Accessibility [COMPLETE]
 
 Update roster CSS:
 
@@ -320,7 +320,7 @@ Acceptance criteria:
 - Momentum scrolling stays enabled through the existing `-webkit-overflow-scrolling:
   touch`.
 
-### Phase 4: Tests and Verification
+### Phase 4: Tests and Verification [COMPLETE]
 
 Add `tests/unit/virtual-list.test.mjs` for:
 

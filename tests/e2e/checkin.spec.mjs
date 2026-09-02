@@ -126,6 +126,81 @@ test('admin import and accessibility smoke', async ({ page }) => {
   ).toEqual([]);
 });
 
+test('large imported rosters virtualize while preserving search and selection', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: undefined,
+      configurable: true,
+    });
+  });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await waitForRoster(page);
+  const rows = ['name,table'];
+  for (let index = 0; index < 620; index += 1) {
+    const label = String(index).padStart(3, '0');
+    const name =
+      index === 5
+        ? `Agent ${label} With An Exceptionally Long Operational Alias That Must Ellipsize`
+        : `Agent ${label}`;
+    rows.push(`${name},Table ${label}`);
+  }
+
+  await page.locator('.logo-hit').dispatchEvent('pointerdown');
+  await page.waitForTimeout(2100);
+  await expect(page.getByRole('dialog', { name: 'ADMIN CONTROLS' })).toBeVisible();
+  await page.setInputFiles('.csv-input', {
+    name: 'large-guests.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(`${rows.join('\n')}\n`),
+  });
+  await expect(page.getByText(/Loaded 620 agents/)).toBeVisible();
+  await page.getByLabel('Close admin').click();
+  await waitForRoster(page);
+
+  const list = page.locator('.roster-list');
+  await expect(list).toHaveClass(/is-virtualized/);
+  const renderedRows = await page.locator('.guest-row').count();
+  expect(renderedRows).toBeGreaterThan(0);
+  expect(renderedRows).toBeLessThanOrEqual(40);
+
+  const longNameMetrics = await page
+    .getByRole('button', { name: /Agent 005 With An Exceptionally Long Operational Alias/ })
+    .locator('span')
+    .evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      whiteSpace: getComputedStyle(element).whiteSpace,
+    }));
+  expect(longNameMetrics.whiteSpace).toBe('nowrap');
+  expect(longNameMetrics.scrollHeight).toBeLessThanOrEqual(longNameMetrics.clientHeight + 1);
+
+  await page.addScriptTag({ content: axeSource.source });
+  const result = await page.evaluate(() =>
+    axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }),
+  );
+  expect(
+    result.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact)),
+  ).toEqual([]);
+
+  await list.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect(page.getByRole('button', { name: /Agent 619/ })).toBeVisible();
+  await page.getByRole('button', { name: /Agent 619/ }).click();
+  await expect(page.getByText('OPTICAL SENSOR OFFLINE - COVERT MODE')).toBeVisible();
+  await expect(page.getByText('Table 619')).toBeVisible({ timeout: 4000 });
+  await page.evaluate(() => window.CheckIn007.setState('ROSTER'));
+  await waitForRoster(page);
+  await page.getByLabel('Search guest roster').fill('Agent 012');
+  await expect(page.locator('.roster-list')).not.toHaveClass(/is-virtualized/);
+  await expect(page.getByRole('button', { name: /Agent 012/ })).toBeVisible();
+  await expect(page.locator('.roster-list')).toHaveJSProperty('scrollTop', 0);
+});
+
 test('admin copied CSV exactly matches the stored log export', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/');

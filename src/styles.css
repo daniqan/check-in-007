@@ -175,6 +175,24 @@ h2 {
   list-style: none;
 }
 
+.roster-list.is-virtualized {
+  position: relative;
+  display: block;
+  --roster-virtual-row-height: 58px;
+}
+
+.roster-virtual-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.roster-virtual-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--roster-virtual-row-height);
+}
+
 .guest-row {
   width: 100%;
   min-height: 58px;
@@ -200,6 +218,17 @@ h2 {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   font-size: 1.1rem;
+}
+
+.roster-list.is-virtualized .guest-row {
+  height: var(--roster-virtual-row-height);
+  min-height: var(--roster-virtual-row-height);
+}
+
+.roster-list.is-virtualized .guest-row span {
+  display: block;
+  white-space: nowrap;
+  -webkit-line-clamp: unset;
 }
 
 .guest-row small {

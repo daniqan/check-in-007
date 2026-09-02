@@ -1,5 +1,6 @@
 import { ADMIN, ROSTER } from '../config.mjs';
 import { filterGuests } from '../lib/roster.mjs';
+import { computeVirtualWindow, shouldVirtualize } from '../lib/virtual-list.mjs';
 
 export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
   root.innerHTML = `
@@ -27,34 +28,120 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
   let debounce = 0;
   let navigating = false;
   let hold = 0;
+  let mounted = true;
+  let virtualItems = [];
+  let virtualFrame = 0;
+  let pendingZeroViewportRemeasure = false;
+
+  function createGuestRow(guest, absoluteIndex = null, total = null) {
+    const item = document.createElement('li');
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'guest-row';
+    row.dataset.guestId = guest.id;
+    row.setAttribute('aria-label', `${guest.name}, ${guest.table || 'table pending'}`);
+    if (absoluteIndex !== null && total !== null) {
+      item.className = 'roster-virtual-row';
+      item.style.transform = `translateY(${absoluteIndex * ROSTER.VIRTUAL_ROW_HEIGHT_PX}px)`;
+      item.setAttribute('aria-setsize', String(total));
+      item.setAttribute('aria-posinset', String(absoluteIndex + 1));
+    }
+    row.innerHTML = `<span>${guest.name}</span><small>${guest.table || 'CHECK-IN DESK'}</small>`;
+    item.append(row);
+    return item;
+  }
+
+  function renderEmptyList() {
+    list.classList.remove('is-virtualized');
+    list.style.removeProperty('--roster-virtual-row-height');
+    list.innerHTML = '<p class="empty">NO MATCHING AGENTS</p>';
+  }
+
+  function renderSmallList(items) {
+    list.classList.remove('is-virtualized');
+    list.style.removeProperty('--roster-virtual-row-height');
+    list.innerHTML = '';
+    if (items.length === 0) {
+      renderEmptyList();
+      return;
+    }
+    for (const guest of items) {
+      list.append(createGuestRow(guest));
+    }
+  }
+
+  function measureVirtualViewport(allowRemeasure = true) {
+    if (list.clientHeight > 0) return list.clientHeight;
+    if (allowRemeasure && !pendingZeroViewportRemeasure) {
+      pendingZeroViewportRemeasure = true;
+      scheduleVirtualRender({ allowZeroRemeasure: false });
+    }
+    return ROSTER.VIRTUAL_MIN_VIEWPORT_PX;
+  }
+
+  function renderVirtualList(items, options = {}) {
+    virtualItems = items;
+    pendingZeroViewportRemeasure = false;
+    list.classList.add('is-virtualized');
+    list.style.setProperty(
+      '--roster-virtual-row-height',
+      `${ROSTER.VIRTUAL_VISIBLE_ROW_HEIGHT_PX}px`,
+    );
+    const viewportHeight = measureVirtualViewport(options.allowZeroRemeasure !== false);
+    const windowState = computeVirtualWindow({
+      total: items.length,
+      scrollTop: list.scrollTop,
+      viewportHeight,
+      rowHeight: ROSTER.VIRTUAL_ROW_HEIGHT_PX,
+      overscan: ROSTER.VIRTUAL_OVERSCAN_ROWS,
+    });
+    const spacer = document.createElement('li');
+    spacer.className = 'roster-virtual-spacer';
+    spacer.setAttribute('aria-hidden', 'true');
+    spacer.style.height = `${items.length * ROSTER.VIRTUAL_ROW_HEIGHT_PX}px`;
+    const rows = [spacer];
+
+    for (let index = windowState.startIndex; index < windowState.endIndex; index += 1) {
+      rows.push(createGuestRow(items[index], index, items.length));
+    }
+    list.replaceChildren(...rows);
+  }
+
+  function scheduleVirtualRender(options = {}) {
+    if (virtualFrame) return;
+    virtualFrame = window.requestAnimationFrame(() => {
+      virtualFrame = 0;
+      if (!mounted || !shouldVirtualize(virtualItems.length, ROSTER.VIRTUALIZE_THRESHOLD)) return;
+      renderVirtualList(virtualItems, options);
+    });
+  }
 
   function render(items) {
-    list.innerHTML = '';
     count.textContent = `${items.length} agent${items.length === 1 ? '' : 's'} visible`;
     if (store.isVolatile()) {
       storageNote.textContent = 'LOG NOT PERSISTED (private mode?)';
     }
-    if (items.length === 0) {
-      list.innerHTML = '<p class="empty">NO MATCHING AGENTS</p>';
+    if (shouldVirtualize(items.length, ROSTER.VIRTUALIZE_THRESHOLD)) {
+      renderVirtualList(items);
       return;
     }
-    for (const guest of items) {
-      const item = document.createElement('li');
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'guest-row';
-      row.dataset.guestId = guest.id;
-      row.setAttribute('aria-label', `${guest.name}, ${guest.table || 'table pending'}`);
-      row.innerHTML = `<span>${guest.name}</span><small>${guest.table || 'CHECK-IN DESK'}</small>`;
-      item.append(row);
-      list.append(item);
-    }
+    virtualItems = [];
+    renderSmallList(items);
   }
 
-  const update = () => render(filterGuests(guests, search.value));
+  const update = () => {
+    list.scrollTop = 0;
+    render(filterGuests(guests, search.value));
+  };
   const handleSearchInput = () => {
     window.clearTimeout(debounce);
     debounce = window.setTimeout(update, ROSTER.SEARCH_DEBOUNCE_MS);
+  };
+  const handleVirtualScroll = () => {
+    if (shouldVirtualize(virtualItems.length, ROSTER.VIRTUALIZE_THRESHOLD)) scheduleVirtualRender();
+  };
+  const handleResize = () => {
+    if (shouldVirtualize(virtualItems.length, ROSTER.VIRTUALIZE_THRESHOLD)) scheduleVirtualRender();
   };
   const handleListClick = (event) => {
     const row = event.target.closest('.guest-row');
@@ -63,7 +150,9 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
     onSelect(row.dataset.guestId);
   };
   search.addEventListener('input', handleSearchInput);
+  list.addEventListener('scroll', handleVirtualScroll);
   list.addEventListener('click', handleListClick);
+  window.addEventListener('resize', handleResize);
 
   const startHold = () => {
     window.clearTimeout(hold);
@@ -80,10 +169,14 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
   search.focus({ preventScroll: true });
 
   return () => {
+    mounted = false;
     window.clearTimeout(debounce);
     window.clearTimeout(hold);
+    if (virtualFrame) window.cancelAnimationFrame(virtualFrame);
     search.removeEventListener('input', handleSearchInput);
+    list.removeEventListener('scroll', handleVirtualScroll);
     list.removeEventListener('click', handleListClick);
+    window.removeEventListener('resize', handleResize);
     logo.removeEventListener('pointerdown', startHold);
     logo.removeEventListener('pointerup', cancelHold);
     logo.removeEventListener('pointercancel', cancelHold);
