@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v2
+# Check-In 007 — Implementation Plan v3
 
 > Event check-in kiosk for a black-tie gala, styled as an MI6 "agent identification"
 > terminal. Runs on an Apple iPad in Safari (served) or as a self-contained file.
@@ -69,8 +69,6 @@ classic-script HTML file so the distributed artifact has no module/network depen
 ### 3.1 State machine
 
 ```
-                    ┌─────────────────────────────────────────────┐
-                    │                                             │
    boot ──▶ [LOADING] ──auto(2600ms)──▶ [ROSTER] ──select guest──▶ [SCAN]
                                            │  ▲                       │
                                            │  │                       │ scan complete
@@ -101,6 +99,7 @@ interrupts SCAN or RESULT.
 | `src/lib/csv.mjs` | Pure CSV parse + guest-CSV interpretation. No DOM. |
 | `src/lib/roster.mjs` | Guest normalization, id/slug generation, dedupe, search index. No DOM. |
 | `src/lib/store.mjs` | `localStorage`-backed check-in log + roster override, with in-memory fallback. |
+| `scripts/font-subset.sh` | Reproducible pinned `fonttools` wrapper for subset WOFF2 generation. |
 | `src/lib/format.mjs` | Timestamp (ISO-8601 local), name/table display formatting. |
 | `src/config.mjs` | All tunable constants (durations, keys, palette echoes, gesture params). |
 | `data/guests.default.js` | Classic script assigning `window.CHECKIN007_DEFAULT_GUESTS`. |
@@ -134,6 +133,7 @@ Ground-truth files produced by this plan:
     fonts/                   (NEW) — Subset WOFF2 font files and license notes.
   scripts/
     build.mjs                (NEW) — ES-module to classic-script build/inlining pipeline.
+    font-subset.sh           (NEW) — Pinned `fonttools` subset command wrapper.
   src/
     app.mjs                  (NEW) — FSM controller, timers, cleanup, log-on-transition.
     config.mjs               (NEW) — Timings, storage keys, admin gesture config.
@@ -165,11 +165,12 @@ Ground-truth files produced by this plan:
 | Camera API | `navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })` into a muted, `playsinline` `<video>` | Standard, permissioned, front-facing; `playsinline` prevents iOS full-screen takeover. |
 | Attendee data | Bundled default (`data/guests.default.js`) **+** optional runtime CSV override via `<input type="file">` + `FileReader` | Works offline and under `file://` (a classic `<script>` and `FileReader` both do; `fetch()` of local JSON is CORS-blocked under `file://`, so JSON-over-fetch is deliberately **not** used). |
 | Persistence | `localStorage` (JSON), keys `checkin007.log.v1` and `checkin007.roster.v1`, with `try/catch` in-memory fallback | No server; must survive reloads and offline; graceful under Safari Private mode where `localStorage` throws. |
-| Build | Custom Node script (`scripts/build.mjs`) that performs the explicit module-to-classic transform in §4.4, then inlines CSS, JS, subset fonts (base64), and default data into `dist/index.html` | One portable self-contained file for the iPad; no bundler dependency/supply-chain surface; keeps `file://` working (no ES-module fetch). |
+| Build | Custom Node script (`scripts/build.mjs`) using `acorn` 8.18.0 for AST-backed module syntax detection, the explicit module-to-classic transform in §4.4, then inlines CSS, JS, subset fonts (base64), and default data into `dist/index.html` | One portable self-contained file for the iPad; `acorn` avoids false positives from raw `import`/`export` token scans while staying much smaller than a full bundler; keeps `file://` working (no ES-module fetch). |
 | Fonts (self-hosted, OFL) | Display: **Oswald** (600/700); Accent serif: **Playfair Display** (700); HUD mono: **JetBrains Mono** (500). WOFF2 in `assets/fonts/`. System-stack fallbacks specified. | SIL Open Font License permits embedding/self-hosting; delivers the crisp modern + dossier feel with zero network calls. |
 | Language runtime for tooling | Node.js >=22 (local dev host verified: v26.3.0 on 2026-09-02; Node 22+ remains supported by the planned script APIs). | Dev/test/build only; **not present on and not required by the iPad** (§4.1a). |
 | Package manager | npm >=10 (local dev host verified: 11.16.0 on 2026-09-02) | Lockfile pins exact dev-dependency versions; scripts use stable npm commands available in npm 10+. |
-| Dev deps (exact pins) | `@playwright/test` 1.62.1; `http-server` 14.1.1; `prettier` 3.9.6; `axe-core` 4.13.0 | Versions verified against the npm registry on 2026-09-02; pinned exactly in `package.json` + committed `package-lock.json`. |
+| Dev deps (exact pins) | `@playwright/test` 1.62.1; `http-server` 14.1.1; `prettier` 3.9.6; `axe-core` 4.13.0; `acorn` 8.18.0 | Versions verified against the npm registry on 2026-09-02; pinned exactly in `package.json` + committed `package-lock.json`. |
+| Font subset tool | `fonttools` 4.64.0 via `python3 -m pip install --user fonttools==4.64.0`, wrapped by `scripts/font-subset.sh` | This is a one-time asset-prep tool, not an npm build dependency and not required on the iPad. Pinning the exact version makes regenerated WOFF2 files reproducible. |
 | Local HTTPS for on-site camera testing | `mkcert` (external binary) to mint a localhost/LAN cert; served via `http-server -S` | `getUserMedia` requires a secure context; `http://localhost` qualifies, but a LAN IP for the iPad does not — HTTPS is required there. |
 | Supported target | Safari on iPadOS 16 or later (portrait or landscape) | Conservative baseline for current iPads; Safari supports `getUserMedia`, Web Animations API, ES2020, and `localStorage` on this range (§4.1a). Chromium latest is used only for automated dev tests. |
 
@@ -264,10 +265,11 @@ intentionally small and deterministic:
    `config.mjs`, `lib/format.mjs`, `lib/csv.mjs`, `lib/roster.mjs`, `lib/store.mjs`,
    `screens/loading.mjs`, `screens/roster.mjs`, `screens/scan.mjs`,
    `screens/result.mjs`, `screens/admin.mjs`, `app.mjs`.
-2. For each module, it parses only top-level static imports/exports. Imports must be of
-   the form `import { name } from './relative.mjs'` or `import { name as alias } ...`;
-   default imports, dynamic `import()`, re-exports, and side-effect imports are build-time
-   errors.
+2. For each module, it parses with `acorn.parse(source, { ecmaVersion: 2020,
+   sourceType: 'module' })` and inspects only the top-level AST body. Imports must be
+   `ImportDeclaration` nodes of the form `import { name } from './relative.mjs'` or
+   `import { name as alias } ...`; default imports, namespace imports, dynamic
+   `ImportExpression`, re-exports, and side-effect imports are build-time errors.
 3. Each module body is wrapped in an IIFE namespace:
 
    ```js
@@ -278,15 +280,21 @@ intentionally small and deterministic:
    })();
    ```
 
-4. Leading `export ` is stripped from `export function`, `export class`, and `export const`
-   declarations. `export { a, b as c }` is converted into the IIFE return object. Imported
-   symbols are rewritten to `window.__CHECKIN007.modules.<module>.<exportName>` aliases at
-   the top of the IIFE, preventing global identifier collisions.
+4. AST node ranges drive the textual edits: import declarations are removed by source
+   range; `ExportNamedDeclaration` wrappers around functions/classes/variables are
+   replaced with their declarations; `export { a, b as c }` declarations populate the IIFE
+   return object. Imported symbols are rewritten to
+   `window.__CHECKIN007.modules.<module>.<exportName>` aliases at the top of the IIFE,
+   preventing global identifier collisions.
 5. `data/guests.default.js` remains a classic script and is copied verbatim before the app
    bundle. The generated bundle exposes only `window.CheckIn007.start()` as the public
    entry point.
-6. The build fails closed if any emitted classic script still contains top-level
-   `import`, `export`, `import(`, or `//# sourceMappingURL=` tokens.
+6. The build fails closed by parsing the emitted app bundle with
+   `acorn.parse(source, { ecmaVersion: 2020, sourceType: 'script' })` and rejecting any
+   remaining `ImportDeclaration`, `ExportNamedDeclaration`, `ExportDefaultDeclaration`,
+   `ExportAllDeclaration`, or `ImportExpression` node. A separate line-level check rejects
+   `//# sourceMappingURL=` comments. String literals, template literals, and comments may
+   contain the words `import` or `export` without failing the build.
 
 Build smoke tests assert that `dist/index.html` contains exactly one app script, zero
 module syntax tokens, `window.CHECKIN007_DEFAULT_GUESTS`, and `window.CheckIn007.start`;
@@ -302,7 +310,8 @@ by dependency.
   `test-results/`, `*.pem`), `README.md` skeleton, folder layout from §3.2.
 - Add self-hosted WOFF2 fonts under `assets/fonts/` with an `@font-face` block and the
   system fallback stacks. Font files are subset to Latin/basic punctuation with
-  `fonttools pyftsubset` or an equivalent documented command before committing.
+  `fonttools==4.64.0`; `scripts/font-subset.sh` contains the exact `pyftsubset` commands,
+  including input font paths, Unicode ranges, weights, output names, and WOFF2 flavor.
 - Add `src/config.mjs` and the palette CSS tokens.
 - Add Prettier config and `npm run lint` (`prettier --check .`) as the formatting gate.
 - **Acceptance:** `npm ci` installs cleanly; `npm run lint` passes; `npm run serve` serves
@@ -399,9 +408,10 @@ by dependency.
 - `scripts/build.mjs` implements the §4.4 transform and inlines everything into
   `dist/index.html` (self-contained).
 - `tests/unit/build.test.mjs` exercises the transform on fixture modules and the real
-  source graph: dependency order is honored, import/export syntax is removed, namespaces
-  expose expected exports, unsupported module syntax fails closed, and default data stays
-  classic.
+  source graph: dependency order is honored, module syntax is removed, namespaces expose
+  expected exports, unsupported module syntax fails closed, source strings/comments
+  containing the words `import` or `export` do not false-positive, sourcemap comments are
+  rejected, and default data stays classic.
 - Unit tests (`node:test`) for `csv.mjs`, `roster.mjs`, `store.mjs`, `format.mjs`.
 - Playwright e2e for the whole flow, camera-denied fallback, admin export, reduced-motion,
   and a `file://` boot of `dist/index.html` (must reach ROSTER in covert mode).
@@ -473,7 +483,8 @@ Each item states the trigger, where it is caught, and the recovery.
   helper.
 - **`build.mjs`**: real source graph emits no module syntax; fixture modules verify
   namespace rewriting, alias imports, export-object conversion, unsupported syntax errors,
-  and classic default data placement.
+  AST-based residual checks, string/comment `import`/`export` false-positive avoidance,
+  sourcemap-comment rejection, and classic default data placement.
 
 ### 7.2 End-to-end (`@playwright/test` 1.62.1, Chromium) — `tests/e2e/*.spec.mjs`
 Launched with `--use-fake-device-for-media-stream` and camera permission pre-granted so
@@ -520,8 +531,9 @@ Reproducible from a fresh clone:
 # Prerequisites (dev machine only — NOT the iPad, see §4.1a):
 #   Node.js >=22, npm >=10
 git clone <repo> && cd check-in-007
-npm ci                        # installs exact pinned dev deps from package-lock.json
+npm ci                        # installs exact pinned npm dev deps from package-lock.json
 npx playwright install chromium   # one-time browser download for e2e
+python3 -m pip install --user fonttools==4.64.0   # only needed to regenerate fonts
 
 npm run serve                 # http://localhost:8080  (localhost = secure context; camera works)
 npm run lint                  # Prettier check
@@ -541,7 +553,8 @@ npm run build                 # emits dist/index.html (self-contained)
     "lint":      "prettier --check .",
     "test":      "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test tests/unit",
-    "test:e2e":  "playwright test"
+    "test:e2e":  "playwright test",
+    "fonts:subset": "bash scripts/font-subset.sh"
   }
 }
 ```
@@ -554,8 +567,9 @@ mkcert localhost 127.0.0.1 <laptop-LAN-IP>   # produces localhost*.pem
 npm run serve:https                          # iPad browses https://<laptop-LAN-IP>:8443
 ```
 
-Pinned versions live in `package.json` and the committed `package-lock.json`. No runtime
-dependencies are installed on the iPad.
+Pinned npm versions live in `package.json` and the committed `package-lock.json`.
+`fonttools==4.64.0` is pinned in `scripts/font-subset.sh` and README instructions for
+regenerating checked-in font assets. No runtime dependencies are installed on the iPad.
 
 ## 9. Deployment & Distribution
 
