@@ -6,7 +6,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
 - [x] Multi-device check-in log consolidation / merge tooling (§9) — done in `3168a28`: pure `src/lib/log-merge.mjs` (parse/normalize/dedupe/sort) + `store.mjs` preview/merge APIs + admin Merge-Logs UI; Implementation Verification v4 = 98/100 VERIFIED (38 unit + 10 e2e green)
-- [ ] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6)
+- [/] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6)
 - [ ] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
 - [ ] On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)
 
@@ -40,6 +40,7 @@ VERIFIED** (see `IMPLEMENTATION_PLAN_CRITIQUE.md`): all four phases COMPLIANT, p
 (lint clean, 38 unit + 10 e2e green, build 24,660 gzip bytes within budget, artifact module order
 `csv`→`log-merge`→`store` verified). No regressions.
 
-Four items remain strictly not-done here (`[ ]`), for a backlog deduction of −2 (1 pt per 2, round
-down): scan audio, native SwiftUI, offline-HTTPS helper, and the optional Node 24 toolchain bump —
-each a separate subsystem and a candidate for a future planning cycle.
+Three items remain strictly not-done here (`[ ]`) while scan audio is in progress (`[/]`), for a
+backlog deduction of −1 (1 pt per 2 unchecked, round down): native SwiftUI, offline-HTTPS helper,
+and the optional Node 24 toolchain bump each remain separate subsystems and candidates for future
+planning cycles.
