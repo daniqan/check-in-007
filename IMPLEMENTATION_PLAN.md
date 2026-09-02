@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v1
+# Check-In 007 — Implementation Plan v2
 
 > Event check-in kiosk for a black-tie gala, styled as an MI6 "agent identification"
 > terminal. Runs on an Apple iPad in Safari (served) or as a self-contained file.
@@ -72,19 +72,21 @@ classic-script HTML file so the distributed artifact has no module/network depen
                     ┌─────────────────────────────────────────────┐
                     │                                             │
    boot ──▶ [LOADING] ──auto(2600ms)──▶ [ROSTER] ──select guest──▶ [SCAN]
-                    ▲                      ▲   │                      │
-                    │                      │   │                      │ scan complete
-                    │                      │   │ admin gesture        │ (fixed 4500ms)
-                    │                      │   ▼                      ▼
-                    │                   [ADMIN]                   [RESULT]
-                    │                      │                         │
-                    └──────────────────────┴──── auto(5000ms) ───────┘
-                                (RESULT auto-returns to ROSTER)
+                                           │  ▲                       │
+                                           │  │                       │ scan complete
+                              admin gesture│  │dismiss                │ (fixed 4500ms)
+                                           ▼  │                       ▼
+                                        [ADMIN]                   [RESULT]
+                                                                       │
+                                                                       │ auto(5000ms)
+                                                                       ▼
+                                                                    [ROSTER]
 ```
 
 States: `LOADING`, `ROSTER`, `SCAN`, `RESULT`, `ADMIN`. Exactly one is active. Each
-transition is a cross-fade+scale (`TRANSITION_MS`, §4.1; built in §5 Phase 1). ADMIN is a modal overlay reachable only from
-ROSTER (and dismissible back to ROSTER).
+transition is a cross-fade+scale (`TRANSITION_MS`, §4.1; built in §5 Phase 1). ADMIN is a
+modal overlay reachable only from ROSTER and dismissible only back to ROSTER; it never
+interrupts SCAN or RESULT.
 
 ### 3.2 Modules (development sources, in `src/`)
 
@@ -114,6 +116,46 @@ Node without a DOM (§7). Screens are covered by end-to-end tests.
 passes its `id` to SCAN; RESULT looks up the guest by `id`, renders `table`, and appends a
 check-in event to the log via `store.mjs`. Nothing leaves the device.
 
+### 3.4 File manifest
+
+Ground-truth files produced by this plan:
+
+```
+.
+  index.html                 (NEW) — Dev HTML shell that loads ES modules and default data.
+  package.json               (NEW) — Pinned scripts and dev dependencies.
+  package-lock.json          (NEW) — Exact npm dependency lockfile.
+  .gitignore                 (NEW) — Ignore build output, deps, test output, local certs.
+  .prettierrc.json           (NEW) — Formatting config used by npm run lint.
+  README.md                  (NEW) — Run/build/deploy instructions and iPad checklist.
+  data/
+    guests.default.js        (NEW) — Bundled default roster on window.
+  assets/
+    fonts/                   (NEW) — Subset WOFF2 font files and license notes.
+  scripts/
+    build.mjs                (NEW) — ES-module to classic-script build/inlining pipeline.
+  src/
+    app.mjs                  (NEW) — FSM controller, timers, cleanup, log-on-transition.
+    config.mjs               (NEW) — Timings, storage keys, admin gesture config.
+    styles.css               (NEW) — Kiosk layout, palette tokens, responsive states.
+    lib/csv.mjs              (NEW) — CSV parser and guest CSV validation.
+    lib/format.mjs           (NEW) — Timestamp and display formatting helpers.
+    lib/roster.mjs           (NEW) — Guest normalization, dedupe, search indexing.
+    lib/store.mjs            (NEW) — localStorage/in-memory persistence and exports.
+    screens/loading.mjs      (NEW) — Gun-barrel boot screen.
+    screens/roster.mjs       (NEW) — Searchable roster screen.
+    screens/scan.mjs         (NEW) — Camera/covert scan screen and cleanup.
+    screens/result.mjs       (NEW) — Assignment result screen.
+    screens/admin.mjs        (NEW) — CSV import, export, reset, clear-log overlay.
+  tests/
+    unit/build.test.mjs      (NEW) — Build transform and emitted artifact checks.
+    unit/csv.test.mjs        (NEW) — CSV grammar/validation coverage.
+    unit/format.test.mjs     (NEW) — Timestamp/display helper coverage.
+    unit/roster.test.mjs     (NEW) — Slug, dedupe, search index coverage.
+    unit/store.test.mjs      (NEW) — Persistence, visit idempotence, export coverage.
+    e2e/checkin.spec.mjs     (NEW) — Kiosk flow, camera fallback, admin, a11y, file smoke.
+```
+
 ## 4. Technical Decisions
 
 | Decision | Choice | Rationale |
@@ -123,13 +165,13 @@ check-in event to the log via `store.mjs`. Nothing leaves the device.
 | Camera API | `navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })` into a muted, `playsinline` `<video>` | Standard, permissioned, front-facing; `playsinline` prevents iOS full-screen takeover. |
 | Attendee data | Bundled default (`data/guests.default.js`) **+** optional runtime CSV override via `<input type="file">` + `FileReader` | Works offline and under `file://` (a classic `<script>` and `FileReader` both do; `fetch()` of local JSON is CORS-blocked under `file://`, so JSON-over-fetch is deliberately **not** used). |
 | Persistence | `localStorage` (JSON), keys `checkin007.log.v1` and `checkin007.roster.v1`, with `try/catch` in-memory fallback | No server; must survive reloads and offline; graceful under Safari Private mode where `localStorage` throws. |
-| Build | Custom Node script (`scripts/build.mjs`) that inlines CSS, JS modules (as one classic script), fonts (base64), and default data into `dist/index.html` | One portable self-contained file for the iPad; no bundler dependency/supply-chain surface; keeps `file://` working (no ES-module fetch). |
+| Build | Custom Node script (`scripts/build.mjs`) that performs the explicit module-to-classic transform in §4.4, then inlines CSS, JS, subset fonts (base64), and default data into `dist/index.html` | One portable self-contained file for the iPad; no bundler dependency/supply-chain surface; keeps `file://` working (no ES-module fetch). |
 | Fonts (self-hosted, OFL) | Display: **Oswald** (600/700); Accent serif: **Playfair Display** (700); HUD mono: **JetBrains Mono** (500). WOFF2 in `assets/fonts/`. System-stack fallbacks specified. | SIL Open Font License permits embedding/self-hosting; delivers the crisp modern + dossier feel with zero network calls. |
-| Language runtime for tooling | Node.js 22.x (verified present: container v22.22, device v22.23). Node 24.x LTS is an optional, non-blocking upgrade (see §4.1a). | Dev/test/build only; **not present on and not required by the iPad** (§4.1a). |
-| Package manager | npm 10.x (verified present) | Lockfile pins exact dev-dependency versions. |
-| Dev deps (exact pins) | `@playwright/test` 1.62.1; `http-server` 14.1.1 | Versions verified against the npm registry on 2026-09-02; pinned exactly in `package.json` + committed `package-lock.json`. |
+| Language runtime for tooling | Node.js >=22 (local dev host verified: v26.3.0 on 2026-09-02; Node 22+ remains supported by the planned script APIs). | Dev/test/build only; **not present on and not required by the iPad** (§4.1a). |
+| Package manager | npm >=10 (local dev host verified: 11.16.0 on 2026-09-02) | Lockfile pins exact dev-dependency versions; scripts use stable npm commands available in npm 10+. |
+| Dev deps (exact pins) | `@playwright/test` 1.62.1; `http-server` 14.1.1; `prettier` 3.9.6; `axe-core` 4.13.0 | Versions verified against the npm registry on 2026-09-02; pinned exactly in `package.json` + committed `package-lock.json`. |
 | Local HTTPS for on-site camera testing | `mkcert` (external binary) to mint a localhost/LAN cert; served via `http-server -S` | `getUserMedia` requires a secure context; `http://localhost` qualifies, but a LAN IP for the iPad does not — HTTPS is required there. |
-| Supported target | Safari on iPadOS 16 or later (portrait or landscape) | Comfortably covers the current shipping line, **iPadOS 26.x** (26.4.2, Apr 2026), whose Safari fully supports `getUserMedia` and ES2020 (§4.1a). Chromium/Firefox latest used only for automated dev tests. |
+| Supported target | Safari on iPadOS 16 or later (portrait or landscape) | Conservative baseline for current iPads; Safari supports `getUserMedia`, Web Animations API, ES2020, and `localStorage` on this range (§4.1a). Chromium latest is used only for automated dev tests. |
 
 ### 4.1 Tunable constants (`src/config.mjs`) — single source of truth
 
@@ -163,17 +205,14 @@ A deliberate clarification, because it changes what "up to date" means here:
 - **The iPad runs Safari (JavaScriptCore), not Node.** Node.js does not ship on iOS/iPadOS
   and is never installed on the kiosk device. There is therefore no "iOS Node version" to
   match. What the iPad needs is a current Safari, which it has.
-- **Current iPad software is iPadOS 26.x** (latest 26.4.2, released Apr 2026 — the current
-  shipping line; iPadOS 27 not yet on devices as of this date). Its Safari fully supports
-  `getUserMedia`, the Web Animations API, ES2020, and `localStorage`. Our stated minimum
-  (iPadOS 16+) is conservative and covers every currently updatable iPad. **No iPad-side
-  upgrade is required before we begin.**
+- **Current iPad target is iPadOS 16 or later.** Its Safari supports `getUserMedia`, the
+  Web Animations API, ES2020, and `localStorage`. Our stated minimum is conservative for
+  the event hardware unless the organizer supplies an unusually old iPad. **No Node or
+  npm install is required on the iPad.**
 - **Node is our dev/build/test tool only** (Playwright, `node:test`, `scripts/build.mjs`).
-  Both the dev container and the loop's device VM already run Node **22.x**. As of
-  2026-09-02, Node 22 is in **Maintenance LTS** (supported to 30 Apr 2027 — past any event
-  horizon), Node 24 is **Active LTS**, Node 26 is Current. Node 22 is fully sufficient and
-  supported; upgrading the toolchain to **Node 24 LTS** is optional (longer support runway)
-  and non-blocking. `engines` in `package.json` will declare `"node": ">=22"`.
+  The local dev host currently runs Node v26.3.0 and npm 11.16.0; `engines` in
+  `package.json` will declare `"node": ">=22"` so Node 22 LTS, Node 24 LTS, and newer
+  current releases are valid.
 
 Bottom line: nothing needs upgrading to start. If we want a longer tooling-support runway,
 bump dev machines to Node 24 LTS — but it is not a prerequisite.
@@ -207,13 +246,51 @@ Guest object (canonical in memory):
 Check-in log entry:
 
 ```js
-{ guestId: string, name: string, table: string,
+{ visitId: string, guestId: string, name: string, table: string,
   timestamp: string }   // ISO-8601 with local offset, e.g. 2026-09-02T20:14:33-04:00
 ```
 
 CSV override format: UTF-8, header row required, columns `name` and `table` (case-
 insensitive, any order); optional `id` column overrides slug generation. Grammar and edge
 handling in §6 (items 7–10).
+
+### 4.4 Build transform contract (`scripts/build.mjs`)
+
+The dev source uses ES modules for testability; the distributed `dist/index.html` must use
+one classic `<script>` so it boots from `file://` without module fetches. The transform is
+intentionally small and deterministic:
+
+1. `scripts/build.mjs` declares the module order manually, matching the import graph:
+   `config.mjs`, `lib/format.mjs`, `lib/csv.mjs`, `lib/roster.mjs`, `lib/store.mjs`,
+   `screens/loading.mjs`, `screens/roster.mjs`, `screens/scan.mjs`,
+   `screens/result.mjs`, `screens/admin.mjs`, `app.mjs`.
+2. For each module, it parses only top-level static imports/exports. Imports must be of
+   the form `import { name } from './relative.mjs'` or `import { name as alias } ...`;
+   default imports, dynamic `import()`, re-exports, and side-effect imports are build-time
+   errors.
+3. Each module body is wrapped in an IIFE namespace:
+
+   ```js
+   window.__CHECKIN007.modules.roster = (() => {
+     // import lines removed; referenced symbols are read from prior namespaces
+     function normalizeGuests(...) { ... }
+     return { normalizeGuests, buildSearchIndex, findGuestById };
+   })();
+   ```
+
+4. Leading `export ` is stripped from `export function`, `export class`, and `export const`
+   declarations. `export { a, b as c }` is converted into the IIFE return object. Imported
+   symbols are rewritten to `window.__CHECKIN007.modules.<module>.<exportName>` aliases at
+   the top of the IIFE, preventing global identifier collisions.
+5. `data/guests.default.js` remains a classic script and is copied verbatim before the app
+   bundle. The generated bundle exposes only `window.CheckIn007.start()` as the public
+   entry point.
+6. The build fails closed if any emitted classic script still contains top-level
+   `import`, `export`, `import(`, or `//# sourceMappingURL=` tokens.
+
+Build smoke tests assert that `dist/index.html` contains exactly one app script, zero
+module syntax tokens, `window.CHECKIN007_DEFAULT_GUESTS`, and `window.CheckIn007.start`;
+the Playwright `file://` test then boots the artifact to ROSTER in covert mode.
 
 ## 5. Implementation Phases
 
@@ -224,10 +301,13 @@ by dependency.
 - Create `package.json` (pins from §4), `.gitignore` (`node_modules/`, `dist/`,
   `test-results/`, `*.pem`), `README.md` skeleton, folder layout from §3.2.
 - Add self-hosted WOFF2 fonts under `assets/fonts/` with an `@font-face` block and the
-  system fallback stacks.
+  system fallback stacks. Font files are subset to Latin/basic punctuation with
+  `fonttools pyftsubset` or an equivalent documented command before committing.
 - Add `src/config.mjs` and the palette CSS tokens.
-- **Acceptance:** `npm ci` installs cleanly; `npm run serve` serves the dev tree;
-  `index.html` loads the module graph with no console errors on a blank shell.
+- Add Prettier config and `npm run lint` (`prettier --check .`) as the formatting gate.
+- **Acceptance:** `npm ci` installs cleanly; `npm run lint` passes; `npm run serve` serves
+  the dev tree; `index.html` loads the module graph with no console errors on a blank
+  shell.
 
 ### Phase 1 — FSM shell & transitions
 - Implement `src/app.mjs`: FSM, screen mount/unmount, central timer registry, and
@@ -245,6 +325,10 @@ by dependency.
 - Ship ~40 themed sample guests in `data/guests.default.js`.
 - Note: lists ≤500 rows render directly; **>500 rows** would need windowing — documented,
   deferred (§2 out of scope).
+- Complexity budget for the supported maximum: normalization/index rebuild is O(n * m)
+  for n≤500 guests and m≤80 normalized characters per guest, under ~40k character
+  operations; each debounced search is O(n) over precomputed strings and must complete
+  within 16 ms on the target iPad.
 - **Acceptance:** search filters correctly (case/diacritic-insensitive); tapping a row
   once (double-tap guarded) advances to SCAN with the right `id`.
 
@@ -262,11 +346,17 @@ by dependency.
 ### Phase 4 — Result & check-in logging
 - `src/screens/result.mjs`: look up guest, render "AGENT IDENTIFIED — PROCEED TO YOUR
   ASSIGNMENT: <TABLE>"; missing table → "PROCEED TO THE CHECK-IN DESK".
-- Append a log entry via `store.mjs` on RESULT entry (idempotent per visit; re-check-in of
-  an already-logged guest is allowed and appended, with a subtle "RE-VERIFYING" note).
+- Append the log entry on the SCAN→RESULT transition, not on every RESULT render. The FSM
+  creates a per-visit `visitId` when a roster row is accepted; `app.mjs` stores
+  `loggedVisitIds` in memory and calls `store.appendCheckIn(guest, visitId)` exactly once.
+  `store.mjs` treats duplicate `visitId` appends as no-ops. A later roster selection for
+  the same guest creates a new `visitId`, so re-check-in is allowed and appended, with a
+  subtle "RE-VERIFYING" note.
 - Auto-return to ROSTER after `RESULT_MS`.
 - **Acceptance:** correct table for a known guest; log entry has all §4.3 fields with a
-  valid ISO-8601 local timestamp; `localStorage`-disabled path degrades to in-memory.
+  valid ISO-8601 local timestamp; one scan-result visit produces exactly one log entry
+  across orientation changes/re-renders; `localStorage`-disabled path degrades to
+  in-memory.
 
 ### Phase 5 — Admin panel
 - Long-press (`HOLD_MS`) on the logo hitzone opens ADMIN (pointer + touch events).
@@ -274,6 +364,10 @@ by dependency.
   log JSON**, **Reset to default roster**, **Clear log** (two-step confirm).
 - Exports use a `Blob` + `URL.createObjectURL` download; because iPad Safari download UX
   is limited, also offer **Copy to clipboard** for both formats.
+- Clipboard code uses `navigator.clipboard.writeText` when available, then falls back to a
+  hidden `<textarea>` + `document.execCommand('copy')`; both paths return the exact string
+  generated by `store.exportLogCsv()` / `store.exportLogJson()` so tests can assert before
+  OS clipboard handoff.
 - **Acceptance:** valid CSV replaces the roster and persists across reload; malformed CSV
   is rejected/repaired per §6 (items 7–10) with a visible summary; export contents match the stored
   log exactly (verified in e2e).
@@ -281,20 +375,42 @@ by dependency.
 ### Phase 6 — Visual polish & kiosk packaging
 - Gun-barrel loading sequence, typography scale, gold hairlines/vignette, inline-SVG HUD
   and reticle, subtle grain.
-- Kiosk meta: `viewport` with `user-scalable=no, viewport-fit=cover`,
-  `apple-mobile-web-app-capable=yes`, `apple-mobile-web-app-status-bar-style=black`,
-  disabled text selection/callout, both orientations.
-- **Acceptance:** manual iPad checklist (below) passes; Lighthouse/devtools shows animated
+- Kiosk meta: `viewport` with `width=device-width, initial-scale=1, viewport-fit=cover`,
+  both `mobile-web-app-capable=yes` and `apple-mobile-web-app-capable=yes`,
+  `apple-mobile-web-app-status-bar-style=black`, disabled text selection/callout, both
+  orientations.
+- iOS Safari intentionally ignores `user-scalable=no` / `maximum-scale` for user zoom, so
+  the plan does **not** claim pinch-zoom can be disabled. The kiosk mitigation is:
+  Home-Screen standalone mode, `touch-action: manipulation` on controls, ≥16 px form input
+  fonts to avoid focus zoom, disabled callout/selection, and optional
+  `gesturestart`/`gesturechange` `preventDefault` handlers only when installed in
+  standalone kiosk mode.
+- Add VoiceOver/ARIA pass: roster is a labeled list of `<button>` rows, search has a
+  stable label and result-count status, scan progress/covert-mode state uses polite
+  `aria-live`, result assignment uses assertive `aria-live`, admin controls have labels,
+  focus returns to the roster after admin/result dismissal, and all interactive targets are
+  at least 44 px.
+- **Acceptance:** manual iPad checklist (below) passes; axe-core e2e has zero serious or
+  critical violations; manual VoiceOver checklist announces roster rows, scan status,
+  result assignment, and admin controls correctly; Lighthouse/devtools shows animated
   frames staying on the compositor (no per-frame layout).
 
 ### Phase 7 — Build, tests, docs
-- `scripts/build.mjs` inlines everything into `dist/index.html` (self-contained).
+- `scripts/build.mjs` implements the §4.4 transform and inlines everything into
+  `dist/index.html` (self-contained).
+- `tests/unit/build.test.mjs` exercises the transform on fixture modules and the real
+  source graph: dependency order is honored, import/export syntax is removed, namespaces
+  expose expected exports, unsupported module syntax fails closed, and default data stays
+  classic.
 - Unit tests (`node:test`) for `csv.mjs`, `roster.mjs`, `store.mjs`, `format.mjs`.
 - Playwright e2e for the whole flow, camera-denied fallback, admin export, reduced-motion,
   and a `file://` boot of `dist/index.html` (must reach ROSTER in covert mode).
+- Enforce artifact budget: `dist/index.html` target ≤750 KB gzip and hard cap ≤1.2 MB
+  uncompressed. If exceeded, fail the build and reduce/subset font weights before release.
 - README: run/dev/build/deploy/on-site + the manual iPad checklist.
-- **Acceptance:** `npm test` green; `npm run build` produces a single `dist/index.html`
-  that boots from `file://` and, when served over HTTPS, runs the camera path.
+- **Acceptance:** `npm run lint` and `npm test` green; `npm run build` produces a single
+  `dist/index.html` with zero `import`/`export` tokens, within the artifact budget, that
+  boots from `file://` and, when served over HTTPS, runs the camera path.
 
 ## 6. Error Handling & Edge Cases
 
@@ -350,10 +466,14 @@ Each item states the trigger, where it is caught, and the recovery.
   name dedupe (keep first, count dropped); id-collision suffixing; search index matches
   case- and diacritic-insensitively.
 - **`store.mjs`**: append + read round-trip; override persistence; `localStorage`-throwing
-  stub → in-memory fallback path; export serialization (CSV escaping, JSON shape) matches
-  stored entries exactly.
+  stub → in-memory fallback path; duplicate `visitId` append is idempotent while a new
+  `visitId` for the same guest appends; export serialization (CSV escaping, JSON shape)
+  matches stored entries exactly.
 - **`format.mjs`**: ISO-8601-with-offset formatting for a fixed date; display truncation
   helper.
+- **`build.mjs`**: real source graph emits no module syntax; fixture modules verify
+  namespace rewriting, alias imports, export-object conversion, unsupported syntax errors,
+  and classic default data placement.
 
 ### 7.2 End-to-end (`@playwright/test` 1.62.1, Chromium) — `tests/e2e/*.spec.mjs`
 Launched with `--use-fake-device-for-media-stream` and camera permission pre-granted so
@@ -363,24 +483,34 @@ the happy path runs headless.
 - Select a known guest → SCAN shows the `<video>` → after `SCAN_MS`, RESULT shows the
   expected table → after `RESULT_MS`, returns to ROSTER.
 - A check-in entry with all §4.3 fields is present in `localStorage`.
+- Re-render RESULT by changing viewport/orientation during the result state; assert the
+  log still contains exactly one entry for that `visitId`.
 - **Camera-denied path**: launch with permission denied → covert mode → flow still
   completes; assert no `toDataURL`/`captureStream`/`MediaRecorder` call occurred (spy) and
   video tracks are `ended` after leaving SCAN.
 - **Admin**: long-press logo → panel opens; import a fixture CSV → roster updates; export
-  CSV → downloaded/clipboard content equals the stored log.
+  CSV → downloaded/clipboard content equals the stored log. The clipboard path runs in a
+  browser context with `context.grantPermissions(['clipboard-read', 'clipboard-write'])`;
+  when the platform clipboard is unavailable, the test spies on `navigator.clipboard.writeText`
+  or the fallback copy helper and asserts the exact string argument.
+- **Accessibility**: inject `axe-core` into each screen and require zero serious/critical
+  violations; assert key landmarks/labels/live regions are present.
 - **Reduced-motion**: emulate `prefers-reduced-motion: reduce` → `REDUCED` timings used.
 - **`file://` build smoke**: open `dist/index.html` via `file://` → boots to ROSTER in
-  covert mode with no console errors.
+  covert mode with no console errors; additionally assert the artifact has zero top-level
+  `import`/`export` tokens before opening it.
 
 ### 7.3 Manual iPad checklist (in README)
 Camera permission prompt + live feed; front camera; both orientations; "Add to Home
-Screen" launches full-screen with black status bar; pinch-zoom and text-selection
-disabled; 60 fps during transitions (Safari Web Inspector timeline); log export via Files
-/ clipboard.
+Screen" launches full-screen with black status bar; double-tap zoom does not trigger on
+controls, form focus does not auto-zoom, text-selection/callout are suppressed, pinch-zoom
+is not claimed blocked because Safari may allow it; VoiceOver announces roster rows, scan
+status, result assignment, and admin actions; 60 fps during transitions (Safari Web
+Inspector timeline); log export via Files / clipboard.
 
 ### 7.4 CI-ready commands
-`npm test` runs unit + e2e; `npm run test:unit` and `npm run test:e2e` run each; all must
-be green before a phase is marked complete.
+`npm test` runs unit + e2e; `npm run test:unit` and `npm run test:e2e` run each;
+`npm run lint` runs Prettier. All must be green before a phase is marked complete.
 
 ## 8. Environment & Toolchain
 
@@ -388,12 +518,13 @@ Reproducible from a fresh clone:
 
 ```bash
 # Prerequisites (dev machine only — NOT the iPad, see §4.1a):
-#   Node.js >=22 (22.x present on dev+device; 24.x LTS optional), npm 10.x
+#   Node.js >=22, npm >=10
 git clone <repo> && cd check-in-007
 npm ci                        # installs exact pinned dev deps from package-lock.json
 npx playwright install chromium   # one-time browser download for e2e
 
 npm run serve                 # http://localhost:8080  (localhost = secure context; camera works)
+npm run lint                  # Prettier check
 npm test                      # unit + e2e
 npm run build                 # emits dist/index.html (self-contained)
 ```
@@ -407,6 +538,7 @@ npm run build                 # emits dist/index.html (self-contained)
     "serve":     "http-server . -p 8080 -c-1",
     "serve:https":"http-server . -S -C localhost.pem -K localhost-key.pem -p 8443 -c-1",
     "build":     "node scripts/build.mjs",
+    "lint":      "prettier --check .",
     "test":      "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test tests/unit",
     "test:e2e":  "playwright test"
@@ -439,31 +571,30 @@ context in either case):
    secure context). This satisfies "usable locally" while making the camera limitation
    explicit rather than a silent failure.
 
-The build artifact is a single `dist/index.html` with all CSS, JS, fonts (base64), and
-default roster inlined — no external requests at runtime. Kiosk meta tags (§5 Phase 6) make
-the Home-Screen launch full-screen and lock down zoom/selection.
+The build artifact is a single `dist/index.html` with all CSS, JS, subset fonts (base64),
+and default roster inlined — no external requests at runtime. Kiosk meta tags (§5 Phase 6)
+make the Home-Screen launch full-screen and suppress double-tap zoom/text selection where
+Safari allows; the plan does not rely on ignored `user-scalable=no` behavior.
 
 The check-in log lives in that device's `localStorage`; export it from the admin panel at
 the end of the night (CSV/JSON via download or clipboard). Because storage is per-origin
 and per-device, running two check-in iPads means two logs to merge manually (acceptable for
 v1; consolidation is out of scope).
 
-## 10. Open Questions
+## 10. Defaults & Revisit Triggers
 
-1. **Native smoothness vs. portability.** A SwiftUI iPad app would give the maximum-fidelity
-   camera/animation integration, but requires a Mac, Xcode, and provisioning and cannot be
-   "opened locally" as a file. This plan chooses the web app for portability and zero
-   install; flag if a native build is preferred instead.
-2. **Camera on a purely offline iPad.** If the event has no laptop/host to serve HTTPS and
-   the organizer still wants the *live* camera (not covert mode) directly on the iPad, we
-   would need an on-device static-HTTPS helper (e.g. a lightweight web-server iOS app).
-   Confirm whether covert-mode-on-`file://` is acceptable as the offline story (assumed yes).
-3. **Roster size.** Assumed ≤500 attendees. If larger, Phase 2 needs list windowing (moved
-   in scope). Confirm expected headcount.
-4. **Re-check-in policy.** Assumed: allowed and logged each time with a "RE-VERIFYING" note.
-   Confirm whether a returning guest should instead be blocked or shown "already checked in".
-5. **Sample data.** ~40 themed placeholder guests/tables will ship as the default; confirm
-   whether real attendee data will be provided as a CSV before the event (it can be loaded
-   via the admin panel without a code change).
-6. **Sound.** No audio is planned (galas are loud; autoplay is restricted). Confirm whether
-   a subtle scan "blip" on identification is wanted (would need a user-gesture unlock).
+These are hard defaults for v1, not open implementation blockers:
+
+1. **Platform:** build the portable web app, not SwiftUI. Revisit only if the organizer
+   explicitly prioritizes native fidelity over file portability and zero install.
+2. **Offline story:** `file://` runs in covert mode; live camera requires HTTPS from a
+   static host or on-site laptop. Revisit only if a fully offline live-camera iPad is a hard
+   requirement.
+3. **Roster size:** support ≤500 attendees with direct rendering and indexed search. Revisit
+   with list windowing only if the real roster exceeds 500 rows.
+4. **Re-check-in:** allow and log repeat guest selections as separate visits with a
+   "RE-VERIFYING" note. Revisit only if door policy requires blocking repeats.
+5. **Sample data:** ship ~40 themed placeholder guests/tables and expect real data via
+   admin CSV import. Revisit only if the organizer wants real data bundled into source.
+6. **Sound:** ship silent. Revisit only if the organizer wants an optional user-unlocked
+   identification blip.
