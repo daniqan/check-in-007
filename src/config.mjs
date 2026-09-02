@@ -15,6 +15,10 @@ export const ADMIN = {
   HITZONE_PX: 72,
 };
 
+export const ROSTER = {
+  SEARCH_DEBOUNCE_MS: 120,
+};
+
 export const REDUCED = {
   LOADING_MS: 900,
   SCAN_MS: 2500,

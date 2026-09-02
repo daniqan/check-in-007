@@ -1,3 +1,4 @@
+import { ADMIN, ROSTER } from '../config.mjs';
 import { filterGuests } from '../lib/roster.mjs';
 
 export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
@@ -42,33 +43,38 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'guest-row';
+      row.dataset.guestId = guest.id;
       row.setAttribute('aria-label', `${guest.name}, ${guest.table || 'table pending'}`);
       row.innerHTML = `<span>${guest.name}</span><small>${guest.table || 'CHECK-IN DESK'}</small>`;
-      row.addEventListener('click', () => {
-        if (navigating) return;
-        navigating = true;
-        onSelect(guest.id);
-      });
       item.append(row);
       list.append(item);
     }
   }
 
   const update = () => render(filterGuests(guests, search.value));
-  search.addEventListener('input', () => {
+  const handleSearchInput = () => {
     window.clearTimeout(debounce);
-    debounce = window.setTimeout(update, 120);
-  });
+    debounce = window.setTimeout(update, ROSTER.SEARCH_DEBOUNCE_MS);
+  };
+  const handleListClick = (event) => {
+    const row = event.target.closest('.guest-row');
+    if (!row || !list.contains(row) || navigating) return;
+    navigating = true;
+    onSelect(row.dataset.guestId);
+  };
+  search.addEventListener('input', handleSearchInput);
+  list.addEventListener('click', handleListClick);
 
   const startHold = () => {
     window.clearTimeout(hold);
-    hold = window.setTimeout(onAdminHold, 2000);
+    hold = window.setTimeout(onAdminHold, ADMIN.HOLD_MS);
   };
   const cancelHold = () => window.clearTimeout(hold);
+  const preventLogoClick = (event) => event.preventDefault();
   logo.addEventListener('pointerdown', startHold);
   logo.addEventListener('pointerup', cancelHold);
   logo.addEventListener('pointercancel', cancelHold);
-  logo.addEventListener('click', (event) => event.preventDefault());
+  logo.addEventListener('click', preventLogoClick);
 
   render(guests);
   search.focus({ preventScroll: true });
@@ -76,5 +82,11 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
   return () => {
     window.clearTimeout(debounce);
     window.clearTimeout(hold);
+    search.removeEventListener('input', handleSearchInput);
+    list.removeEventListener('click', handleListClick);
+    logo.removeEventListener('pointerdown', startHold);
+    logo.removeEventListener('pointerup', cancelHold);
+    logo.removeEventListener('pointercancel', cancelHold);
+    logo.removeEventListener('click', preventLogoClick);
   };
 }
