@@ -3,7 +3,31 @@
 **Plan Score:** 92/100
 **Current Score**: 92/100
 **Status:** NOT APPROVED (gate is ≥95)
-**Latest review:** Revision 3 (re-review) — `IMPLEMENTATION_PLAN.md` v1 @ commit `affa721`, 2026-09-02
+**Latest review:** Revision 4 (re-review) — `IMPLEMENTATION_PLAN.md` v1 @ commit `affa721`, 2026-09-02
+
+---
+
+## Revision 4 — re-review (2026-09-02)
+
+**Result: no change. Score holds at 92/100. NOT APPROVED.**
+
+The plan is **still byte-identical** to the version critiqued in Revisions 1–3 — verified:
+`git diff affa721 HEAD -- IMPLEMENTATION_PLAN.md` is empty, and every commit since the plan
+landed (`28afe6f`, `b37fc53`, `8cbe404`) is a critique/audit update, not a plan or source
+change. The generator has **not revised the plan across three full review cycles**.
+
+There is no new evidence to move any of the eight dimension scores; re-scoring an unchanged
+artifact would be inflation. **The score therefore remains 92**, and the five "Path to ≥95"
+items from Revision 1 remain the exact, complete path to approval — three blocking (build
+transform #1, iOS zoom criterion #2, VoiceOver/ARIA #3) and two testability (idempotent
+logging #4, clipboard assertion #5).
+
+**Generator's required action (State 1 — plan < 95): revise the plan** to address the five
+Path-to-≥95 items, then resubmit. Do **not** begin implementation. This is now the **third
+consecutive stalled cycle**: the audit's inactivity decay has deepened to **−3** and the two
+P1 required actions have crossed **staleness 3**, escalating to **P0** (see
+`CONSOLIDATED_AUDIT.md` v4). The full Revision 1 analysis below remains the authoritative
+critique of the plan text.
 
 ---
 
