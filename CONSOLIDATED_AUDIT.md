@@ -1,34 +1,34 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 42/100
-**Audit Version:** v5
-**Audited:** commit `d7e7619` on 2026-09-02 (re-audit; still no source commits)
-**Stage:** Pre-implementation (plan under review at 92, NOT APPROVED; no source code committed yet)
+**Current Score**: 58/100
+**Audit Version:** v6
+**Audited:** commit `9a6c2ec` on 2026-09-02 (plan v2 landed; no source commits yet)
+**Stage:** Pre-implementation — **plan APPROVED at 96/100**; implementation not yet started
 
-> **CRITICAL BLOCKER (now active):** Required actions #1–#2 (escalated to P0 in v4) have
-> reached **staleness 4 — a 2nd consecutive version stalled as P0** — and are now flagged
-> **CRITICAL BLOCKER**, deducting **−3 each plus an additional −2 each** this cycle. Four
-> review cycles have passed with zero generator response. Revising the plan (five well-defined
-> Path-to-≥95 items) is the only action that resets the decay and unsticks the loop.
+> **LOOP UNSTUCK.** The six-cycle stall is over. The generator revised the plan (v1→v2,
+> commit `9a6c2ec`), and Revision 6 of the critique **approves it at 96/100** (gate ≥95
+> cleared). All four Required Actions (#1–#4) are **ADDRESSED** by the revision and are
+> marked DONE this cycle — the −10 required-action deduction and the CRITICAL BLOCKER flags
+> are cleared, and the inactivity decay resets (substantive progress this cycle). The loop
+> is now in **State 2 (plan ≥95, not yet implemented)**: the generator's next action is to
+> **implement the approved plan**, starting at Phase 0.
 
 ## Summary
 
-The repository still contains only `IMPLEMENTATION_PLAN.md` (v1) — no source, tests, build,
-or fonts exist yet, and **nothing has changed since the v1 baseline** (`git log
-28afe6f..HEAD` contains only critique/audit commits; the plan is byte-identical to the
-critiqued version). The plan remains strong but **NOT APPROVED** (re-critiqued this cycle at
-**92/100**, unchanged, still below the ≥95 gate; see `IMPLEMENTATION_PLAN_CRITIQUE.md`
-Revision 5).
+The repository now contains `IMPLEMENTATION_PLAN.md` **v2** — a substantial revision that
+clears every approval blocker (`git diff affa721 HEAD` shows the full v1→v2 rewrite in commit
+`9a6c2ec`). No source, tests, build, or fonts exist yet, so the system-state score is still
+dominated by "nothing is built," but the plan is now the approved contract for
+implementation (see `IMPLEMENTATION_PLAN_CRITIQUE.md` **Revision 6, 96/100, APPROVED**).
 
-A **fourth** consecutive audit cycle has now passed with no code or plan changes, so the
-mandatory inactivity decay deepens to **−4** (cumulative: 1st idle cycle −1, 2nd −2, 3rd −3,
-4th −4; cap −5, reached next cycle). In addition, the two now-P0 required actions (raised v1,
-escalated P1→P0 in v4) have reached **staleness 4** — a 2nd consecutive version stalled as
-P0 — so they now deduct **−3 each** and are flagged **CRITICAL BLOCKER** (additional **−2
-each**), for a combined **−10** required-action deduction. The forcing function is biting by
-design: the loop is stalled in **State 1 (plan < 95)** — the generator must revise the plan
-to clear the five Path-to-≥95 items, then resubmit. The score will climb steeply once the
-plan is revised and Phase 0–1 land.
+The score rises **42 → 58**, driven by two changes: (1) all four Required Actions are now
+ADDRESSED by the plan revision — the combined −10 required-action deduction and both CRITICAL
+BLOCKER flags are cleared; (2) the inactivity decay resets to −0 because this cycle contains
+substantive progress — the whole purpose of the idle-decay forcing function was to compel
+generator action, and the generator acted (a comprehensive plan revision that cleared the
+≥95 gate), advancing the loop from State 1 to State 2. The score remains mid-range only
+because zero code is written: feature completeness (3/10), testing rigor (4/10), and code
+correctness (5/10) cannot rise until Phase 0–7 land. It will climb steeply as phases ship.
 
 ## Score Breakdown
 
@@ -37,76 +37,70 @@ Base score (8 criteria, /10 each), judged against current system state (unchange
 | Criterion | Score | Note |
 |-----------|-------|------|
 | Code correctness | 5/10 | No code to assess; no known defects, but nothing proven either |
-| Plan compliance | 8/10 | Nothing to comply yet; plan itself is coherent but not approved |
-| Document coherence | 8/10 | Plan is internally consistent; no code/doc drift possible yet |
-| Testing rigor | 4/10 | Thorough test *strategy* (§7) but zero tests written |
+| Plan compliance | 8/10 | Plan now approved; nothing built yet to comply with it |
+| Document coherence | 9/10 | Plan v2 is fully internally consistent (visitId in schema+phases+tests; lint in scripts+phase+commands; §10 defaults; §3.4 manifest); no code/doc drift possible yet |
+| Testing rigor | 4/10 | Thorough test *strategy* (§7, now incl. build-transform + a11y tests) but zero tests written |
 | Safety architecture | 7/10 | Strong privacy/error-handling design (§6); unproven in code |
 | Monitoring & observability | 5/10 | Check-in log + admin export designed; not built |
 | Feature completeness | 3/10 | Zero of the four flow states implemented |
-| Risk management | 8/10 | Privacy stance explicit, deployment modes defined, deps pinned |
+| Risk management | 8/10 | Privacy stance explicit, deployment modes defined, deps pinned, artifact budget added |
 
-**Base Score:** 62/100
+**Base Score:** 63/100
 
 **Deductions:**
-- Required Actions: −10 (P0 items #1 and #2 STALLED at staleness 4, 2nd version as P0 → −3
-  each = −6; both flagged CRITICAL BLOCKER → additional −2 each = −4)
-- Backlog: −6 (12 unchecked items in `BACKLOG.md`; 1 point per 2)
-- Inactivity: −4 (4th consecutive idle cycle — no source commits since v1 audit; cap −5)
+- Required Actions: −0 (all four actions #1–#4 ADDRESSED by plan v2 → marked DONE; the prior
+  −10 and both CRITICAL BLOCKER flags are cleared)
+- Backlog: −5 (10 unchecked items in `BACKLOG.md` after marking 2 done this cycle; 1 pt per 2)
+- Inactivity: −0 (streak reset — substantive progress this cycle: plan revised v1→v2 clearing
+  all approval blockers; loop advanced State 1→State 2)
 
-**Current Score**: 42/100
+**Current Score**: 58/100
 
-Next idle cycle (v6) escalates further: inactivity decay hits its −5 cap; P0 items #1–#2 reach
-staleness 5 (3rd version stalled) → −3 each still, CRITICAL BLOCKER additional −2 each holds;
-P2 items #3–#4 reach staleness 5, crossing the "stale at 5+" threshold → begin deducting −1
-each. Revising the plan now resets the decay and unsticks the loop before the deductions
-compound further.
+Trajectory: the next score movement depends on **code**, not documents. Landing Phase 0
+(scaffold, lint gate, config, fonts) and Phase 1 (FSM shell, transitions, cleanup) will lift
+testing rigor, feature completeness, and code correctness materially. Closing the remaining
+backlog items (lint check, font subsetting, dual meta tags, axe-core wiring) as their phases
+ship will also recover backlog points. No decay applies while implementation is progressing.
 
 ## Findings
 
-- **MODERATE** — Build transform (ES modules → single classic script) is the highest-risk
-  component and is under-specified in the plan. Tracked as blocking plan issue #1.
-- **MODERATE** — `user-scalable=no` is relied on to disable pinch-zoom, which iOS Safari
-  ignores; a stated acceptance criterion cannot pass as written (plan issue #2).
-- **LOW** — Accessibility (VoiceOver/ARIA) is in scope but assigned to no phase (plan issue #3).
-- **LOW** — Per-visit logging idempotency mechanism unspecified (plan issue #4).
-- **CRITICAL** — Loop stalled for a **fourth** consecutive cycle with no generator revision
-  of the NOT-APPROVED plan. The two P0 actions (#1–#2) are now flagged **CRITICAL BLOCKER**
-  (staleness 4, 2nd version stalled as P0). Generator must act (revise plan) to unstick the
-  cycle; inactivity decay now −4, required-action −10.
+- **RESOLVED (was MODERATE)** — Build transform (ES modules → single classic script) is now
+  fully specified in new **§4.4 Build transform contract** with a fail-closed token check and
+  a dedicated `tests/unit/build.test.mjs`. Plan issue #1 closed.
+- **RESOLVED (was MODERATE)** — Pinch-zoom claim corrected: Phase 6/§7.3/§9 now state iOS
+  Safari ignores `user-scalable=no` and rely on standalone mode + `touch-action` instead.
+  Plan issue #2 closed.
+- **RESOLVED (was LOW)** — Accessibility (VoiceOver/ARIA) now assigned to Phase 6 with an
+  axe-core e2e acceptance + manual VoiceOver checklist. Plan issue #3 closed.
+- **RESOLVED (was LOW)** — Per-visit logging idempotency now specified via `visitId` +
+  `loggedVisitIds` with an e2e count assertion. Plan issue #4 closed.
+- **LOW (new, non-blocking)** — §4.4 transform is described as line/regex text operations,
+  not an AST pass; the fail-closed residual-token scan can false-positive on the substrings
+  `import`/`export` inside string literals or comments in app source. Tracked as Path-to-100
+  nit; does not block approval or implementation. See critique Revision 6, nit #1.
+- **LOW (new, non-blocking)** — Font subsetting uses `fonttools pyftsubset`, an unpinned
+  out-of-`npm` toolchain dependency (one-time prep; subset output is committed). Critique
+  Revision 6, nit #2.
 
 ## Required Actions
 
-| # | Priority | Status | Raised | Staleness | Score Impact | Directive |
-|---|----------|--------|--------|-----------|--------------|-----------|
-| 1 | P0 CRITICAL BLOCKER | STALLED | v1 | 4 | −5 (−3 stalled, −2 blocker) | Revise plan to specify the module→classic-script build transform + smoke test (critique #1) |
-| 2 | P0 CRITICAL BLOCKER | STALLED | v1 | 4 | −5 (−3 stalled, −2 blocker) | Correct the pinch-zoom criterion for iOS Safari reality (critique #2) |
-| 3 | P2 | OPEN | v1 | 4 | −0 (stale at 5+, deduct v6) | Assign VoiceOver/ARIA to a phase with an acceptance criterion (critique #3) |
-| 4 | P2 | OPEN | v1 | 4 | −0 (stale at 5+, deduct v6) | Specify per-visit logging idempotency + e2e count assertion (critique #4) |
+All four prior actions are addressed by plan v2 and marked DONE this cycle. No open required
+actions remain pre-implementation; the next actions arrive as implementation-audit findings.
 
-Items #1–#2 reached staleness 4 this cycle (2nd version stalled as P0), so each deducts −3
-plus a CRITICAL BLOCKER −2, for −10 combined. At v6 they hold at −5 each; P2 items #3–#4
-reach staleness 5 and begin deducting −1 each. The only way to clear any of this is a plan
-revision, which resets staleness on the addressed items.
-
-### Directives for STALLED items
-
-- **#1 (P0):** In `IMPLEMENTATION_PLAN.md` §5 Phase 7, add a subsection specifying the
-  ES-module → classic-script transform: hand-declared dependency order, strip `export `
-  keywords, remove `import` lines, wrap each module in an IIFE assigning its exports to a
-  namespace on `window`, and a smoke test asserting `dist/index.html` contains zero
-  `import`/`export` tokens and boots. **Acceptance:** the transform mechanism is unambiguous
-  and testable from the plan text alone.
-- **#2 (P0):** In §5 Phase 6 / §7.3, correct the pinch-zoom claim — iOS Safari ignores
-  `user-scalable=no`. Either drop the "zoom disabled" criterion (rely on standalone
-  Home-Screen mode + `touch-action`, optionally `gesturestart` preventDefault) or restate the
-  criterion as "double-tap zoom and text callout suppressed" and verify only that.
-  **Acceptance:** no acceptance criterion depends on a viewport directive iOS ignores.
+| # | Priority | Status | Raised | Resolved | Score Impact | Directive |
+|---|----------|--------|--------|----------|--------------|-----------|
+| 1 | P0 (was CRITICAL BLOCKER) | **DONE** | v1 | v6 | −0 (cleared) | Build transform specified in §4.4 + `build.test.mjs` (critique #1) — ADDRESSED |
+| 2 | P0 (was CRITICAL BLOCKER) | **DONE** | v1 | v6 | −0 (cleared) | Pinch-zoom criterion corrected in Phase 6/§7.3/§9 (critique #2) — ADDRESSED |
+| 3 | P2 | **DONE** | v1 | v6 | −0 (cleared) | VoiceOver/ARIA assigned to Phase 6 w/ acceptance (critique #3) — ADDRESSED |
+| 4 | P2 | **DONE** | v1 | v6 | −0 (cleared) | Per-visit logging idempotency + e2e count assertion (critique #4) — ADDRESSED |
 
 ## Next Step
 
-Plan is **NOT APPROVED (92 < 95)** and **unchanged**. Generator must revise the plan to clear
-the three blocking critique items (#1–#3) plus the two minor testability gaps (#4–#5), then
-resubmit for re-critique. **Do not begin implementation until the plan reaches ≥95.**
+Plan is **APPROVED (96 ≥ 95)**. Loop is in **State 2**. Generator's next action is to
+**implement the approved plan**, beginning at **Phase 0** and proceeding in dependency order;
+each phase's acceptance criteria (§5) are the implementation-audit checklist. Do **not**
+revise the plan further except to back-port justified implementation deviations. The two new
+LOW nits above and the three critique "Remaining nits" are optional polish, not gates.
 
 ## Revision History
 
@@ -117,3 +111,4 @@ resubmit for re-critique. **Do not begin implementation until the plan reaches �
 | v3 | 2026-09-02 | 54 | Re-audit; still no changes; plan still 92 (not approved); −2 inactivity decay (2nd idle cycle); P1 actions at staleness 2 |
 | v4 | 2026-09-02 | 49 | Re-audit; still no changes; plan still 92 (not approved); −3 inactivity decay (3rd idle cycle); P1 actions #1–#2 STALLED at staleness 3, escalated P1→P0, −4 required-action deduction |
 | v5 | 2026-09-02 | 42 | Re-audit; still no changes; plan still 92 (not approved); −4 inactivity decay (4th idle cycle); P0 actions #1–#2 at staleness 4 flagged CRITICAL BLOCKER, −10 required-action deduction |
+| v6 | 2026-09-02 | 58 | **Plan v2 landed and APPROVED at 96/100** (Revision 6); all four Required Actions ADDRESSED → marked DONE (−10 cleared); inactivity decay reset to −0 (substantive progress); loop advances State 1→State 2 (implement). Backlog: 2 items marked done → −5. Score capped mid-range by zero code written. |

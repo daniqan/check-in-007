@@ -18,5 +18,10 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [ ] axe-core accessibility pass wired into the e2e suite
 
 ## Documentation
-- [ ] Resolve/hard-default the six §10 open questions inline so the plan is fully self-contained
-- [ ] Redraw the §3.1 state-machine diagram so ADMIN's entry/exit edges are unambiguous
+- [x] Resolve/hard-default the six §10 open questions inline so the plan is fully self-contained (done in plan v2 — §10 "Defaults & Revisit Triggers")
+- [x] Redraw the §3.1 state-machine diagram so ADMIN's entry/exit edges are unambiguous (done in plan v2; a cosmetic top-border box remains — see critique Rev 6 nit #3)
+
+## Notes
+The four Polish items above (lint gate, font subsetting/budget, dual meta tags, axe-core
+e2e) are now **planned** in v2 (Phases 0/6/7) but remain unchecked until implemented in
+code; they will be marked done at implementation-audit time.

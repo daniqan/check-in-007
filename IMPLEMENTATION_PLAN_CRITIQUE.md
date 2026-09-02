@@ -1,9 +1,101 @@
 # Check-In 007 Plan Critique
 
-**Plan Score:** 92/100
-**Current Score**: 92/100
-**Status:** NOT APPROVED (gate is ≥95)
-**Latest review:** Revision 5 (re-review) — `IMPLEMENTATION_PLAN.md` v1 @ commit `affa721`, 2026-09-02
+**Plan Score:** 96/100
+**Current Score**: 96/100
+**Status:** APPROVED (gate is ≥95 — cleared)
+**Latest review:** Revision 6 — `IMPLEMENTATION_PLAN.md` **v2** @ commit `9a6c2ec`, 2026-09-02
+
+---
+
+## Revision 6 — full re-critique of plan v2 (2026-09-02)
+
+**Result: APPROVED. Score 92 → 96/100. Gate (≥95) cleared.**
+
+The plan is finally revised. `git diff affa721 HEAD -- IMPLEMENTATION_PLAN.md` shows a
+substantial v1→v2 rewrite (commit `9a6c2ec`), and the header now reads **v2**. Because the
+plan version is newer than the last-critiqued version (v1), this is a full critique, not a
+re-review — the six prior "no-change" cycles are closed.
+
+**Every one of the five Path-to-≥95 items from Revision 1 is resolved, and every
+Path-to-100 item is also addressed.** Verified against the plan text:
+
+1. **Build transform (blocking #1) — RESOLVED.** New **§4.4 "Build transform contract"**
+   gives a concrete, deterministic 6-step spec: hand-declared module order matching the
+   import graph; top-level static import/export parsing only (default/dynamic/re-export/
+   side-effect imports are build-time errors); each module wrapped in an IIFE assigned to
+   `window.__CHECKIN007.modules.<name>`; `export ` stripped and `export { … }` converted to
+   the IIFE return object; imported symbols rewritten to namespace aliases; **fail-closed**
+   check rejecting any residual `import`/`export`/`import(`/`sourceMappingURL` token. Backed
+   by a new `tests/unit/build.test.mjs` (§7.1) exercising both fixture modules and the real
+   source graph, plus a `file://` boot smoke (§4.4, §7.2). The highest-risk component is now
+   unambiguous and testable from the plan text alone.
+2. **Pinch-zoom criterion (blocking #2) — RESOLVED.** Phase 6 now states explicitly that
+   iOS Safari ignores `user-scalable=no`/`maximum-scale`, replaces the viewport with
+   `width=device-width, initial-scale=1, viewport-fit=cover`, and enumerates the real
+   mitigation (standalone mode, `touch-action: manipulation`, ≥16 px inputs, callout/
+   selection suppression, optional `gesturestart` preventDefault in standalone). §7.3 and §9
+   are corrected to match. No acceptance criterion now depends on an ignored directive.
+3. **VoiceOver/ARIA (blocking #3) — RESOLVED.** Phase 6 adds a concrete ARIA pass (labeled
+   `<button>` roster rows, search label + result-count status, polite `aria-live` scan
+   state, assertive `aria-live` result, admin labels, focus return, ≥44 px targets) with an
+   acceptance criterion: axe-core e2e zero serious/critical + a manual VoiceOver checklist.
+   §7.2 adds the accessibility e2e; §7.3 adds the manual VoiceOver line.
+4. **Idempotent logging (#4) — RESOLVED.** Phase 4 specifies a per-visit `visitId` minted on
+   roster acceptance, an in-memory `loggedVisitIds` set, `store.appendCheckIn(guest,
+   visitId)` called once with duplicate-`visitId` appends treated as no-ops, and a fresh
+   `visitId` for re-check-in. `visitId` is added to the §4.3 schema; §7.1 store tests and a
+   §7.2 orientation-change e2e assert exactly one entry per visit.
+5. **Clipboard assertion (#5) — RESOLVED.** Phase 5 has the clipboard helper return the exact
+   `store.exportLogCsv()`/`exportLogJson()` string on both the `navigator.clipboard` and
+   `execCommand` fallback paths; §7.2 grants `clipboard-read`/`clipboard-write` and spies on
+   the exact string argument, so the assertion is runnable.
+
+**Path-to-100 items also cleared:** artifact-size budget (Phase 7: ≤750 KB gzip target /
+≤1.2 MB hard cap, fonts subset via `pyftsubset`); lint/format gate (Prettier 3.9.6,
+`.prettierrc.json`, `npm run lint`, Phase 0 acceptance); §10 open questions promoted to hard
+"Defaults & Revisit Triggers"; new **§3.4 file manifest**; Phase 2 complexity budget for the
+500-row maximum. The §3.1 diagram was also redrawn so ADMIN's entry/exit edges are now
+unambiguous (down on admin gesture, up on dismiss, never interrupting SCAN/RESULT).
+
+**Why 96 and not higher** — three genuine (non-blocking) nits remain, see "Remaining nits"
+below. **Why 96 and not lower** — all three blocking issues and both testability gaps are
+resolved with concrete, testable specifications, and the scope-adequacy gate passes cleanly
+(all four audit Required Actions #1–#4 are addressed; no in-scope backlog item is ignored).
+
+### Remaining nits (Path to 100)
+
+1. **§4.4 transform relies on line/regex-level parsing of JS, not a real parser.** "Parses
+   only top-level static imports/exports" and "strip leading `export `" are described as
+   textual operations. This is *mostly* safe because step 6 fails closed on residual module
+   tokens — but that same token scan can also **false-positive**: the literal substrings
+   `import`/`export` appearing inside a string literal, template literal, or comment in app
+   code would fail an otherwise-valid build. Mitigation to reach 100: either use a tiny AST
+   pass (e.g. `acorn`, already MIT/tiny) for both the transform and the residual-token check,
+   or scope the fail-closed scan to statement positions and document the "no `import`/`export`
+   substrings in string/comment content" constraint on source authors.
+2. **`fonttools pyftsubset` is an unpinned, out-of-toolchain dependency.** Phase 0 subsets
+   fonts with `pyftsubset` "or an equivalent documented command," but this pulls in a Python/
+   `fonttools` toolchain that is not in `package.json`, not version-pinned, and not part of
+   `npm ci`. Because the subset WOFF2 output is committed, this is a one-time prep step and
+   not a per-build dependency — acceptable — but pinning the `fonttools` version (or checking
+   the subset outputs in with a documented exact command + version) would close the gap.
+3. **§3.1 diagram still has a decorative top border box whose meaning is unclear.** The
+   `┌───┐` rectangle spanning LOADING→SCAN at the top of the state diagram no longer encodes
+   an edge (RESULT now returns to a separate bottom `[ROSTER]` node) and reads as an orphaned
+   artifact of the redraw. The ADMIN-edge ambiguity that issue #3 (Path-to-100) targeted is
+   resolved; this leftover box is a smaller, purely cosmetic cleanup.
+
+**Caveat (not scored against the plan):** the four dev-dep pins (`@playwright/test` 1.62.1,
+`http-server` 14.1.1, `prettier` 3.9.6, `axe-core` 4.13.0) could not be re-verified against
+the npm registry in this sandbox (no network). The plan states they were verified on
+2026-09-02 and they are plausible; the committed `package-lock.json` (Phase 0) will be the
+ground-truth check at implementation-audit time.
+
+**Generator's required action (State 2 — plan ≥95, not yet implemented): implement the
+approved plan.** The plan is now the contract. Begin at Phase 0 and proceed by dependency
+order; each phase's acceptance criteria are the audit checklist. Do **not** revise the plan
+further except to back-port any justified implementation deviations. The three nits above are
+optional polish, not gates.
 
 ---
 
@@ -247,5 +339,9 @@ gaps and this comfortably clears 95.
 
 ---
 
-**Authoritative score (this file): Plan Score 92/100 — NOT APPROVED. Plan unchanged since
-Revision 1; generator must revise, not implement.**
+**Authoritative score (this file): Plan Score 96/100 — APPROVED (v2, Revision 6). Gate ≥95
+cleared. Generator must now implement the approved plan (State 2), not revise it further.**
+
+_(The Revision 1–5 analysis above is retained as history. Revision 1 critiqued v1 at 92;
+Revisions 2–5 were no-change re-reviews of the unrevised v1. Revision 6 is the authoritative
+critique of v2 and supersedes them.)_
