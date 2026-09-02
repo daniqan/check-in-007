@@ -5,10 +5,19 @@ camera frame is read, captured, transmitted, or stored.
 
 ## Run
 
+This project pins the **Node 24 LTS** toolchain. Select it before installing:
+
 ```bash
+nvm install && nvm use   # reads .nvmrc → 24.20.0 (asdf/mise read .node-version)
+node --version           # v24.x.y
 npm ci
 npm run serve
 ```
+
+`npm run lint`, `npm test`, and `npm run build` fail fast on any Node major other than 24
+(a one-line recovery hint is printed); run `npm run check:node` to check the current
+runtime on its own. `serve`/`serve:https` stay unguarded so a dev server still starts for
+diagnosis.
 
 Open `http://localhost:8080`. For an iPad on the LAN, use HTTPS:
 
@@ -28,6 +37,13 @@ npm run build
 
 `dist/index.html` is self-contained and also opens from `file://`; that mode uses covert
 scan fallback because camera access requires a secure context.
+
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs the full web quality gate — `npm ci`, `npm run lint`, unit
+tests, Playwright chromium e2e, and `npm run build` — on the pinned Node 24 line
+(`ubuntu-latest`) for every push to `main`/`master` and every pull request, with npm and
+Playwright-browser caching. The built `dist/index.html` is uploaded as a per-run artifact.
 
 ## Multi-Device Log Merge
 

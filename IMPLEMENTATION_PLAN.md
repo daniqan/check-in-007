@@ -185,7 +185,15 @@ value; no dependency versions or integrity hashes change.
 
 ## 6. Implementation Phases
 
-### Phase 1: Version metadata
+> **Implementation status (all phases COMPLETE ✅ — verified on Node v26.3.0 via the §5
+> direct-tool diagnostic path; the guarded npm scripts run this same chain on Node 24 in CI):**
+> `npm ci` validated the hand-edited lockfile; guard fails closed (exit 1) on Node 26 as
+> designed; `prettier --check .` clean (incl. new `ci.yml`, README, guard); **63/63** unit
+> tests pass (+6 new guard tests, was 57); **12/12** e2e pass; `dist/index.html` builds at
+> 26315 gzip bytes (within the ≤750 KB budget). Lockfile diff limited to the root
+> `packages[""].engines` line.
+
+### Phase 1: Version metadata ✅ COMPLETE
 
 Create `.nvmrc` and `.node-version`, each exactly:
 
@@ -210,7 +218,7 @@ floors) to:
 - Validate the hand-edited lockfile with `npm ci` (not `npm install`, which may rewrite
   unrelated metadata).
 
-### Phase 2: Node version guard
+### Phase 2: Node version guard ✅ COMPLETE
 
 Create `scripts/check-node-version.mjs`:
 
@@ -258,7 +266,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 - `node scripts/check-node-version.mjs` reaches `main()` when executed directly on Node
   20/22/23/24/25/26 (fails closed on non-24).
 
-### Phase 3: Script wiring and docs
+### Phase 3: Script wiring and docs ✅ COMPLETE
 
 Edit `package.json` scripts (leave `serve`, `serve:https`, `test:unit`, `test:e2e`,
 `fonts:subset` unchanged so dev servers still start for diagnosis):
@@ -288,7 +296,7 @@ Edit `README.md` (keep Prettier-formatted — it is checked by `prettier --check
 - Fresh-clone README setup is deterministic for Node 24 users; command names stay familiar.
 - No user-facing kiosk copy changes; `prettier --check .` stays clean.
 
-### Phase 4: GitHub Actions CI workflow
+### Phase 4: GitHub Actions CI workflow ✅ COMPLETE
 
 Create `.github/workflows/ci.yml`:
 
@@ -376,7 +384,7 @@ jobs:
   uploaded only on failure.
 - The workflow never invokes `xcodebuild` or touches `native/` (web-only, per §2).
 
-### Phase 5: Verification
+### Phase 5: Verification ✅ COMPLETE
 
 Add `tests/unit/node-version.test.mjs`:
 
