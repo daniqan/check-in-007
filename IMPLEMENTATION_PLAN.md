@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v12
+# Check-In 007 — Implementation Plan v13
 
 > Cycle 5 backlog plan. Source item: `BACKLOG.md` Polish & Technical Debt item
 > "Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)", now
@@ -44,7 +44,6 @@ Developer shell
   -> version manager reads .nvmrc / .node-version
   -> npm install uses package/package-lock engines
   -> npm run lint|test|build
-  -> npm run check:node
   -> scripts/check-node-version.mjs validates process.versions.node
   -> existing Prettier / node:test / Playwright / build flow
 ```
@@ -93,7 +92,14 @@ Failure domains:
    `.node-version` covers asdf and mise. A single file was considered, but maintaining
    both is low cost and reduces setup ambiguity across developer machines.
 
-5. **Do not add CI in this cycle.** The repository has no `.github/` workflow today.
+5. **Use Node 24's `import.meta.main` for CLI execution detection.** Node's ESM
+   documentation lists `import.meta.main` as added in Node `v24.2.0`; the target runtime
+   is `24.20.0`, so this plan can use it instead of the fragile
+   `` import.meta.url === `file://${process.argv[1]}` `` comparison. The URL comparison
+   was considered, but it mishandles spaces, percent-encoded characters, symlinks, and
+   platform path differences.
+
+6. **Do not add CI in this cycle.** The repository has no `.github/` workflow today.
    Adding CI would be useful, but it is a separate operational change with secrets,
    runner, cache, and browser-install policy decisions that are outside this focused
    backlog item.
@@ -140,6 +146,8 @@ Acceptance criteria:
 - `npm install` and npm engine warnings reference Node 24 instead of Node 22.
 - The lockfile root package metadata matches `package.json`.
 - No dependency versions or integrity hashes change.
+- Verify the hand-edited lockfile with `npm ci`; do not run `npm install` in this cycle
+  because it may rewrite package metadata unrelated to the planned root engine edit.
 
 ### Phase 2: Node Version Guard
 
@@ -184,7 +192,7 @@ The executable tail must be guarded so unit tests can import the functions witho
 exiting the test process:
 
 ```js
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   process.exitCode = main();
 }
 ```
@@ -203,9 +211,9 @@ Modify `package.json` scripts:
 {
   "scripts": {
     "check:node": "node scripts/check-node-version.mjs",
-    "build": "npm run check:node && node scripts/build.mjs",
-    "lint": "npm run check:node && prettier --check .",
-    "test": "npm run check:node && npm run test:unit && npm run test:e2e"
+    "build": "node scripts/check-node-version.mjs && node scripts/build.mjs",
+    "lint": "node scripts/check-node-version.mjs && prettier --check .",
+    "test": "node scripts/check-node-version.mjs && npm run test:unit && npm run test:e2e"
   }
 }
 ```
@@ -220,6 +228,8 @@ Modify `README.md`:
 - Add `nvm install && nvm use` as the default setup path.
 - State that `npm run lint`, `npm test`, and `npm run build` fail fast outside Node 24.
 - Preserve the existing iPad HTTPS and privacy wording.
+- Keep README edits Prettier-formatted because `README.md` is checked by
+  `prettier --check .`.
 
 Acceptance criteria:
 
@@ -265,6 +275,30 @@ Acceptance criteria:
 - E2E tests remain green with the existing Playwright fake-camera launch flags.
 - `dist/index.html` still builds under the existing gzip/raw byte budgets.
 
+Verifying on a non-24 shell:
+
+- The current local shell is Node `v26.3.0`, so guarded commands are expected to fail
+  after Phase 3 until Node 24 is installed and selected.
+- Before running the guarded acceptance commands, the implementer must run
+  `nvm install && nvm use` from the repository root. Equivalent acceptable setup paths
+  are `asdf install && asdf local nodejs 24.20.0`, `mise install && mise use node@24.20.0`,
+  or installing the official Node 24.20.0 package from nodejs.org and ensuring
+  `node --version` prints `v24.x.y`.
+- If Node 24 is temporarily unavailable during audit, verify the underlying tools
+  directly and record that the guard intentionally blocks the Node 26 shell:
+
+```bash
+node scripts/check-node-version.mjs
+npx prettier --check .
+node --test tests/unit/*.test.mjs
+npx playwright test
+node scripts/build.mjs
+```
+
+The direct-tool bypass exists only for implementation/audit diagnostics on a non-24
+machine; the accepted validation path remains the guarded `npm run lint`, `npm test`, and
+`npm run build` commands under Node 24.
+
 ## 7. Integration Points
 
 1. **npm engines**
@@ -273,7 +307,8 @@ Acceptance criteria:
    - Migration path: update both files in the same implementation commit.
 
 2. **developer validation scripts**
-   - Contract: `lint`, `test`, and `build` invoke `check:node` first.
+   - Contract: `lint`, `test`, and `build` invoke `node scripts/check-node-version.mjs`
+     first; `check:node` remains as a named standalone command for diagnostics.
    - Failure mode: unsupported Node exits before Prettier, node:test, Playwright, or
      build work begins.
    - Migration path: developers run `nvm install && nvm use`, then rerun the same command.
@@ -281,7 +316,7 @@ Acceptance criteria:
 3. **test runner**
    - Contract: `tests/unit/node-version.test.mjs` imports pure functions from the guard.
    - Failure mode: an unguarded `process.exit()` would abort the unit suite.
-   - Migration path: keep CLI execution behind the `import.meta.url` check.
+   - Migration path: keep CLI execution behind `import.meta.main`.
 
 4. **static artifact build**
    - Contract: `scripts/build.mjs` output is unchanged except being invoked under Node 24.
@@ -307,9 +342,10 @@ Acceptance criteria:
   this prevents unreviewed Current-only behavior from becoming the validation baseline.
 - **npm without engine-strict:** npm may only warn on engines, so guarded scripts provide
   the hard failure.
-- **Direct `node scripts/build.mjs`:** still bypasses the guard. This is acceptable
-  because documented validation uses `npm run build`; adding a hard import-level guard to
-  every script would couple unrelated modules to toolchain policy.
+- **Direct tool execution:** `npx prettier --check .`, `node --test tests/unit/*.test.mjs`,
+  `npx playwright test`, and `node scripts/build.mjs` still bypass the guard. This is
+  acceptable as a diagnostic escape hatch for non-24 audit shells; documented validation
+  uses the guarded npm scripts under Node 24.
 - **CI or shell without nvm:** README also names `.node-version` so asdf/mise users can
   select the same version. Other installers may install Node 24 manually from nodejs.org.
 
@@ -318,7 +354,8 @@ Acceptance criteria:
 - The guard is O(1): it parses a short version string once and does no filesystem or
   network I/O.
 - Added runtime cost to guarded commands is below 50 ms on typical local machines because
-  it starts a single Node process and exits before slower tools.
+  the script wiring invokes `node scripts/check-node-version.mjs` directly, avoiding an
+  extra nested `npm run check:node` startup before slower tools.
 - No browser bundle bytes change; `scripts/check-node-version.mjs` is never included in
   `dist/index.html`.
 - Memory use is constant and negligible: a few strings and one stderr write on failure.
@@ -379,6 +416,18 @@ Expected version:
   this cycle.
 
 Current project dev dependencies remain pinned in `package-lock.json`.
+
+Non-24 local shell procedure:
+
+- This workspace currently reports `node --version` as `v26.3.0`. After Phase 3, that is
+  an intentionally unsupported runtime for `npm run lint`, `npm test`, and
+  `npm run build`.
+- Use `nvm install && nvm use` first, or select Node 24.20.0 with asdf, mise, or the
+  official nodejs.org installer before running guarded commands.
+- If the shell cannot switch to Node 24 during the audit, run the direct diagnostic set
+  from Phase 4 (`node scripts/check-node-version.mjs`, `npx prettier --check .`,
+  `node --test tests/unit/*.test.mjs`, `npx playwright test`, and
+  `node scripts/build.mjs`) and treat the guard failure on Node 26.3.0 as expected.
 
 ## 12. Deployment & Distribution
 
