@@ -33,12 +33,12 @@ Cycle 2 is **complete**: `IMPLEMENTATION_PLAN.md` v5 ("Roster windowing/virtuali
 implemented in commit `21e06f3` and passed **Implementation Verification v3 = 97/100 — VERIFIED**
 (see `IMPLEMENTATION_PLAN_CRITIQUE.md`). The roster-windowing item is now `[x]`.
 
-**Cycle 3 is open** (State 1 — revise plan): the "Multi-device check-in log consolidation / merge
-tooling" item is now `[/]` (in progress). `IMPLEMENTATION_PLAN.md` v6 targets it and is critiqued at
-**93/100 — NOT APPROVED** (Plan Critique Rev 1) — three moderate gaps below the ≥95 gate (build
-`modules`-order dependency on `csv.mjs`, missing CSV parse-throw error path, unspecified
-cross-device timestamp ordering). The item moves to `[x]` only after the plan clears ≥95 and its
-implementation is VERIFIED.
+**Cycle 3 is open** (State 2 — implement the approved plan): the "Multi-device check-in log
+consolidation / merge tooling" item is `[/]` (in progress). `IMPLEMENTATION_PLAN.md` v7 targets it
+and is **APPROVED at 97/100** (Plan Critique Rev 2) — all three Rev-1 blockers (build `modules`-order
+dependency on `csv.mjs`, CSV parse-throw error path, cross-device timestamp ordering) and all five
+Path-to-100 nits resolved. The item moves to `[x]` only after the implementation lands and passes
+Implementation Verification (≥95).
 
 Four items remain strictly not-done here (`[ ]`), for a backlog deduction of −2 (1 pt per 2, round
 down); the merge item is `[/]` and not counted as unchecked. The remaining levers are the three
