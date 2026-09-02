@@ -1,7 +1,7 @@
 # Check-In 007 — Implementation Plan Critique
 
 **Plan Score:** 97/100 — **APPROVED** (Rev 2, plan v5)
-**Implementation Score:** N/A (approved; not yet implemented → loop State 2)
+**Implementation Score:** 97/100 — **VERIFIED** (Verification v3, commit `21e06f3`; loop State 4 — cycle complete)
 
 ---
 
@@ -310,5 +310,55 @@ one revision — expect a 96–98 next pass if they are fully addressed.
 
 ---
 
+### Implementation Verification — v3 (Cycle 2: roster virtualization)
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v5 @ approved commit `855c436` (approved score: 97)
+**Code:** `master` @ commit `21e06f3` ("feat(roster): implement approved virtualization plan"), audited on 2026-09-02
+**Verification commands (all green, run this audit):**
+`npm run lint` → clean (prettier) · `npm run test:unit` → **22/22** (7 new virtual-list cases) ·
+`npm run test:e2e` → **9/9** (new large-roster spec passes) · `npm run build` → `dist/index.html` at
+**22,091 gzip bytes** (within ≤750 KB gzip / ≤1.2 MB budget), zero residual `import`/`export` syntax,
+`src_lib_virtual_list` namespace present (3 refs) → module ordering correct at runtime.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §Phase 1 — Config constants | COMPLIANT | `src/config.mjs:18-25` — `ROSTER` block matches the plan literal exactly (threshold 500, pitch 66, visible 58, overscan 6, min-viewport 360, debounce 120). |
+| §Phase 1 — `shouldVirtualize` | COMPLIANT | `virtual-list.mjs:1-3` — strict `> threshold`, invalid totals coerced to 0; unit-proven (`shouldVirtualize(500,500)=false`, `501=true`, `-1=false`). |
+| §Phase 1 — `computeVirtualWindow` | COMPLIANT | `virtual-list.mjs:5-28` — clamps negative scrollTop, zero viewport, zero rowHeight (→ min 1), overscan bounds; `total=0` → empty window; exclusive `endIndex`; spacer invariant `topPadding+rendered+bottomPadding === total*rowHeight` unit-asserted at the bottom-clamped window. |
+| §Phase 2 — DOM integration | COMPLIANT | `roster.mjs:36-130` — `createGuestRow`/`renderSmallList`/`renderVirtualList`/`measureVirtualViewport`/`scheduleVirtualRender` all present; `render()` dispatches on `shouldVirtualize`. Full-height `.roster-virtual-spacer` (`aria-hidden`) + `translateY(index*66)` rows; delegated click reads `data-guest-id` (`roster.mjs:146-151`); count reports full filtered length (`:120`); search sets `list.scrollTop = 0` before re-render (`:132-135`). |
+| §Phase 2 — viewport measurement | COMPLIANT | `measureVirtualViewport` (`roster.mjs:73-80`) reads `list.clientHeight`, falls back to `VIRTUAL_MIN_VIEWPORT_PX` on `<= 0`, and schedules exactly one rAF remeasure guarded by `pendingZeroViewportRemeasure` + `allowZeroRemeasure:false` — resolves plan-critique Path-to-100 #3 (no re-loop on persistent zero). |
+| §Phase 2b — build module order | COMPLIANT | `scripts/build.mjs:11` places `src/lib/virtual-list.mjs` before `src/screens/roster.mjs` (`:14`); built artifact loads clean with the eager alias resolved. |
+| §Phase 3 — CSS geometry | COMPLIANT (improved) | `styles.css` adds `.roster-list.is-virtualized` (block, `--roster-virtual-row-height:58px`), `.roster-virtual-spacer`, `.roster-virtual-row` (absolute, `right:0`, height=var), and the single-line `.guest-row span` clamp. **Beneficial deviation:** an added `.roster-list.is-virtualized .guest-row { height/min-height:58px }` rule pins the button to the fixed row so a long name cannot desync the 66/58 pitch — a defensive add beyond the plan literal, consistent with intent. |
+| §Phase 3 — accessibility | COMPLIANT | No `role="listbox"`; native `<ul>`+`<button>` kept; `aria-setsize`/`aria-posinset` added on virtual rows (`roster.mjs:46-47`); empty state renders `NO MATCHING AGENTS` and clears virtual state; axe run on the virtualized 620-row list returns zero serious/critical. |
+| §Phase 4 — unit tests | COMPLIANT | `tests/unit/virtual-list.test.mjs` — empty, threshold boundary, first/middle/end windows, negative/zero clamp, last-window spacer invariant. 7 cases, all green. |
+| §Phase 4 — e2e test | COMPLIANT | `checkin.spec.mjs:129` — imports 620 rows, asserts `is-virtualized`, bounded DOM (`≤40`), long-name single-line (`whiteSpace:nowrap`, `scrollHeight≤clientHeight+1`), axe green, scroll-to-bottom select of Agent 619 → full SCAN/RESULT path, search narrows and reverts to non-virtualized with `scrollTop===0`. |
+| §Phase 2 Path-to-100 #1 (down-transition toggle) | COMPLIANT | `renderSmallList`/`renderEmptyList` remove `.is-virtualized` and the CSS var (`roster.mjs:54-62`); e2e asserts the class is gone after the search narrows to ≤ threshold — resolves critique Path-to-100 #1. |
+| §7 Integration points | COMPLIANT | `mountRoster` signature unchanged; admin CSV import re-mounts with the full indexed array; selection flows through the existing `onSelect(guestId)` → SCAN/RESULT/log; no storage schema change. |
+| §9 Resource cleanup | COMPLIANT | Teardown (`roster.mjs:171-184`) clears debounce + hold timers, cancels pending rAF, removes scroll/resize/click/input/pointer listeners; the existing 20-cycle leak e2e stays green. |
+
+**Implementation Score:** 97/100
+
+## Defects
+
+None blocking — score ≥95, **VERIFIED**, cycle complete. Two tiny, non-blocking specificity gaps
+(Path-to-100 for a perfect 100, not defects to fix):
+
+1. **Render-bound assertion is looser than the plan's exact formula.** §Phase 2 acceptance specifies
+   at most `ceil(viewportHeight / VIRTUAL_ROW_HEIGHT_PX) + 2*VIRTUAL_OVERSCAN_ROWS` (+1 transient)
+   rows; the e2e asserts the weaker `renderedRows ≤ 40` (`checkin.spec.mjs`). The bound holds and the
+   intent is met, but the test does not pin the precise formula or exercise the transient-boundary-row
+   case. Non-blocking.
+2. **`window.CheckIn007.setState` remains exposed** beyond the cycle-1 §4.4 "only `start()`" public
+   surface (reused here as the ROSTER-return e2e hook). Pre-existing, benign, carried from audit v9;
+   noted only for completeness.
+
+Both are cosmetic/test-precision items; neither affects the shipped artifact or any acceptance gate.
+The plan/implementation loop reaches **State 4 — cycle complete**.
+
+**Implementation Score:** 97/100
+
+---
+
 <!-- Authoritative current score (last occurrence wins) -->
 **Plan Score:** 97/100
+**Implementation Score:** 97/100

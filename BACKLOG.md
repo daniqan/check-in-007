@@ -4,7 +4,7 @@ Improvement opportunities beyond the current plan's scope. Unchecked items reduc
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
 ## Deferred Features
-- [/] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold)
+- [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
 - [ ] Multi-device check-in log consolidation / merge tooling (§9)
 - [ ] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6)
 - [ ] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
@@ -29,12 +29,12 @@ and the §4.1 magic-number nit) that were tracked in `CONSOLIDATED_AUDIT.md` Req
 #5–#8 are now **all resolved** in commit `75c8279` — Implementation Verification v2 = 96/100
 **VERIFIED** (audit v9). No open defects remain.
 
-Cycle 2 is now open: the "Roster windowing/virtualization" item is marked in progress (`[/]`) and
-is the subject of `IMPLEMENTATION_PLAN.md` v5. That plan is now **APPROVED (97/100)** — see
-`IMPLEMENTATION_PLAN_CRITIQUE.md` Rev 2 — so the loop is in **State 2 (implement)**; no code has
-landed for it yet.
+Cycle 2 is **complete**: `IMPLEMENTATION_PLAN.md` v5 ("Roster windowing/virtualization") was
+implemented in commit `21e06f3` and passed **Implementation Verification v3 = 97/100 — VERIFIED**
+(see `IMPLEMENTATION_PLAN_CRITIQUE.md`). The item is now `[x]`. Loop → **State 4 (cycle complete)**;
+the −2 inactivity decay resets to 0 now that source has changed.
 
-Six items remain not-done here (one `[/]` in progress + five `[ ]`), for a backlog deduction of −3.
-The item moves to `[x]` only when the approved plan v5 is implemented and passes implementation
-verification (≥95). Until then the audit score is also carrying a −2 inactivity decay (cycle 2 has
-produced an approved plan but still no source change — second idle cycle).
+Five items remain not-done here (all `[ ]`), for a backlog deduction of −2 (1 pt per 2, round down).
+The largest remaining levers are the four deferred features (multi-device merge, scan audio, native
+SwiftUI, offline-HTTPS helper) plus the optional Node 24 toolchain bump — each is a separate
+subsystem and a candidate for the next planning cycle.

@@ -1,22 +1,50 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 67/100
-**Audit Version:** v11
-**Audited:** commit `855c436` on 2026-09-02 (Cycle 2 — plan v5 for roster virtualization APPROVED; plan-only, no source change)
-**Stage:** Cycle 2, **State 2 — plan APPROVED (v5 = 97/100); implement the approved plan**
+**Current Score**: 71/100
+**Audit Version:** v12
+**Audited:** commit `21e06f3` on 2026-09-02 (Cycle 2 — roster virtualization IMPLEMENTED & VERIFIED)
+**Stage:** Cycle 2, **State 4 — cycle complete (Implementation Verification v3 = 97/100, VERIFIED)**
 
-> **STATE 2 — IMPLEMENT THE APPROVED PLAN.** `IMPLEMENTATION_PLAN.md` v5 (roster
-> windowing/virtualization for lists >500 rows) is now **APPROVED at 97/100** (Plan Critique Rev 2).
-> v5 closed all four Rev-1 blockers with source-accurate fixes: (1) §5 manifest + new §Phase 2b now
-> require `src/lib/virtual-list.mjs` **before** `src/screens/roster.mjs` in the hardcoded
-> `scripts/build.mjs:7-19` module array (the false "no build-script change" claim is gone); (2)
-> `role="listbox"` is deliberately rejected for native button semantics + `aria-setsize`/
-> `aria-posinset` + an axe-green acceptance; (3) virtualized names clamp to one ellipsized line
-> (66 px pitch / 58 px visible row), small-list keeps 2-line clamp; (4) row-height/gap reconciled by
-> two named config constants. **Write the code now — do NOT revise the plan further; it is the
-> contract for the implementation audit.** No source code has changed since v9 (commits `6aa1131`,
-> `107eea6`, `855c436` are docs/archive/plan only) → **second** consecutive idle cycle since the v9
-> code landing, −2 inactivity decay.
+> **STATE 4 — CYCLE COMPLETE.** `IMPLEMENTATION_PLAN.md` v5 (roster windowing/virtualization for
+> lists >500 rows) is **implemented** in commit `21e06f3` and passes **Implementation Verification
+> v3 = 97/100 — VERIFIED** (≥95 gate cleared). All four phases + Phase 2b are COMPLIANT, confirmed by
+> execution: `npm run lint` clean, `npm run test:unit` **22/22** (7 new virtual-list cases),
+> `npm run test:e2e` **9/9** (new 620-row virtualization spec: bounded DOM ≤40, single-line long-name,
+> axe-green, late-list select + full SCAN/RESULT, search revert to non-virtualized with `scrollTop=0`),
+> `npm run build` → 22,091 gzip bytes within budget with correct `virtual-list.mjs`-before-`roster.mjs`
+> module ordering and zero residual module syntax. Both plan Path-to-100 nits are resolved in code
+> (down-transition `.is-virtualized` toggle; single-rAF zero-viewport remeasure guard). One beneficial
+> deviation: an explicit `.is-virtualized .guest-row { height:58px }` rule pins the button to the fixed
+> pitch. Code landed → **−2 inactivity decay resets to 0**; the roster-windowing backlog item moves
+> `[/]` → `[x]`. **Next: open a new planning cycle from a remaining backlog item** (do not re-implement).
+
+## Summary (v12)
+
+Plan v5 is **implemented and VERIFIED**. Commit `21e06f3` ("feat(roster): implement approved
+virtualization plan", 8 files) lands the pure windowing helper `src/lib/virtual-list.mjs`, the
+`roster.mjs` virtual-render integration, the config constants, the CSS geometry, the
+`scripts/build.mjs` module-array ordering (`virtual-list.mjs` before `screens/roster.mjs`), and the
+unit + e2e coverage. **Implementation Verification v3 = 97/100 — VERIFIED**: every plan section
+(Phases 1–4 + 2b, §7 integration, §9 cleanup) is COMPLIANT, confirmed by execution — lint clean,
+**22/22** unit, **9/9** e2e, build 22,091 gzip bytes within the ≤750 KB gzip / ≤1.2 MB budget with a
+clean artifact (no residual `import`/`export`, `src_lib_virtual_list` alias resolved). The two
+plan-critique Path-to-100 nits are closed in code: `renderSmallList`/`renderEmptyList` strip
+`.is-virtualized` on the reused list (down-transition), and `measureVirtualViewport` guards a single
+rAF remeasure (`pendingZeroViewportRemeasure` + `allowZeroRemeasure:false`) so a persistent zero
+viewport does not re-loop. One beneficial deviation over the plan literal: an explicit
+`.roster-list.is-virtualized .guest-row { height/min-height:58px }` rule pins the button to the fixed
+66/58 pitch. Two tiny non-blocking gaps remain (the e2e render bound asserts `≤40` rather than the
+plan's exact `ceil(vp/66)+2*overscan` formula; `window.CheckIn007.setState` stays exposed as a test
+hook) — Path-to-100 only, no gate impact.
+
+The loop reaches **State 4 — cycle complete**. Code landed, so the −2 inactivity decay resets to 0
+and the roster-windowing backlog item moves `[/]` → `[x]` (backlog −3 → −2, 5 items left). Base
+system health rises to 73 (feature completeness 9 → 10 now that windowing ships end-to-end and is
+test-proven). The audit score climbs **67 → 71**. The next lever is to open a new planning cycle
+from a remaining backlog item (multi-device merge, scan audio, native SwiftUI, offline-HTTPS, or the
+Node 24 bump) — not to re-touch the now-verified roster code.
+
+---
 
 ## Summary (v11)
 
@@ -72,37 +100,48 @@ by closing backlog, not by more plan/impl work.
 
 ## Score Breakdown
 
-Base score (8 criteria, /10 each), judged against the **verified** system:
+Base score (8 criteria, /10 each), judged against the **verified** system (now including virtualization):
 
 | Criterion | Score | Note |
 |-----------|-------|------|
-| Code correctness | 9/10 | 16 unit + 8 e2e pass; §4.1 magic-number nit fixed; roster now uses event delegation + full listener cleanup |
-| Plan compliance | 9/10 | Full §7.2 e2e enumeration implemented and green; minor: `setState` exposed beyond §4.4 "only `start()`" surface |
-| Document coherence | 9/10 | §4.1 "no literal durations outside config" claim is true again; carried cosmetic plan-doc nit (font-subset.sh heading) |
-| Testing rigor | 9/10 | 16 unit + 8 e2e all green; privacy spy, idempotency, export-match, 20-cycle leak, reduced-motion all proven |
-| Safety architecture | 10/10 | Privacy now test-enforced (spy asserts no frame-grab, tracks ended); comprehensive §6 error handling + cleanup |
+| Code correctness | 9/10 | 22 unit + 9 e2e pass; virtual window math clamps all invalid inputs; event delegation + full listener/rAF cleanup preserved |
+| Plan compliance | 9/10 | Cycle-2 plan v5 fully COMPLIANT (all phases verified by execution); carried minor: `setState` exposed beyond §4.4 "only `start()`" surface (test hook) |
+| Document coherence | 9/10 | Config/CSS/build all agree with plan; carried cosmetic plan-doc nit (font-subset.sh heading) |
+| Testing rigor | 9/10 | 22 unit + 9 e2e green; new virtual-list window/threshold unit suite + 620-row e2e (bounded DOM, long-name, axe, late select, search revert); minor: e2e render bound is `≤40`, not the exact plan formula |
+| Safety architecture | 10/10 | Privacy test-enforced; comprehensive §6/§8 error handling; virtual path adds zero-viewport fallback + rAF-coalesced scroll + leak-safe teardown |
 | Monitoring & observability | 8/10 | Check-in log + admin CSV/JSON export/copy built and e2e-verified for exact-match on export |
-| Feature completeness | 9/10 | All four flow states + admin implemented, passing e2e end-to-end; windowing deferred (backlog) |
-| Risk management | 9/10 | Deps pinned, artifact budget enforced, privacy test-enforced, dual deployment modes verified |
+| Feature completeness | 10/10 | All four flow states + admin + **roster virtualization for >500 rows** now shipped and test-proven end-to-end |
+| Risk management | 9/10 | Deps pinned, artifact budget enforced (22,091 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added |
 
-**Base Score:** 72/100
+**Base Score:** 73/100
 
 **Deductions:**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
-- Backlog: −3 (6 items not `[x]` in `BACKLOG.md` — 5 `- [ ]` + 1 `[/]` in-progress; 1 pt per 2)
-- Inactivity: −2 (second consecutive idle cycle since v9 — no source change since commit `75c8279`; capped rule not yet reached)
+- Backlog: −2 (5 items `- [ ]` in `BACKLOG.md`; 1 pt per 2, round down — roster-windowing item now `[x]`)
+- Inactivity: −0 (code landed in commit `21e06f3`; decay reset from −2)
 
-**Current Score**: 67/100
+**Current Score**: 71/100
 
-Trajectory: Cycle 1's implementation remains healthy and VERIFIED (system-health base holds at 72).
-Plan v5 is now APPROVED (97/100), so the plan-quality gate is cleared. The score edges 68 → 67 on
-the second idle-cycle decay: cycle 2 has produced an approved plan but still zero code. The single
-lever to raise the score is to **implement plan v5** and pass implementation verification (≥95) —
-which closes the in-progress roster-windowing backlog item (`[/]` → `[x]`) and resets the decay to 0
-— or to close other backlog items. No open defects in the shipped system.
+Trajectory: cycle 2 completed — plan v5 implemented and VERIFIED (97/100). Feature completeness rises
+9 → 10 (windowing ships), code landing resets the −2 decay to 0, and marking the roster-windowing
+backlog item `[x]` lifts the backlog deduction −3 → −2. Net **67 → 71**. No open defects in the shipped
+system. The score is now bounded almost entirely by the 5 remaining backlog items (−2) plus the
+base-health headroom; the lever to climb further is a **new planning cycle** on a remaining backlog
+item, not more work on the verified roster code.
 
 ## Findings
 
+- **VERIFIED (implementation, v3)** — Roster virtualization (plan v5) implemented in commit `21e06f3`
+  and scores **97/100** (≥95 gate cleared). All plan sections COMPLIANT, confirmed by execution: 22/22
+  unit, 9/9 e2e, lint clean, build 22,091 gzip bytes within budget with correct module ordering and no
+  residual module syntax. `src/lib/virtual-list.mjs` window math clamps every invalid input and holds
+  the spacer invariant; `roster.mjs` renders a full-height spacer + `translateY` window, keeps the
+  full filtered count, resets `scrollTop=0` on search, and tears down scroll/resize listeners + rAF.
+  Both plan Path-to-100 nits closed in code (down-transition `.is-virtualized` toggle; single-rAF
+  zero-viewport remeasure guard). One beneficial deviation (`.is-virtualized .guest-row { height:58px }`).
+- **LOW (new, non-blocking)** — The large-roster e2e asserts `renderedRows ≤ 40` rather than the plan's
+  exact `ceil(viewportHeight/66) + 2*overscan` bound, and does not exercise the transient-boundary-row
+  case. Bound holds; Path-to-100 only.
 - **APPROVED (plan v5, Rev 2)** — Roster-virtualization plan scores **97/100** (≥95 gate cleared).
   All four Rev-1 blockers resolved, verified against source: (1) §5 manifest adds
   `scripts/build.mjs (MOD)` and §3/§7.4/new §Phase 2b require `virtual-list.mjs` **before**
@@ -149,15 +188,14 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 2 is in **State 2: implement the approved plan.** `IMPLEMENTATION_PLAN.md` v5 scores **97/100
-(APPROVED)** — see Plan Critique Rev 2. **Do NOT revise the plan further** — it is now the contract
-against which the implementation will be audited. Write the code per the plan: create
-`src/lib/virtual-list.mjs` (pure window math), integrate virtual rendering in
-`src/screens/roster.mjs`, add the config constants, the CSS geometry, the `scripts/build.mjs`
-module-array ordering (before `src/screens/roster.mjs`), and the unit + e2e tests. Run the full
-verification suite (`npm run lint`, `npm run test:unit`, `npm run test:e2e`, `npm run build`). Then
-resubmit for implementation verification (≥95 gate). Landing the code resets the −2 inactivity decay
-and moves the `[/]` roster-windowing backlog item toward `[x]`.
+Cycle 2 is **complete** — **State 4**. `IMPLEMENTATION_PLAN.md` v5 is implemented (commit `21e06f3`)
+and passes **Implementation Verification v3 = 97/100 — VERIFIED**. No fixes are required; **do NOT
+re-touch the verified roster code.** To raise the audit score further, **open a new planning cycle**
+targeting a remaining backlog item — the highest-value candidates are multi-device check-in log
+consolidation, optional scan-blip audio, the native SwiftUI iPad build, the on-device static-HTTPS
+helper, or the Node 24 LTS toolchain bump. The generator should archive cycle 2 alongside cycle 1,
+draft a v-next `IMPLEMENTATION_PLAN.md` for the chosen item, and re-enter Mode 1 (plan review) at the
+≥95 approval gate. Until a new cycle produces code, expect inactivity decay to resume.
 
 ## Revision History
 
@@ -174,3 +212,4 @@ and moves the `[/]` roster-windowing backlog item toward `[x]`.
 | v9 | 2026-09-02 | 69 | **Defect-fix cycle landed** (commit `75c8279`: `config.mjs`, `roster.mjs`, +172 e2e lines). All D1–D6 resolved, confirmed by execution: 16/16 unit + **8/8** e2e pass, build 20,858 gzip bytes within budget, lint clean, §4.1 grep invariant restored, privacy now test-enforced. **Implementation Verification v2 = 96/100 — VERIFIED** (≥95 gate cleared). Required actions #5–#8 → DONE (−0). Base 72; backlog −3 (6 unchecked, unchanged); inactivity −0 (code landed). Loop → **State 4 (cycle complete)**. |
 | v10 | 2026-09-02 | 68 | **Cycle 2 opened** (commits `6aa1131` archive, `107eea6` plan v4). Cycle 1 archived to `archive/cycle-1/`. New plan `IMPLEMENTATION_PLAN.md` v4 (roster virtualization) critiqued at **88/100 — NOT APPROVED** (Rev 1): false §7.4 build-script claim vs. hardcoded `build.mjs:7-19` module list, `role="listbox"` axe-regression risk, fixed-height vs. 2-line-name gap, row-height/gap inconsistency. **State 1 (revise plan).** No source change since v9 → −1 inactivity decay (first idle cycle). Base 72; backlog −3 (6 not-done); inactivity −1. Score 69 → 68. |
 | v11 | 2026-09-02 | 67 | **Plan v5 landed and APPROVED at 97/100** (commit `855c436`, Plan Critique Rev 2). All four Rev-1 blockers resolved with source-verified fixes (build module-ordering §Phase 2b + manifest, `role="listbox"` rejected for native semantics + axe-green, single-line clamp with 66/58 px split, row-height/gap via two config constants); all five Rev-1 Path-to-100 items closed; two non-blocking nits remain. Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v9 → −2 inactivity decay. Base 72; backlog −3 (6 not-done); inactivity −2. Score 68 → 67. |
+| v12 | 2026-09-02 | 71 | **Roster virtualization IMPLEMENTED & VERIFIED** (commit `21e06f3`, 8 files). **Implementation Verification v3 = 97/100 — VERIFIED**: all plan phases (1–4 + 2b), §7 integration, §9 cleanup COMPLIANT, confirmed by execution — lint clean, **22/22** unit, **9/9** e2e (620-row spec: bounded DOM ≤40, single-line long-name, axe-green, late-list select + full SCAN/RESULT, search revert to non-virtualized `scrollTop=0`), build 22,091 gzip bytes within budget with correct `virtual-list.mjs`-before-`roster.mjs` ordering + clean artifact. Both plan Path-to-100 nits closed in code; one beneficial deviation (`.is-virtualized .guest-row{height:58px}`). Loop → **State 4 (cycle complete)**. Feature completeness 9→10; code landed resets decay −2→0; roster-windowing backlog `[/]`→`[x]` (backlog −3→−2). Base 73; backlog −2; inactivity −0. Score 67 → 71. |
