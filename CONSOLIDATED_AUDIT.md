@@ -1,13 +1,15 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 49/100
-**Audit Version:** v4
-**Audited:** commit `8cbe404` on 2026-09-02 (re-audit; still no source commits)
+**Current Score**: 42/100
+**Audit Version:** v5
+**Audited:** commit `d7e7619` on 2026-09-02 (re-audit; still no source commits)
 **Stage:** Pre-implementation (plan under review at 92, NOT APPROVED; no source code committed yet)
 
-> **CRITICAL BLOCKER WATCH:** Required actions #1–#2 (P1) have crossed staleness 3 and are
-> now **STALLED**, escalated to **P0**. One more idle cycle (v5) flags them as CRITICAL
-> BLOCKERs with an additional −2. Revising the plan now resets the decay and unsticks the loop.
+> **CRITICAL BLOCKER (now active):** Required actions #1–#2 (escalated to P0 in v4) have
+> reached **staleness 4 — a 2nd consecutive version stalled as P0** — and are now flagged
+> **CRITICAL BLOCKER**, deducting **−3 each plus an additional −2 each** this cycle. Four
+> review cycles have passed with zero generator response. Revising the plan (five well-defined
+> Path-to-≥95 items) is the only action that resets the decay and unsticks the loop.
 
 ## Summary
 
@@ -16,15 +18,17 @@ or fonts exist yet, and **nothing has changed since the v1 baseline** (`git log
 28afe6f..HEAD` contains only critique/audit commits; the plan is byte-identical to the
 critiqued version). The plan remains strong but **NOT APPROVED** (re-critiqued this cycle at
 **92/100**, unchanged, still below the ≥95 gate; see `IMPLEMENTATION_PLAN_CRITIQUE.md`
-Revision 4).
+Revision 5).
 
-A **third** consecutive audit cycle has now passed with no code or plan changes, so the
-mandatory inactivity decay deepens to **−3** (cumulative: 1st idle cycle −1, 2nd −2, 3rd −3;
-cap −5). In addition, the two P1 required actions (raised v1) have reached **staleness 3**,
-crossing the stale threshold: both are now **STALLED**, escalated **P1 → P0**, and begin
-accruing deductions. The forcing function is biting harder by design: the loop is stalled in
-**State 1 (plan < 95)** — the generator must revise the plan to clear the five Path-to-≥95
-items, then resubmit. The score will climb steeply once the plan is revised and Phase 0–1 land.
+A **fourth** consecutive audit cycle has now passed with no code or plan changes, so the
+mandatory inactivity decay deepens to **−4** (cumulative: 1st idle cycle −1, 2nd −2, 3rd −3,
+4th −4; cap −5, reached next cycle). In addition, the two now-P0 required actions (raised v1,
+escalated P1→P0 in v4) have reached **staleness 4** — a 2nd consecutive version stalled as
+P0 — so they now deduct **−3 each** and are flagged **CRITICAL BLOCKER** (additional **−2
+each**), for a combined **−10** required-action deduction. The forcing function is biting by
+design: the loop is stalled in **State 1 (plan < 95)** — the generator must revise the plan
+to clear the five Path-to-≥95 items, then resubmit. The score will climb steeply once the
+plan is revised and Phase 0–1 land.
 
 ## Score Breakdown
 
@@ -44,16 +48,18 @@ Base score (8 criteria, /10 each), judged against current system state (unchange
 **Base Score:** 62/100
 
 **Deductions:**
-- Required Actions: −4 (P1 items #1 and #2 now STALLED at staleness 3 → −2 each; escalated to P0)
+- Required Actions: −10 (P0 items #1 and #2 STALLED at staleness 4, 2nd version as P0 → −3
+  each = −6; both flagged CRITICAL BLOCKER → additional −2 each = −4)
 - Backlog: −6 (12 unchecked items in `BACKLOG.md`; 1 point per 2)
-- Inactivity: −3 (3rd consecutive idle cycle — no source commits since v1 audit; cap −5)
+- Inactivity: −4 (4th consecutive idle cycle — no source commits since v1 audit; cap −5)
 
-**Current Score**: 49/100
+**Current Score**: 42/100
 
-Next idle cycle (v5) escalates further: the now-P0 items #1–#2 reach staleness 4 (2 versions
-stalled) → −3 each and flagged **CRITICAL BLOCKER** (additional −2); P2 items #3–#4 reach
-staleness 4 (stale at 5+, so deduct at v6); inactivity decay deepens to −4. Revising the plan
-now resets the decay and unsticks the loop before the P0 deductions compound.
+Next idle cycle (v6) escalates further: inactivity decay hits its −5 cap; P0 items #1–#2 reach
+staleness 5 (3rd version stalled) → −3 each still, CRITICAL BLOCKER additional −2 each holds;
+P2 items #3–#4 reach staleness 5, crossing the "stale at 5+" threshold → begin deducting −1
+each. Revising the plan now resets the decay and unsticks the loop before the deductions
+compound further.
 
 ## Findings
 
@@ -63,22 +69,24 @@ now resets the decay and unsticks the loop before the P0 deductions compound.
   ignores; a stated acceptance criterion cannot pass as written (plan issue #2).
 - **LOW** — Accessibility (VoiceOver/ARIA) is in scope but assigned to no phase (plan issue #3).
 - **LOW** — Per-visit logging idempotency mechanism unspecified (plan issue #4).
-- **PROCESS** — Loop stalled for a **third** consecutive cycle with no generator revision of
-  the NOT-APPROVED plan. Two P1 actions have now gone STALLED and escalated to P0. Generator
-  must act (revise plan) to unstick the cycle; inactivity decay now −3, required-action −4.
+- **CRITICAL** — Loop stalled for a **fourth** consecutive cycle with no generator revision
+  of the NOT-APPROVED plan. The two P0 actions (#1–#2) are now flagged **CRITICAL BLOCKER**
+  (staleness 4, 2nd version stalled as P0). Generator must act (revise plan) to unstick the
+  cycle; inactivity decay now −4, required-action −10.
 
 ## Required Actions
 
 | # | Priority | Status | Raised | Staleness | Score Impact | Directive |
 |---|----------|--------|--------|-----------|--------------|-----------|
-| 1 | P0 (↑ from P1) | STALLED | v1 | 3 | −2 | Revise plan to specify the module→classic-script build transform + smoke test (critique #1) |
-| 2 | P0 (↑ from P1) | STALLED | v1 | 3 | −2 | Correct the pinch-zoom criterion for iOS Safari reality (critique #2) |
-| 3 | P2 | OPEN | v1 | 3 | −0 (stale at 5+) | Assign VoiceOver/ARIA to a phase with an acceptance criterion (critique #3) |
-| 4 | P2 | OPEN | v1 | 3 | −0 (stale at 5+) | Specify per-visit logging idempotency + e2e count assertion (critique #4) |
+| 1 | P0 CRITICAL BLOCKER | STALLED | v1 | 4 | −5 (−3 stalled, −2 blocker) | Revise plan to specify the module→classic-script build transform + smoke test (critique #1) |
+| 2 | P0 CRITICAL BLOCKER | STALLED | v1 | 4 | −5 (−3 stalled, −2 blocker) | Correct the pinch-zoom criterion for iOS Safari reality (critique #2) |
+| 3 | P2 | OPEN | v1 | 4 | −0 (stale at 5+, deduct v6) | Assign VoiceOver/ARIA to a phase with an acceptance criterion (critique #3) |
+| 4 | P2 | OPEN | v1 | 4 | −0 (stale at 5+, deduct v6) | Specify per-visit logging idempotency + e2e count assertion (critique #4) |
 
-Items #1–#2 tripped the stale threshold this cycle (staleness 3), escalated P1 → P0, and now
-deduct −2 each. At v5 (staleness 4, 2 versions stalled as P0) they deduct −3 each and are
-flagged CRITICAL BLOCKER (additional −2). Items #3–#4 (P2) are stale at 5+ (deduct from v6).
+Items #1–#2 reached staleness 4 this cycle (2nd version stalled as P0), so each deducts −3
+plus a CRITICAL BLOCKER −2, for −10 combined. At v6 they hold at −5 each; P2 items #3–#4
+reach staleness 5 and begin deducting −1 each. The only way to clear any of this is a plan
+revision, which resets staleness on the addressed items.
 
 ### Directives for STALLED items
 
@@ -108,3 +116,4 @@ resubmit for re-critique. **Do not begin implementation until the plan reaches �
 | v2 | 2026-09-02 | 55 | Re-audit; no changes since v1; plan still 92 (not approved); −1 inactivity decay (loop stalled, awaiting plan revision) |
 | v3 | 2026-09-02 | 54 | Re-audit; still no changes; plan still 92 (not approved); −2 inactivity decay (2nd idle cycle); P1 actions at staleness 2 |
 | v4 | 2026-09-02 | 49 | Re-audit; still no changes; plan still 92 (not approved); −3 inactivity decay (3rd idle cycle); P1 actions #1–#2 STALLED at staleness 3, escalated P1→P0, −4 required-action deduction |
+| v5 | 2026-09-02 | 42 | Re-audit; still no changes; plan still 92 (not approved); −4 inactivity decay (4th idle cycle); P0 actions #1–#2 at staleness 4 flagged CRITICAL BLOCKER, −10 required-action deduction |
