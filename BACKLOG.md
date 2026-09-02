@@ -14,6 +14,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [x] Add a lint/format check (e.g. `prettier --check`) to `package.json` scripts and Phase 0 acceptance (done in `07ef178`: `npm run lint` + `.prettierrc.json`; `prettier --check .` clean)
 - [x] Font subsetting (Latin + needed glyphs) and a stated single-file artifact size budget (done: `scripts/font-subset.sh` subsets to Latin ranges; `build.mjs` enforces ≤750 KB gzip / ≤1.2 MB; artifact is 20,683 gzip bytes)
 - [/] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)
+- [ ] Add a CI workflow (e.g. GitHub Actions) running `npm ci` + `npm run lint`/`test`/`build` on the pinned Node 24 line, with Playwright browser install/cache — explicitly deferred by plan v14 §4.6/§13 (no `.github/` exists today; secrets/runner/cache policy is a separate operational decision)
 - [x] Add both `apple-mobile-web-app-capable` and the modern `mobile-web-app-capable` meta tags (done: present in `index.html` and built `dist/index.html`)
 - [x] axe-core accessibility pass wired into the e2e suite (done: `tests/e2e/checkin.spec.mjs` runs `axe.run` and asserts zero serious/critical)
 
@@ -67,6 +68,15 @@ engines, the guard, script wiring, README, unit tests) closes this item (`[/]` �
 −1 backlog deduction, and resets the accruing inactivity decay (now −3). See
 `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 5 Rev 3 and `CONSOLIDATED_AUDIT.md` v23.
 
-With Node 24 now `[/]`, two items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build and
-the on-device static-HTTPS helper — for a backlog deduction of −1 (2 unchecked, 1 pt per 2, round
-down). Each is a separate subsystem and a candidate for a future planning cycle.
+With Node 24 now `[/]`, three items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build,
+the on-device static-HTTPS helper, and the newly-added CI-workflow item — for a backlog deduction of
+−1 (3 unchecked, 1 pt per 2, round down). Each is a separate subsystem and a candidate for a future
+planning cycle.
+
+**Audit v24 (no change since v23):** Plan v14 (Node 24 LTS toolchain) remains APPROVED at 98/100 and
+is unchanged, but the approved plan has **not been implemented** — `.nvmrc`, `.node-version`,
+`scripts/check-node-version.mjs`, and `tests/unit/node-version.test.mjs` are all still absent and
+`package.json` is still `engines.node ">=22"`. The shipped cycle-1–4 system stays healthy (52/52 unit,
+prettier clean on Node v26.3.0). This is the **fourth consecutive idle cycle** of cycle 5 (inactivity
+decay −4, cap −5). Implementing plan v14 flips Node 24 `[/]` → `[x]`, recovers the backlog deduction,
+and resets the decay. See `CONSOLIDATED_AUDIT.md` v24.

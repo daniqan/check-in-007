@@ -1,7 +1,7 @@
 # Check-In 007 — Implementation Plan Critique (Cycle 5: Node 24 LTS Toolchain)
 
 **Plan Score:** **98/100**
-**Implementation Score:** _n/a — plan just APPROVED at Rev 3; not yet implemented_
+**Implementation Score:** N/A — cycle-5 plan v14 APPROVED but not yet implemented; last VERIFIED implementation is cycle 4 (v5 = 98)
 **Status:** **APPROVED** (Rev 3 — the Rev-2 gate-blocker and the Path-to-100 nit are both resolved; ≥95 gate cleared)
 
 > Cycle 4 (scan blip audio) is complete and **VERIFIED** (Implementation Verification v5 =
@@ -9,6 +9,17 @@
 > `IMPLEMENTATION_PLAN.md` v14 (optional Node 24 LTS toolchain bump), now **APPROVED at
 > 98/100 (Rev 3)**. Loop state: **State 2 — implement the approved plan**. The plan is the
 > contract; implementation will be audited against it.
+
+> **Staleness re-check (audit v24, 2026-09-02).** No change since the Rev 3 critique. The plan
+> version has **not advanced** (`IMPLEMENTATION_PLAN.md` still v14, last committed `ff40b18`;
+> working tree clean at HEAD `4044d75`), so under the staleness rule no re-critique is warranted —
+> the plan **remains APPROVED at 98/100 (Rev 3)**. The approved plan is **still not implemented**:
+> `.nvmrc`, `.node-version`, `scripts/check-node-version.mjs`, and `tests/unit/node-version.test.mjs`
+> do not exist, and `package.json` still declares `engines.node: ">=22"` with un-guarded
+> `lint`/`test`/`build` scripts. Cycle-5 **Implementation Score remains N/A (not yet implemented)**.
+> The loop is blocked solely on the generator executing Phases 1–4 — this is **State 2 (implement)**,
+> not State 1: do **not** re-revise the approved plan. See `CONSOLIDATED_AUDIT.md` v24 (audit score
+> 71; fourth idle cycle → −4 inactivity decay).
 
 ---
 
