@@ -23,5 +23,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 
 ## Notes
 The four Polish items above (lint gate, font subsetting/budget, dual meta tags, axe-core
-e2e) are now **planned** in v2 (Phases 0/6/7) but remain unchecked until implemented in
-code; they will be marked done at implementation-audit time.
+e2e) are **planned** in the approved plan (Phases 0/6/7) and further hardened in v3 (font
+subsetting is now pinned to `fonttools==4.64.0` via `scripts/font-subset.sh`). They remain
+unchecked until implemented **in code** and will be marked done at implementation-audit time.
+No backlog item was completed in the v3 cycle — it was a plan-only revision.

@@ -1,9 +1,76 @@
 # Check-In 007 Plan Critique
 
-**Plan Score:** 96/100
-**Current Score**: 96/100
+**Plan Score:** 98/100
+**Current Score**: 98/100
 **Status:** APPROVED (gate is ≥95 — cleared)
-**Latest review:** Revision 6 — `IMPLEMENTATION_PLAN.md` **v2** @ commit `9a6c2ec`, 2026-09-02
+**Latest review:** Revision 7 — `IMPLEMENTATION_PLAN.md` **v3** @ commit `4f079c8`, 2026-09-02
+
+---
+
+## Revision 7 — full re-critique of plan v3 (2026-09-02)
+
+**Result: APPROVED. Score 96 → 98/100. Gate (≥95) cleared.**
+
+The plan header now reads **v3** and `git diff 9a6c2ec 4f079c8 -- IMPLEMENTATION_PLAN.md`
+shows a focused revision. Because the plan version is newer than the last-critiqued version
+(v2, Revision 6), this is a full re-critique per the version-check rule — not a no-change
+re-review. **All three "Remaining nits (Path to 100)" from Revision 6 are resolved, and no
+new flaws are introduced.** Verified against the plan text:
+
+1. **Nit #1 (regex/line parsing → AST) — RESOLVED.** §4.4 now specifies an `acorn`-backed
+   transform: step 2 parses each module with `acorn.parse(src, { ecmaVersion: 2020,
+   sourceType: 'module' })` and inspects the top-level AST body (`ImportDeclaration` shape
+   enforced; default/namespace/`ImportExpression`/re-export/side-effect imports are
+   build-time errors); step 4 drives textual edits from AST node ranges
+   (`ExportNamedDeclaration` unwrapped, `export { … }` → IIFE return object); step 6 re-parses
+   the emitted bundle with `sourceType: 'script'` and rejects any residual
+   `ImportDeclaration`/`ExportNamedDeclaration`/`ExportDefaultDeclaration`/
+   `ExportAllDeclaration`/`ImportExpression` node, with a separate line check for
+   `//# sourceMappingURL=`. It states explicitly that `import`/`export` **substrings inside
+   string/template literals and comments no longer fail the build** — the exact
+   false-positive the nit called out. `acorn` 8.18.0 is added to the dev-dep pins (§4), the
+   Build decision row, §7.1, and Phase 7's `build.test.mjs` (which now asserts the
+   string/comment false-positive-avoidance and sourcemap-rejection cases).
+2. **Nit #2 (unpinned `fonttools`) — RESOLVED.** The font subset tool is now pinned to
+   `fonttools==4.64.0`, wrapped by a new `scripts/font-subset.sh` that holds the exact
+   `pyftsubset` commands (input paths, Unicode ranges, weights, output names, WOFF2 flavor).
+   It is threaded consistently through the §3.2 module table, the §3.4 file manifest, a new
+   "Font subset tool" decision row (§4), Phase 0, the §8 `python3 -m pip install --user
+   fonttools==4.64.0` step, a `fonts:subset` npm script, and the §8 reproducibility note.
+3. **Nit #3 (orphan diagram box) — RESOLVED.** The decorative `┌───┐` top-border rectangle
+   was removed from the §3.1 ASCII diagram (verified: lines 71–82 now begin directly at
+   `boot ──▶ [LOADING]`). The diagram is unambiguous.
+
+**Why 98 and not higher** — two purely cosmetic items remain (see "Remaining nits" below);
+neither is a correctness, completeness, or feasibility gap. **Why 98 and not lower** — every
+substantive and testability issue from Revisions 1 and 6 is now closed with concrete,
+testable specifications; the scope-adequacy gate still passes cleanly (no open P0/P1 audit
+actions, no ignored in-scope backlog item); and the AST-based build transform removes the
+last real correctness risk in the highest-risk component.
+
+### Remaining nits (Path to 100)
+
+1. **`scripts/font-subset.sh` is listed inside the §3.2 table titled "Modules (development
+   sources, in `src/`)".** It is a `scripts/` shell wrapper, not an `src/` module, so its row
+   sits under a heading that doesn't describe it. Cosmetic; the §3.4 manifest already places
+   it correctly under `scripts/`. Fix: move the row to a "Scripts" sub-table or retitle the
+   §3.2 heading to "Modules & tooling sources."
+2. **`acorn` 8.18.0 pin is unverifiable in this sandbox (no network).** Same standing caveat
+   as the other four dev-dep pins — plausible and internally consistent, but the committed
+   `package-lock.json` will be the ground-truth check at implementation-audit time. Not a
+   plan defect; recorded for the auditor.
+
+**Caveat (not scored against the plan):** the five dev-dep pins (`@playwright/test` 1.62.1,
+`http-server` 14.1.1, `prettier` 3.9.6, `axe-core` 4.13.0, `acorn` 8.18.0) and
+`fonttools` 4.64.0 could not be re-verified against their registries in this sandbox. The
+plan states they were verified on 2026-09-02; the committed lockfile is the audit-time check.
+
+**Generator's required action (State 2 — plan ≥95, not yet implemented): IMPLEMENT the
+approved plan.** The plan is done at 98/100 — the two remaining nits are cosmetic and are
+**not** worth another plan-only revision cycle. Begin at **Phase 0** and proceed by
+dependency order; each phase's §5 acceptance criteria are the implementation-audit checklist.
+Do **not** spend further cycles polishing the plan; the loop now needs **code** to progress
+(see `CONSOLIDATED_AUDIT.md` v7 — a code-idle cycle triggered −1 inactivity decay).
 
 ---
 
@@ -339,9 +406,9 @@ gaps and this comfortably clears 95.
 
 ---
 
-**Authoritative score (this file): Plan Score 96/100 — APPROVED (v2, Revision 6). Gate ≥95
+**Authoritative score (this file): Plan Score 98/100 — APPROVED (v3, Revision 7). Gate ≥95
 cleared. Generator must now implement the approved plan (State 2), not revise it further.**
 
 _(The Revision 1–5 analysis above is retained as history. Revision 1 critiqued v1 at 92;
-Revisions 2–5 were no-change re-reviews of the unrevised v1. Revision 6 is the authoritative
-critique of v2 and supersedes them.)_
+Revisions 2–5 were no-change re-reviews of the unrevised v1. Revision 6 critiqued v2 at 96.
+Revision 7 is the authoritative critique of v3 and supersedes them.)_
