@@ -1,9 +1,97 @@
 # Check-In 007 Plan Critique
 
 **Plan Score:** 98/100
-**Current Score**: 98/100
-**Status:** APPROVED (gate is ≥95 — cleared)
-**Latest review:** Revision 7 — `IMPLEMENTATION_PLAN.md` **v3** @ commit `4f079c8`, 2026-09-02
+**Implementation Score:** 91/100
+**Status:** Plan APPROVED (≥95 cleared); IMPLEMENTATION NOT YET VERIFIED — 91 < 95 gate → **State 3: fix the code**
+**Latest review:** Implementation Verification v1 — source @ commit `07ef178`, audited 2026-09-02
+
+---
+
+## Implementation Verification — v1
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v3 @ approved score 98/100 (Revision 7)
+**Code:** commit `07ef178` ("feat: implement approved check-in kiosk plan"), audited 2026-09-02
+**Result:** **Implementation Score 91/100 — NOT VERIFIED (gate ≥95).** State 3: fix the listed
+defects in code; do **not** revise the plan (it remains the authoritative contract at 98/100).
+
+### What was verified by execution (hard evidence, not code-reading)
+
+- **Unit tests:** `node --test tests/unit/*.test.mjs` → **16/16 pass** (csv, roster, format, store, build).
+- **E2E tests:** `npx playwright test` → **4/4 pass** (boot→scan→result→log; covert mode; admin
+  import + axe-core zero serious/critical; `file://` artifact boot).
+- **Build:** `node scripts/build.mjs` → emits `dist/index.html`, **20,683 gzip bytes** (well under
+  the ≤750 KB gzip / ≤1.2 MB uncompressed budget). Artifact has **exactly 1 `<script>`**, **zero**
+  `type="module"`, and the AST residual check passes.
+- **Lint:** `prettier --check .` → clean.
+- **Privacy (code):** `grep -rnE 'drawImage|toDataURL|captureStream|MediaRecorder|getImageData' src/`
+  → **no matches.** `scan.mjs` stops every track and nulls `srcObject` on exit and on the
+  `stopped`-after-await race. The flagship "theater only" requirement is honored **in code**.
+
+### Section-by-section compliance
+
+| Plan section | Status | Notes |
+|--------------|--------|-------|
+| §3.2/§3.4 file manifest | COMPLIANT | Every listed file exists (`src/`, `lib/`, `screens/`, `scripts/`, `tests/`, `data/`, `assets/fonts/`). |
+| §4 tech decisions & dev-dep pins | COMPLIANT | `package.json` pins `@playwright/test` 1.62.1, `acorn` 8.18.0, `axe-core` 4.13.0, `http-server` 14.1.1, `prettier` 3.9.6; `engines.node >=22`. `package-lock.json` committed. |
+| §4.1 config single source of truth | **DEVIATED** | `config.mjs` matches §4.1 exactly, but `roster.mjs:65` hardcodes `2000` for the admin hold instead of importing `ADMIN.HOLD_MS` (=2000), and `roster.mjs:60` hardcodes the `120` ms debounce. §4.1 claims "grep for literal durations and find none outside `config.mjs`" — that claim now fails. Defect D6. |
+| §4.4 build transform | COMPLIANT | `scripts/build.mjs` uses `acorn` AST parse, rejects default/namespace/re-export/side-effect imports, wraps each module in a `window.__CHECKIN007.modules.<ns>` IIFE, re-parses the emitted bundle as `sourceType:'script'` and rejects residual module syntax + sourcemap comments. `build.test.mjs` covers alias imports, export-object conversion, string/comment false-positive avoidance, and unsupported-syntax errors. |
+| §5 Phase 1 (FSM/timers/cleanup) | PARTIAL | FSM + central `cleanup()` on every `setState` implemented; reduced-motion timing swap present. **Acceptance "no timer/listener leaks across 20 cycles (verified in e2e)" has no test.** Defect D4. |
+| §5 Phase 2 (roster) | COMPLIANT | Debounced search, case/diacritic-insensitive filter, ≥44 px rows (`styles.css:45`), momentum scroll (`-webkit-overflow-scrolling: touch`), empty state "NO MATCHING AGENTS", double-tap `navigating` guard, ~40 themed guests. |
+| §5 Phase 3 (scan/camera/covert) | PARTIAL (code COMPLIANT) | `isSecureContext`/`getUserMedia` guard, covert fallback, track cleanup, post-await `stopped` race all correct. **But the Phase 3 acceptance "e2e asserts no frame-grab APIs are called and tracks are stopped on exit" is not implemented** — the covert e2e never spies on `toDataURL`/`captureStream`/`MediaRecorder` and never asserts tracks are `ended`. Defect D1. |
+| §5 Phase 4 (result/logging) | PARTIAL | Correct table lookup, missing-table → "PROCEED TO THE CHECK-IN DESK", `visitId` idempotency via `loggedVisitIds`, "RE-VERIFYING" repeat note. Unit test proves visitId idempotence. **§7.2 orientation-change re-render e2e asserting exactly one entry is absent.** Defect D2. |
+| §5 Phase 5 (admin) | PARTIAL | Long-press → dialog, CSV import (validated), CSV/JSON export via Blob, Copy-to-clipboard with `execCommand` fallback returning the exact string, reset roster, two-step clear-log. **§7.2 "export contents match the stored log exactly (verified in e2e)" is not tested** — the admin e2e imports but never exports/compares, and never grants clipboard permissions/spies. Defect D3. |
+| §5 Phase 6 (polish/kiosk/a11y) | COMPLIANT | Kiosk meta (viewport-fit=cover, both `*-web-app-capable`, black status bar), `touch-action: manipulation`, ≥16 px inputs, `gesturestart` preventDefault gated on `navigator.standalone`, ARIA (labeled button rows, search label + `role=status` count, polite scan `aria-live`, assertive result, dialog `aria-modal` + focus return). axe-core e2e passes. |
+| §5 Phase 7 (build/tests/docs) | PARTIAL | Build + budget enforcement + unit/e2e harness present and green; README has run/build/deploy + iPad checklist. **But §7.2's enumerated e2e list is only ~half implemented** (see D1–D4 and reduced-motion D5). |
+| §7.2 reduced-motion e2e | MISSING | No `emulateMedia({ reducedMotion:'reduce' })` test; the REDUCED path is exercised only via unit-level config, not e2e as §7.2 specifies. Defect D5. |
+| §9 deployment (file:// + served) | COMPLIANT | `file://` boot to ROSTER in covert mode is e2e-verified; served path documented. |
+
+### Defects (fix in code — the plan is the spec, do not edit the plan)
+
+1. **D1 — Privacy frame-grab spy + track-ended assertion missing (Phase 3 / §7.2).** The plan's
+   most-emphasized requirement (§1: privacy stance "enforced **and tested**") has compliant code
+   but no test proving it. **Fix:** in the covert/happy e2e, spy on
+   `HTMLCanvasElement.prototype.toDataURL`, `HTMLVideoElement.prototype.captureStream`, and
+   `window.MediaRecorder`, assert none were called, and assert every video track is `ended` after
+   leaving SCAN (grant `camera`, keep tracks referenced via `getUserMedia` spy). *Highest priority.*
+2. **D2 — Orientation-change idempotency e2e missing (Phase 4 / §7.2).** **Fix:** drive boot→scan→
+   RESULT, call `page.setViewportSize()` to force a RESULT re-render, then assert the
+   `checkin007.log.v1` array still has exactly one entry for that `visitId`.
+3. **D3 — Export-equals-stored-log e2e missing (Phase 5 / §7.2).** **Fix:** after a check-in, open
+   admin, click Export/Copy CSV with `context.grantPermissions(['clipboard-read','clipboard-write'])`,
+   and assert the copied/blob string equals `store.exportLogCsv()` (spy on `clipboard.writeText` or
+   the fallback helper for the exact argument).
+4. **D4 — 20-cycle timer/listener leak e2e missing (Phase 1 acceptance).** **Fix:** loop the full
+   flow (or drive `setState`) ≥20 times and assert no growth in active timers/listeners (e.g. via a
+   `setTimeout`/`addEventListener` counter injected in an init script), proving `cleanup()` releases.
+5. **D5 — Reduced-motion e2e missing (§7.2).** **Fix:** `test.use({ reducedMotion: 'reduce' })` or
+   `emulateMedia`, then assert LOADING auto-advances within `REDUCED.LOADING_MS` (+tolerance),
+   confirming the REDUCED timings are actually selected in the browser.
+6. **D6 — §4.1 single-source-of-truth violated (minor).** `src/screens/roster.mjs:65` uses literal
+   `2000` where `ADMIN.HOLD_MS` exists; `:60` uses literal `120` for the debounce. **Fix:** import
+   `ADMIN` and use `ADMIN.HOLD_MS`; add the debounce interval to `config.mjs` (e.g.
+   `ROSTER.SEARCH_DEBOUNCE_MS = 120`) and reference it, restoring the §4.1 grep invariant.
+
+### Why 91 and not higher
+
+The application is functionally complete and every **written** test passes — this is a genuinely
+strong implementation. But each phase's §5 acceptance criteria are the audit checklist, and **five
+explicitly-enumerated e2e acceptance assertions are absent** (D1–D5), the most consequential being
+the privacy frame-grab proof the plan singled out as a tested product requirement. Combined with the
+§4.1 magic-number regression (D6), that is more than cosmetic — it is a real fidelity gap between the
+approved 98/100 spec and the delivered test surface. That places it clearly below the 95 gate.
+
+### Why 91 and not lower
+
+Zero core-feature failures. All 16 unit + 4 e2e tests pass; build, budget, lint, artifact-shape, and
+`file://` boot are verified by execution; the build transform (the plan's historically highest-risk
+component) is fully compliant and tested; and the privacy requirement is honored **in code** (no
+frame-grab APIs exist anywhere in `src/`). The gaps are test-coverage breadth plus one config nit —
+all fixable in a single code pass without touching application behavior.
+
+### Path to ≥95 (implementation)
+
+Land D1–D5 (the missing e2e assertions) and D6 (config constants). D1 is mandatory — the privacy
+guarantee must be test-enforced, not just code-honored. No plan revision is needed or wanted.
 
 ---
 
@@ -406,8 +494,10 @@ gaps and this comfortably clears 95.
 
 ---
 
-**Authoritative score (this file): Plan Score 98/100 — APPROVED (v3, Revision 7). Gate ≥95
-cleared. Generator must now implement the approved plan (State 2), not revise it further.**
+**Authoritative scores (this file): Plan Score 98/100 — APPROVED (v3, Revision 7).
+Implementation Score 91/100 — NOT VERIFIED (Implementation Verification v1, commit `07ef178`).
+Loop is in State 3: fix the code (defects D1–D6) to reach the ≥95 implementation gate; the plan
+remains the authoritative spec and must NOT be revised.**
 
 _(The Revision 1–5 analysis above is retained as history. Revision 1 critiqued v1 at 92;
 Revisions 2–5 were no-change re-reviews of the unrevised v1. Revision 6 critiqued v2 at 96.

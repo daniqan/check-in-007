@@ -11,19 +11,20 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [ ] On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)
 
 ## Polish & Technical Debt
-- [ ] Add a lint/format check (e.g. `prettier --check`) to `package.json` scripts and Phase 0 acceptance
-- [ ] Font subsetting (Latin + needed glyphs) and a stated single-file artifact size budget
+- [x] Add a lint/format check (e.g. `prettier --check`) to `package.json` scripts and Phase 0 acceptance (done in `07ef178`: `npm run lint` + `.prettierrc.json`; `prettier --check .` clean)
+- [x] Font subsetting (Latin + needed glyphs) and a stated single-file artifact size budget (done: `scripts/font-subset.sh` subsets to Latin ranges; `build.mjs` enforces ≤750 KB gzip / ≤1.2 MB; artifact is 20,683 gzip bytes)
 - [ ] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)
-- [ ] Add both `apple-mobile-web-app-capable` and the modern `mobile-web-app-capable` meta tags
-- [ ] axe-core accessibility pass wired into the e2e suite
+- [x] Add both `apple-mobile-web-app-capable` and the modern `mobile-web-app-capable` meta tags (done: present in `index.html` and built `dist/index.html`)
+- [x] axe-core accessibility pass wired into the e2e suite (done: `tests/e2e/checkin.spec.mjs` runs `axe.run` and asserts zero serious/critical)
 
 ## Documentation
 - [x] Resolve/hard-default the six §10 open questions inline so the plan is fully self-contained (done in plan v2 — §10 "Defaults & Revisit Triggers")
 - [x] Redraw the §3.1 state-machine diagram so ADMIN's entry/exit edges are unambiguous (done in plan v2; a cosmetic top-border box remains — see critique Rev 6 nit #3)
 
 ## Notes
-The four Polish items above (lint gate, font subsetting/budget, dual meta tags, axe-core
-e2e) are **planned** in the approved plan (Phases 0/6/7) and further hardened in v3 (font
-subsetting is now pinned to `fonttools==4.64.0` via `scripts/font-subset.sh`). They remain
-unchecked until implemented **in code** and will be marked done at implementation-audit time.
-No backlog item was completed in the v3 cycle — it was a plan-only revision.
+The four Polish items above (lint gate, font subsetting/budget, dual meta tags, axe-core e2e)
+were **implemented and verified** at implementation-audit v8 (commit `07ef178`) and are now
+marked done. Six unchecked items remain (five deferred features + the optional Node 24 bump),
+for a backlog deduction of −3. Remaining implementation gaps (missing e2e privacy spy,
+orientation/export/leak/reduced-motion e2e, and the §4.1 magic-number nit) are tracked as
+**defects** in `CONSOLIDATED_AUDIT.md` Required Actions #5–#8, not here.
