@@ -5,7 +5,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
-- [/] Multi-device check-in log consolidation / merge tooling (§9)
+- [x] Multi-device check-in log consolidation / merge tooling (§9) — done in `3168a28`: pure `src/lib/log-merge.mjs` (parse/normalize/dedupe/sort) + `store.mjs` preview/merge APIs + admin Merge-Logs UI; Implementation Verification v4 = 98/100 VERIFIED (38 unit + 10 e2e green)
 - [ ] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6)
 - [ ] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
 - [ ] On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)
@@ -33,14 +33,13 @@ Cycle 2 is **complete**: `IMPLEMENTATION_PLAN.md` v5 ("Roster windowing/virtuali
 implemented in commit `21e06f3` and passed **Implementation Verification v3 = 97/100 — VERIFIED**
 (see `IMPLEMENTATION_PLAN_CRITIQUE.md`). The roster-windowing item is now `[x]`.
 
-**Cycle 3 is open** (State 2 — implement the approved plan): the "Multi-device check-in log
-consolidation / merge tooling" item is `[/]` (in progress). `IMPLEMENTATION_PLAN.md` v7 targets it
-and is **APPROVED at 97/100** (Plan Critique Rev 2) — all three Rev-1 blockers (build `modules`-order
-dependency on `csv.mjs`, CSV parse-throw error path, cross-device timestamp ordering) and all five
-Path-to-100 nits resolved. The item moves to `[x]` only after the implementation lands and passes
-Implementation Verification (≥95).
+**Cycle 3 is complete** (State 4 — cycle complete): the "Multi-device check-in log consolidation /
+merge tooling" item is now `[x]`. `IMPLEMENTATION_PLAN.md` v7 (APPROVED at 97/100, Plan Critique
+Rev 2) was implemented in commit `3168a28` and passed **Implementation Verification v4 = 98/100 —
+VERIFIED** (see `IMPLEMENTATION_PLAN_CRITIQUE.md`): all four phases COMPLIANT, proven by execution
+(lint clean, 38 unit + 10 e2e green, build 24,660 gzip bytes within budget, artifact module order
+`csv`→`log-merge`→`store` verified). No regressions.
 
 Four items remain strictly not-done here (`[ ]`), for a backlog deduction of −2 (1 pt per 2, round
-down); the merge item is `[/]` and not counted as unchecked. The remaining levers are the three
-other deferred features (scan audio, native SwiftUI, offline-HTTPS helper) plus the optional Node 24
-toolchain bump — each a separate subsystem and a candidate for a future planning cycle.
+down): scan audio, native SwiftUI, offline-HTTPS helper, and the optional Node 24 toolchain bump —
+each a separate subsystem and a candidate for a future planning cycle.

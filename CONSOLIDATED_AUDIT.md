@@ -1,26 +1,51 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 69/100
-**Audit Version:** v14
-**Audited:** commit `b2477f5` on 2026-09-02 (Cycle 3 — multi-device log merge plan v7 APPROVED)
-**Stage:** Cycle 3, **State 2 — implement the approved plan (Plan Critique Rev 2 = 97/100, APPROVED)**
+**Current Score**: 72/100
+**Audit Version:** v15
+**Audited:** commit `3168a28` on 2026-09-02 (Cycle 3 — multi-device log merge IMPLEMENTED & VERIFIED)
+**Stage:** Cycle 3, **State 4 — cycle complete (Implementation Verification v4 = 98/100, VERIFIED)**
 
-> **STATE 2 — IMPLEMENT THE APPROVED PLAN.** `IMPLEMENTATION_PLAN.md` v7 (commit `b2477f5`) is
-> critiqued at **97/100 — APPROVED** (Plan Critique Rev 2, ≥95 gate cleared). All three Rev-1
-> blockers are resolved with source-verified precision: (1) the build `modules`-array order is now
-> fully specified — `log-merge.mjs` must sit **after `src/lib/csv.mjs` and before `src/lib/store.mjs`**
-> (§3/§5/§6-Phase4/§7.5), with a build-test assertion that `src_lib_log_merge` resolves after
-> `src_lib_csv`/before `src_lib_store` *and* aliases `src_lib_csv.parseCsv` (verified: `build.mjs:7–20`
-> has csv@4, store@5; alias rewrite at `build.mjs:106–115`); (2) `parseLogCsv` wraps `parseCsv` in
-> try/catch and converts the unterminated-quote throw (`csv.mjs:41`) into a per-file error, with a
-> unit test (§6-Phase1/§8/§10); (3) ordering is numeric `Date.parse(timestamp)` with deterministic
-> tie-breaks, original string preserved for export, mixed-offset unit test added (§2.5/§6/§8/§9/§10).
-> All five Path-to-100 nits also closed (store method/import alias `mergeLogEntrySets`; Apply-Merge
-> `data-action` branch + no-preview guard; no-mutation wording reconciled; literal e2e CSV fixture;
-> 10k-row <250 ms benchmark). Scope adequate (one backlog item, four correctly deferred; zero open
-> defects). No source changed since v12's code landing (only plan/doc commits) → **second idle cycle,
-> −2 inactivity decay**. **Next: implement plan v7 and pass Implementation Verification (≥95).** Every
-> further idle cycle without code adds another −1 decay.
+> **STATE 4 — CYCLE COMPLETE.** `IMPLEMENTATION_PLAN.md` v7 (approved 97/100) is **implemented and
+> VERIFIED**. Commit `3168a28` ("feat(logs): implement approved merge workflow", 11 files) lands the
+> pure `src/lib/log-merge.mjs` (parse/normalize/dedupe/numeric-sort), the `store.mjs`
+> `previewLogMerge`/`mergeLogEntries` APIs (helper aliased `mergeLogEntrySets`, no recursion), the
+> admin Merge-Logs UI (`.log-merge-input`, accessible preview, `data-action="apply-merge"` guard),
+> the CSS, the `build.mjs` slot (`csv`→`log-merge`→`store`), and full unit/store/build/e2e coverage.
+> **Implementation Verification v4 = 98/100 — VERIFIED** (≥95 gate cleared): every plan section
+> COMPLIANT, confirmed by execution — lint clean, **38/38** unit, **10/10** e2e (new merge-workflow
+> spec asserts the literal CSV fixture + axe-green dialog), build **24,660 gzip bytes** within budget
+> with artifact module order `src_lib_csv` < `src_lib_log_merge` < `src_lib_store` and the
+> `parseCsv` alias wired through. Two of three plan Path-to-100 nits closed in code (e2e seed-vs-live
+> resolved by direct `localStorage` seed; stray-object content-sniff unit-tested); one non-blocking
+> nit remains (§9 benchmark hard 250 ms wall-clock). No regressions. Code landed → **inactivity decay
+> resets to 0**; merge backlog item `[/]` → `[x]`. Audit score climbs **69 → 72**.
+
+## Summary (v15)
+
+**Multi-device log merge IMPLEMENTED & VERIFIED.** Commit `3168a28` (11 files) implements approved
+plan v7 in full. **Implementation Verification v4 = 98/100 — VERIFIED**: all four phases plus §7
+integration and §10 testing are COMPLIANT, proven by a reproduced verification run — `prettier
+--check` clean, `node --test tests/unit/*.test.mjs` **38/38**, `playwright test` **10/10**, and
+`node scripts/build.mjs` a **24,660 gzip-byte** self-contained artifact within the ≤750 KB gzip /
+≤1.2 MB budget. The build slot is correct and verified in `dist/index.html` (`src_lib_csv` at 29929 <
+`src_lib_log_merge` at 32198 < `src_lib_store` at 37779, with the `src_lib_csv.parseCsv` alias present
+in the merge chunk). The new e2e merge-workflow spec seeds `localStorage` with the local row, imports
+an overlapping JSON + a CSV containing a duplicate/new/invalid mix, asserts the preview counts and the
+`device-b.csv: skipped 1 invalid rows` message, applies, and compares the copied CSV against the
+**literal** fixture bytes — then runs axe against the open dialog with zero serious/critical
+violations. Two of three plan Path-to-100 nits are closed in code (e2e seed-vs-live resolved by direct
+`localStorage.setItem`; stray-object content-sniff covered by a dedicated unit test); one non-blocking
+nit remains (§9 hard 250 ms benchmark wall-clock — a low-risk quadratic-guard). No regressions: the
+storage key/row shape and all existing store APIs are unchanged, the single `csv.mjs` parser is
+reused, zero runtime deps added, and the prior 9 e2e specs stay green.
+
+Loop reaches **State 4 — cycle complete**. Code landed (commit `3168a28` touches source), so the −2
+inactivity decay **resets to 0**. The merge backlog item moves `[/]` → `[x]`; strict-unchecked `[ ]`
+items hold at 4 → backlog **−2** (1 pt per 2, round down). Base system health rises **73 → 74**
+(monitoring & observability 8 → 9 now that offline multi-device log consolidation ships end-to-end and
+is test-proven). The audit score climbs **69 → 72**. The remaining levers are the three other deferred
+backlog features (scan audio, native SwiftUI, offline-HTTPS helper) plus the optional Node 24 bump —
+each a candidate for a future planning cycle.
 
 ## Summary (v14)
 
@@ -172,28 +197,43 @@ Base score (8 criteria, /10 each), judged against the **verified** system (now i
 | Document coherence | 9/10 | Config/CSS/build all agree with plan; carried cosmetic plan-doc nit (font-subset.sh heading) |
 | Testing rigor | 9/10 | 22 unit + 9 e2e green; new virtual-list window/threshold unit suite + 620-row e2e (bounded DOM, long-name, axe, late select, search revert); minor: e2e render bound is `≤40`, not the exact plan formula |
 | Safety architecture | 10/10 | Privacy test-enforced; comprehensive §6/§8 error handling; virtual path adds zero-viewport fallback + rAF-coalesced scroll + leak-safe teardown |
-| Monitoring & observability | 8/10 | Check-in log + admin CSV/JSON export/copy built and e2e-verified for exact-match on export |
-| Feature completeness | 10/10 | All four flow states + admin + **roster virtualization for >500 rows** now shipped and test-proven end-to-end |
-| Risk management | 9/10 | Deps pinned, artifact budget enforced (22,091 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added |
+| Monitoring & observability | 9/10 | Check-in log + admin CSV/JSON export/copy + **offline multi-device log consolidation/merge** now shipped and e2e-verified for exact-match export |
+| Feature completeness | 10/10 | All four flow states + admin + roster virtualization + **multi-device log merge tooling** now shipped and test-proven end-to-end |
+| Risk management | 9/10 | Deps pinned, artifact budget enforced (24,660 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added; merge preserves storage key/row shape |
 
-**Base Score:** 73/100 (unchanged — shipped system untouched since v12; no code, no new defects, no regressions)
+**Base Score:** 74/100 (+1 vs. v14 — monitoring & observability 8 → 9 now that offline multi-device log consolidation ships end-to-end and is test-proven; no open defects, no regressions)
 
 **Deductions:**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
-- Backlog: −2 (4 items `- [ ]` in `BACKLOG.md`; merge item stays `[/]` in progress; 1 pt per 2, round down)
-- Inactivity: −2 (second consecutive idle cycle since v12 code landing `21e06f3`; only doc/plan commits since)
+- Backlog: −2 (4 items `- [ ]` in `BACKLOG.md`; merge item now `[x]`; 1 pt per 2, round down)
+- Inactivity: −0 (code landed in commit `3168a28`, touching source — decay reset from −2)
 
-**Current Score**: 69/100
+**Current Score**: 72/100
 
-Trajectory: plan v7 (multi-device log merge) **APPROVED at 97/100** (Plan Critique Rev 2) →
-**State 2 (implement)**. No source has changed since the v12 code landing, so **−2 inactivity decay**
-(second idle cycle) drops the score **70 → 69**. Base health holds at 73 (no shipped-system change,
-no open defects). The merge backlog item stays `[/]` → strict-unchecked at 4 → backlog −2 (unchanged).
-The only lever to climb is to implement plan v7 and pass Implementation Verification (≥95) — every
-further idle cycle adds another −1 decay until code lands.
+Trajectory: plan v7 (multi-device log merge) **IMPLEMENTED & VERIFIED** at Implementation
+Verification v4 = **98/100** → **State 4 (cycle complete)**. Code landed (commit `3168a28`), so the
+−2 inactivity decay **resets to 0** and the merge backlog item moves `[/]` → `[x]`. Base health rises
+**73 → 74** (monitoring 8 → 9). Backlog holds at −2 (4 strict-unchecked). The audit score climbs
+**69 → 72**. The next lever is to open a new planning cycle from a remaining backlog item (scan audio,
+native SwiftUI, offline-HTTPS helper, or the Node 24 bump) — not to re-touch the now-verified merge code.
 
 ## Findings
 
+- **VERIFIED (implementation, v4)** — Multi-device log merge (plan v7) implemented in commit `3168a28`
+  (11 files) and scores **98/100** (≥95 gate cleared). All plan sections COMPLIANT, confirmed by
+  execution: lint clean, **38/38** unit, **10/10** e2e, build **24,660 gzip bytes** within budget with
+  the artifact module order `src_lib_csv` < `src_lib_log_merge` < `src_lib_store` and the
+  `src_lib_csv.parseCsv` alias wired through the merge chunk. `src/lib/log-merge.mjs` normalizes/dedupes
+  (`visit:`/`fallback:` first-wins) and sorts by numeric `Date.parse` with guestId/name/table/visitId
+  tie-breaks; `parseLogCsv` converts the unterminated-quote throw into a per-file error without
+  aborting the batch; `store.mjs` exposes non-persisting `previewLogMerge` + persisting
+  `mergeLogEntries` (helper aliased `mergeLogEntrySets`, no recursion); the admin dialog adds an
+  accessible Merge-Logs preview with an `apply-merge` guard and no auto-clear. The e2e spec seeds
+  `localStorage`, imports overlapping JSON+CSV (duplicate/new/invalid), applies, and compares the
+  copied CSV against the literal fixture with an axe-green dialog. Two of three plan Path-to-100 nits
+  closed in code (e2e seed-vs-live; stray-object content-sniff unit test). One non-blocking nit remains
+  (§9 hard 250 ms benchmark wall-clock). No regressions. Loop → **State 4 (cycle complete)**. See
+  `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v4.
 - **APPROVED (plan v7, Rev 2)** — Multi-device log merge plan scores **97/100** (≥95 gate cleared).
   All three Rev-1 blockers resolved with source-verified precision: (1) the build `modules`-array
   slot is now explicit — `log-merge.mjs` **after `src/lib/csv.mjs` and before `src/lib/store.mjs`**
@@ -278,30 +318,20 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 3 is at **State 2 — implement the approved plan**. `IMPLEMENTATION_PLAN.md` v7 (multi-device
-log merge) is **APPROVED at 97/100** and is now the contract for implementation. The generator must
-build the plan and pass Implementation Verification (≥95). Do **not** revise the plan further — the
-plan is the spec. Key acceptance targets to honor during implementation:
+Cycle 3 is at **State 4 — cycle complete**. `IMPLEMENTATION_PLAN.md` v7 (multi-device log merge) is
+**implemented and VERIFIED** (Implementation Verification v4 = 98/100). Do **not** re-touch the
+now-verified merge code. The next lever to raise the audit score is to **open a new planning cycle**
+from a remaining backlog item — each is a distinct subsystem:
 
-1. **Build order:** insert `src/lib/log-merge.mjs` **after `src/lib/csv.mjs` and before
-   `src/lib/store.mjs`** in the `build.mjs` `modules` array; `build.test.mjs` must assert
-   `src_lib_log_merge` resolves after `src_lib_csv`/before `src_lib_store` and contains a
-   `src_lib_csv.parseCsv` alias, with no residual module syntax.
-2. **Error taxonomy:** `parseLogCsv` wraps `parseCsv` in try/catch and converts throws (incl. the
-   unterminated-quote throw) into per-file errors; malformed files never abort the batch.
-3. **Ordering:** sort by numeric `Date.parse(timestamp)` with tie-breaks (`guestId`, normalized
-   `name`, `table`, `visitId`), preserving the original offset string for export; mixed-offset unit
-   test present.
-4. **Store API:** import the helper as `mergeLogEntrySets` and expose `mergeLogEntries`/
-   `previewLogMerge` without self-recursion; preserve existing export/idempotency behavior.
-5. **Tests:** unit (parse/normalize/dedupe/invalid/ordering/benchmark), store (persist/preview/
-   idempotency/volatile/column-order), build (namespace/order/no-residual-syntax), and the e2e
-   merge workflow asserting the literal CSV fixture. Run `npm run lint`, `npm run test:unit`,
-   `npm run test:e2e`, `npm run build`.
+1. Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6).
+2. Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1).
+3. On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2).
+4. Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a).
 
-The two residual Path-to-100 nits (e2e seed-vs-live local row; benchmark CI robustness) may be
-addressed opportunistically but are not gate blockers. Every idle cycle without code adds another
-−1 inactivity decay until code lands.
+One non-blocking Path-to-100 nit may be addressed opportunistically inside a future cycle: harden the
+§9 10k-row benchmark against CI variance (frame it as a scale-check rather than a hard 250 ms
+wall-clock). Every idle cycle with no code change accrues −1 inactivity decay until the next cycle
+lands code.
 
 ## Revision History
 
@@ -320,4 +350,5 @@ addressed opportunistically but are not gate blockers. Every idle cycle without 
 | v11 | 2026-09-02 | 67 | **Plan v5 landed and APPROVED at 97/100** (commit `855c436`, Plan Critique Rev 2). All four Rev-1 blockers resolved with source-verified fixes (build module-ordering §Phase 2b + manifest, `role="listbox"` rejected for native semantics + axe-green, single-line clamp with 66/58 px split, row-height/gap via two config constants); all five Rev-1 Path-to-100 items closed; two non-blocking nits remain. Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v9 → −2 inactivity decay. Base 72; backlog −3 (6 not-done); inactivity −2. Score 68 → 67. |
 | v12 | 2026-09-02 | 71 | **Roster virtualization IMPLEMENTED & VERIFIED** (commit `21e06f3`, 8 files). **Implementation Verification v3 = 97/100 — VERIFIED**: all plan phases (1–4 + 2b), §7 integration, §9 cleanup COMPLIANT, confirmed by execution — lint clean, **22/22** unit, **9/9** e2e (620-row spec: bounded DOM ≤40, single-line long-name, axe-green, late-list select + full SCAN/RESULT, search revert to non-virtualized `scrollTop=0`), build 22,091 gzip bytes within budget with correct `virtual-list.mjs`-before-`roster.mjs` ordering + clean artifact. Both plan Path-to-100 nits closed in code; one beneficial deviation (`.is-virtualized .guest-row{height:58px}`). Loop → **State 4 (cycle complete)**. Feature completeness 9→10; code landed resets decay −2→0; roster-windowing backlog `[/]`→`[x]` (backlog −3→−2). Base 73; backlog −2; inactivity −0. Score 67 → 71. |
 | v13 | 2026-09-02 | 70 | **Cycle 3 opened** (commits `e7083f9` archive, `f6e09eb` plan v6). New plan `IMPLEMENTATION_PLAN.md` v6 (multi-device check-in log merge tooling) critiqued at **93/100 — NOT APPROVED** (Rev 1): three moderate gaps below the gate — (1) build `modules`-order dependency omits that `log-merge.mjs` must sit after `csv.mjs` (imports `parseCsv`) as well as before `store.mjs`; (2) §8 error taxonomy misses `parseCsv`'s unterminated-quote throw (`csv.mjs:41`); (3) cross-device timestamp ordering unspecified (offset-bearing ISO → string sort not chronological across mixed tz/DST). Scope adequate (one backlog item, four correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v12 → −1 inactivity decay (first idle cycle); merge backlog item `[ ]`→`[/]` (strict-unchecked 5→4, backlog −2 holds). Base 73; backlog −2; inactivity −1. Score 71 → 70. |
+| v15 | 2026-09-02 | 72 | **Multi-device log merge IMPLEMENTED & VERIFIED** (commit `3168a28`, 11 files). **Implementation Verification v4 = 98/100 — VERIFIED**: all four phases + §7 integration + §10 testing COMPLIANT, confirmed by execution — lint clean, **38/38** unit, **10/10** e2e (merge spec asserts literal CSV fixture + axe-green dialog), build 24,660 gzip bytes within budget with artifact order `src_lib_csv`<`src_lib_log_merge`<`src_lib_store` + `parseCsv` alias wired. Two of three plan Path-to-100 nits closed in code (e2e seed-vs-live; stray-object sniff test); one non-blocking nit remains (§9 hard 250 ms benchmark). No regressions. Loop → **State 4 (cycle complete)**. Monitoring 8→9; code landed resets decay −2→0; merge backlog `[/]`→`[x]` (backlog −2, 4 unchecked). Base 74; backlog −2; inactivity −0. Score 69 → 72. |
 | v14 | 2026-09-02 | 69 | **Plan v7 APPROVED at 97/100** (commit `b2477f5`, Plan Critique Rev 2). All three Rev-1 blockers resolved with source-verified precision: build slot `csv.mjs`→`log-merge.mjs`→`store.mjs` made explicit + namespace-resolution build assertion (`build.mjs:7-20` csv@4/store@5); `parseLogCsv` try/catch converts unterminated-quote throw to per-file error (`csv.mjs:41`); numeric `Date.parse` ordering + tie-breaks + mixed-offset test. All five Path-to-100 nits closed (import alias `mergeLogEntrySets`, Apply-Merge `data-action` guard, no-mutation wording, literal e2e fixture, 10k-row <250 ms benchmark). Two residual Path-to-100 nits (e2e seed-vs-live local row; benchmark CI robustness). Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v12 → −2 inactivity decay. Base 73; backlog −2 (4 not-done, merge `[/]`); inactivity −2. Score 70 → 69. |

@@ -154,3 +154,69 @@ claim about the existing code checks out against source. Two minor specificity n
 (e2e live-vs-seeded local row; benchmark CI robustness) — Path-to-100 only, no gate impact. The
 plan is now the contract for implementation. **State 2 — implement the approved plan.** Do not
 revise the plan further; build it and pass implementation verification (≥95).
+
+---
+
+## Implementation Verification — v4
+
+**Plan:** `IMPLEMENTATION_PLAN.md` @ commit `b2477f5` (approved score: 97/100, Plan Critique Rev 2)
+**Code:** commit `3168a28` ("feat(logs): implement approved merge workflow", 11 files) audited on 2026-09-02
+
+**Implementation Score:** 98/100 — **VERIFIED** (≥95 gate cleared)
+
+Every plan section is implemented, matches the approved spec, and is proven by execution. Full
+verification run reproduced locally:
+
+- `npm run lint` → **clean** ("All matched files use Prettier code style!")
+- `npm run test:unit` → **38/38 pass** (12 new `log-merge` + 4 new `store` merge tests + build assertions)
+- `npm run test:e2e` → **10/10 pass** (new merge-workflow spec #7 with axe-green admin dialog)
+- `npm run build` → **24,660 gzip bytes** (within ≤750 KB gzip / ≤1.2 MB budget), clean artifact
+- Artifact module order verified in `dist/index.html`: `src_lib_csv` (offset 29929) < `src_lib_log_merge`
+  (32198) < `src_lib_store` (37779), and the `src_lib_log_merge` chunk aliases `src_lib_csv.parseCsv`.
+
+### Section-by-Section Compliance
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 1 — `src/lib/log-merge.mjs` | COMPLIANT | `normalizeLogEntry` requires guestId/name/timestamp, trims optional visitId/table, rejects non-finite `Date.parse` (`log-merge.mjs:17-36`); `parseLogJson` throws only file-level for invalid/non-array JSON, collects per-row `invalidRows` (`:38-55`); `parseLogCsv` wraps `parseCsv` in try/catch → file-level error incl. unterminated-quote, checks required columns (`:57-90`); `parseLogFile` dispatches by ext, content-sniffs `[`/`{` for unknown (`:92-104`); `mergeLogEntries` dedupes `visit:`/`fallback:` first-wins, sorts numeric `sortTime` then guestId/name/table/visitId tie-breaks (`:106-167`) |
+| §6 Phase 2 — `src/lib/store.mjs` | COMPLIANT | Helper imported as `mergeLogEntrySets` (`:5`); `replaceLog` reuses `saveLog` (`:59-61`); `previewLogMerge` non-persisting, `mergeLogEntries` persists, no self-recursion (`:104-111`); existing `appendCheckIn`/`loadLog`/`clearLog`/`exportLogCsv`/`exportLogJson` unchanged; volatile fallback intact |
+| §6 Phase 3 — `src/screens/admin.mjs` | COMPLIANT | `.log-merge-input` `multiple accept=".json,.csv,application/json,text/csv"` (`:45`); Apply button disabled until valid preview (`:47,146`); `readMergeFiles` via `file.text()`, per-file errors don't abort batch (`:73-99`); accessible `dl`/`ul` preview with `aria-live` region (`:46,101-150`); `data-action="apply-merge"` branch exits before export/copy (`:205-208`); `clearMergePreview` on dialog close, focus restored (`:152-159,180-185`); errors in text not `alert()`; no auto-clear of existing log |
+| §6 Phase 4 — styles/build/docs | COMPLIANT | `.merge-panel`/`.merge-summary`/`.merge-errors`/disabled-button + narrow-screen single-column media query (`styles.css`); `build.mjs` inserts `log-merge.mjs` at index 13 between `csv.mjs`(12) and `store.mjs`(14); `build.test.mjs` asserts order + `parseCsv` alias + no residual `import`/`export`; README "Multi-Device Log Merge" 5-step procedure |
+| §7 Integration points | COMPLIANT | All five boundaries wired: file-input→parser, parser→merge, merge→store, store→export/copy, build transform (verified in artifact) |
+| §10 Testing strategy | COMPLIANT | Unit/store/build/e2e all present and green; e2e asserts the **literal** CSV fixture bytes (`checkin.spec.mjs:238-241`) rather than re-serializing with `toCsv()`, exactly as §10 requires |
+
+No MISSING, PARTIAL, or DEVIATED sections.
+
+### Regression Detection
+
+No regressions. Storage key `checkin007.log.v1` and row shape unchanged; existing store APIs
+behavior-stable (proven by the pre-existing e2e specs and store unit tests still green); single
+`csv.mjs` parser reused (no second parser); zero new runtime deps; new listeners routed through the
+dialog lifecycle and torn down on close; Apply-Merge does not auto-clear the existing log. The prior
+9 e2e specs plus all pre-existing unit tests remain green (38 unit total, 10 e2e total).
+
+### Path-to-100 nit resolution
+
+- Plan-critique Path-to-100 #1 (e2e seed-vs-live local row) — **RESOLVED**: the merge spec seeds
+  `checkin007.log.v1` directly via `page.addInitScript` (`checkin.spec.mjs:271-273`), removing the
+  live-SCAN ambiguity.
+- Plan-critique Path-to-100 #3 (stray-object content sniff) — **RESOLVED**: unit test "unknown
+  extensions sniff JSON and report non-array JSON as a file-level error" (`log-merge.test.mjs:46-50`).
+
+### Defects
+
+None blocking. One residual Path-to-100 nit (non-blocking, no gate impact):
+
+1. **Benchmark hard wall-clock threshold (§9).** `log-merge.test.mjs:116-129` asserts
+   `elapsed < 250` ms as a fixed wall-clock rather than a scale-check, so it can flake under loaded
+   CI (this is plan-critique Path-to-100 #2, left unaddressed). It is a quadratic-guard with generous
+   headroom (measured well under threshold locally), so risk is low. Optional to harden; not a gate blocker.
+
+### Why 98 and not 100
+
+The one carried Path-to-100 nit (benchmark hard wall-clock) is the only thing separating this from a
+perfect implementation. Everything the plan specified is built, compliant, and execution-proven,
+including two of the three plan Path-to-100 items resolved in code.
+
+**Cycle status: State 4 — cycle complete.** Implementation Verification = 98/100, VERIFIED. The merge
+backlog item moves `[/]` → `[x]`.
