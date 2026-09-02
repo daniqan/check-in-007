@@ -6,7 +6,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
 - [x] Multi-device check-in log consolidation / merge tooling (§9) — done in `3168a28`: pure `src/lib/log-merge.mjs` (parse/normalize/dedupe/sort) + `store.mjs` preview/merge APIs + admin Merge-Logs UI; Implementation Verification v4 = 98/100 VERIFIED (38 unit + 10 e2e green)
-- [/] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6)
+- [x] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6) — done in `b63a8ff`: pure `src/lib/audio.mjs` (factory-based availability, gesture unlock, per-cue oscillator/gain with exact §4.3 automation, guarded non-awaited playback resume, `dispose()`) + `store.mjs` audio-settings persistence + admin opt-in checkbox; Implementation Verification v5 = 98/100 VERIFIED (52 unit + 12 e2e green, default-off, privacy test-enforced)
 - [ ] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
 - [ ] On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)
 
@@ -45,13 +45,16 @@ backlog deduction of −1 (1 pt per 2 unchecked, round down): native SwiftUI, of
 and the optional Node 24 toolchain bump each remain separate subsystems and candidates for future
 planning cycles.
 
-**Cycle 4 is in progress** (State 2 — implement the approved plan): `IMPLEMENTATION_PLAN.md` v11
-(optional scan "blip" audio, gesture-gated) is **APPROVED at 99/100** (Plan Critique Rev 4). The
-plan cleared the ≥95 gate at v9 (Rev 2 = 97), reached the 99 ceiling at v10 (Rev 3 folded in all
-four Rev-2 nits), and v11 folded in the last Rev-3 nit (`unlockFromGesture()` idempotency now
-stated in the Phase-2 contract and §8). The one remaining Path-to-100 nit (add a §10 unit assertion
-for repeated-unlock idempotency) is polish to handle at implementation, not via another plan
-revision. The scan-audio item stays `[/]` until the approved plan is implemented and passes
-Implementation Verification. Note: the plan has been at the 99 ceiling since v9 — no source has
-landed since `3168a28`, so this is the **fourth** consecutive idle cycle (audit −4 decay, 72 → 69).
-Implement, don't re-plan. See `IMPLEMENTATION_PLAN_CRITIQUE.md`.
+**Cycle 4 is complete** (State 4 — cycle complete): the "Optional subtle scan blip audio" item is
+now `[x]`. `IMPLEMENTATION_PLAN.md` v11 (APPROVED at 99/100, Plan Critique Rev 4) was implemented in
+commit `b63a8ff` (13 files) and passed **Implementation Verification v5 = 98/100 — VERIFIED** (see
+`IMPLEMENTATION_PLAN_CRITIQUE.md`): every plan section COMPLIANT, proven by execution — lint clean,
+**52 unit + 12 e2e** green, build 26,315 gzip bytes within budget, module order
+`src_config`→`src_lib_audio`→`src_app` verified, exact §4.3 automation unit-asserted, camera
+privacy preserved and test-enforced. The last Path-to-100 nit (repeated-unlock idempotency unit
+assertion) was folded into `tests/unit/audio.test.mjs` as recommended. No regressions. Code landed →
+inactivity decay resets to 0.
+
+Two items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build, on-device static-HTTPS
+helper — plus the optional Node 24 toolchain bump, for a backlog deduction of −1 (3 unchecked, 1 pt
+per 2, round down). Each is a separate subsystem and a candidate for a future planning cycle.

@@ -1,9 +1,36 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 69/100
-**Audit Version:** v19
-**Audited:** commit `b2178c2` on 2026-09-02 (Cycle 4 — scan blip audio plan v11 APPROVED)
-**Stage:** Cycle 4, **State 2 — implement the approved plan (Plan Critique Rev 4 = 99/100, APPROVED)**
+**Current Score**: 75/100
+**Audit Version:** v20
+**Audited:** commit `b63a8ff` on 2026-09-02 (Cycle 4 — scan blip audio IMPLEMENTED & VERIFIED)
+**Stage:** Cycle 4, **State 4 — cycle complete (Implementation Verification v5 = 98/100, VERIFIED)**
+
+> **STATE 4 — CYCLE COMPLETE (v20).** `IMPLEMENTATION_PLAN.md` v11 (optional scan blip audio,
+> APPROVED at 99/100, Plan Critique Rev 4) is now **implemented and VERIFIED**. Commit `b63a8ff`
+> ("feat(audio): implement scan blip cue", 13 files) lands the pure `src/lib/audio.mjs` (factory-based
+> availability, gesture unlock, idempotent repeated unlock, per-cue oscillator/gain scheduling with
+> the exact §4.3 automation, guarded non-awaited playback resume, `dispose()`), the `store.mjs`
+> audio-settings persistence (`normalizeAudioSettings`/`loadAudioSettings`/`saveAudioSettings`,
+> default-off, volatile fallback), the app wiring (`onSelect` unlock → visit id → `SCAN`, scan-`onDone`
+> playback → `RESULT`, `onAdminHold` passing `audioSettings`/`onAudioSettingsChanged`), the admin
+> opt-in checkbox (after `.merge-panel`, before `.admin-grid`, inline `?.scanBlipEnabled === true`
+> normalization), the `build.mjs` slot (`config`→`audio`→…→`app`), and full unit/store/build/e2e
+> coverage plus README. **Implementation Verification v5 = 98/100 — VERIFIED** (≥95 gate cleared):
+> every plan section COMPLIANT, confirmed by execution — `prettier --check` clean, **52/52** unit,
+> **12/12** e2e, build **26,315 gzip bytes** within the ≤750 KB gzip / ≤1.2 MB budget with the
+> artifact module order `src_config` < `src_lib_audio` < `src_app` and both namespace aliases wired.
+> The exact §4.3 AudioParam automation is unit-asserted to the literal call sequence
+> (`880@now`→`1320@now+0.045`, gain `0.045@now`→`setTargetAtTime(0,now,0.035)`, `start(now)`/
+> `stop(now+0.09)`); the last Rev-3/Rev-4 Path-to-100 nit (repeated-unlock idempotency) was folded
+> into `tests/unit/audio.test.mjs` as recommended (second unlock on a `running` context returns
+> `true`, constructs no second context, `resumeCalls === 0`). Camera privacy preserved and now
+> test-enforced (extended probe asserts every `getUserMedia` `audio === false`; `scan.mjs:40` unchanged;
+> `toDataURL`/`captureStream`/`MediaRecorder` all 0). No regressions (all prior specs green; suite grew
+> 38→52 unit, 10→12 e2e). Two non-blocking Path-to-100 nits remain (enabled-audio e2e runs in covert
+> mode; no enable→disable→scan e2e). Code landed → **inactivity decay resets to 0**; scan-audio backlog
+> item `[/]` → `[x]`. Base health rises **74 → 76**; backlog −1 (3 unchecked). Audit score climbs
+> **69 → 75**. The remaining levers are the three deferred backlog items (native SwiftUI, offline-HTTPS
+> helper, Node 24 bump) — each a candidate for a future planning cycle.
 
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v19).** `IMPLEMENTATION_PLAN.md` was bumped v10→v11
 > (commit `b2178c2`, "clarify audio unlock idempotency") after the Rev-3 approval, so it was
@@ -349,37 +376,57 @@ Base score (8 criteria, /10 each), judged against the **verified** system (now i
 
 | Criterion | Score | Note |
 |-----------|-------|------|
-| Code correctness | 9/10 | 22 unit + 9 e2e pass; virtual window math clamps all invalid inputs; event delegation + full listener/rAF cleanup preserved |
-| Plan compliance | 9/10 | Cycle-2 plan v5 fully COMPLIANT (all phases verified by execution); carried minor: `setState` exposed beyond §4.4 "only `start()`" surface (test hook) |
-| Document coherence | 9/10 | Config/CSS/build all agree with plan; carried cosmetic plan-doc nit (font-subset.sh heading) |
-| Testing rigor | 9/10 | 22 unit + 9 e2e green; new virtual-list window/threshold unit suite + 620-row e2e (bounded DOM, long-name, axe, late select, search revert); minor: e2e render bound is `≤40`, not the exact plan formula |
-| Safety architecture | 10/10 | Privacy test-enforced; comprehensive §6/§8 error handling; virtual path adds zero-viewport fallback + rAF-coalesced scroll + leak-safe teardown |
-| Monitoring & observability | 9/10 | Check-in log + admin CSV/JSON export/copy + **offline multi-device log consolidation/merge** now shipped and e2e-verified for exact-match export |
-| Feature completeness | 10/10 | All four flow states + admin + roster virtualization + **multi-device log merge tooling** now shipped and test-proven end-to-end |
-| Risk management | 9/10 | Deps pinned, artifact budget enforced (24,660 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added; merge preserves storage key/row shape |
+| Code correctness | 9/10 | 52 unit + 12 e2e pass; audio controller catches every Web Audio exception and returns booleans; virtual window math clamps all invalid inputs; event delegation + full listener/rAF cleanup preserved |
+| Plan compliance | 10/10 | Cycle-4 plan v11 fully COMPLIANT (all phases verified by execution, Implementation Verification v5 = 98) on top of the already-VERIFIED cycles 1–3 |
+| Document coherence | 9/10 | Config/CSS/build/README all agree with plan; carried cosmetic plan-doc nit (font-subset.sh heading) |
+| Testing rigor | 10/10 | 52 unit + 12 e2e green; audio suite asserts the **exact** §4.3 automation call sequence, unlock idempotency, guarded resume, dispose; privacy probe test-enforces `getUserMedia audio === false` |
+| Safety architecture | 10/10 | Privacy test-enforced; comprehensive §6/§8 error handling; audio failures non-fatal (never block scan/result/logging); virtual path zero-viewport fallback + leak-safe teardown |
+| Monitoring & observability | 9/10 | Check-in log + admin CSV/JSON export/copy + offline multi-device log consolidation/merge; optional audio cue adds operator feedback in noisy rooms |
+| Feature completeness | 10/10 | All four flow states + admin + roster virtualization + multi-device log merge + **optional gesture-gated scan audio** now shipped and test-proven end-to-end |
+| Risk management | 9/10 | Deps pinned, artifact budget enforced (26,315 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added; audio is default-off, reversible (one localStorage key), preserves storage key/row shape |
 
-**Base Score:** 74/100 (unchanged vs. v15–v18 — shipped system untouched since `3168a28`; no open
-defects, no regressions; cycle-4 work remains plan-only through approval)
+**Base Score:** 76/100 (up from 74 at v15–v19 — cycle-4 scan audio now shipped & VERIFIED: plan
+compliance 9→10 and testing rigor 9→10 as the audio suite lands with exact-automation + idempotency
+assertions and the privacy probe is extended; no open defects, no regressions)
 
 **Deductions:**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
-- Backlog: −1 (3 items `- [ ]` in `BACKLOG.md`; scan-audio item `[/]`; 1 pt per 2, round down)
-- Inactivity: −4 (fourth consecutive idle cycle since the v15 code landing `3168a28`; commits since
-  — `3a07fcd`, `c6c9151`, `2314a55`, `d79f742`, `a381a27`, `b206d37`, `b2178c2` — are all doc/plan only)
+- Backlog: −1 (3 items `- [ ]` in `BACKLOG.md` — native SwiftUI, offline-HTTPS helper, Node 24 bump;
+  scan-audio item now `[x]`; 1 pt per 2, round down)
+- Inactivity: −0 (code landed in `b63a8ff` touching source → decay resets from −4 to 0)
 
-**Current Score**: 69/100
+**Current Score**: 75/100
 
-Trajectory: `IMPLEMENTATION_PLAN.md` v11 (optional scan blip audio) is **APPROVED at 99/100** (Plan
-Critique Rev 4) → **State 2 (implement the approved plan)**. The plan cleared the ≥95 gate at v9
-(Rev 2 = 97), reached the 99 ceiling at v10 (Rev 3), and v11 folds in the last Rev-3 nit (unlock
-idempotency now stated). No source since the v15 landing (commit `3168a28`) → **fourth idle cycle,
-−4 inactivity decay** (was −3 at v18). Scan-audio backlog item holds `[/]` (backlog −1). Base health
-holds at 74; the −1 additional decay drops the audit score **70 → 69**. The **only** lever to climb
-is to implement plan v11 and pass Implementation Verification (≥95). The plan is done — further
-plan-only revisions are counterproductive; each is another idle cycle (decay caps at −5).
+Trajectory: `IMPLEMENTATION_PLAN.md` v11 (optional scan blip audio, APPROVED 99/100) is now
+**implemented and VERIFIED at 98/100** (Implementation Verification v5) in commit `b63a8ff` →
+**State 4 (cycle complete)**. Code landing resets the −4 inactivity decay to 0 and moves the
+scan-audio backlog item `[/]` → `[x]`. Base health rises 74 → 76 (plan compliance + testing rigor);
+the net vs. v19 is decay +4 and base +2, minus the unchanged −1 backlog → audit score climbs
+**69 → 75**. The remaining levers are the three deferred backlog features (native SwiftUI iPad build,
+on-device static-HTTPS helper, Node 24 toolchain bump) — each a candidate for a future planning
+cycle, not a re-touch of the now-VERIFIED cycle-4 code.
 
 ## Findings
 
+- **VERIFIED (implementation, v5)** — Optional scan blip audio (plan v11) implemented in commit
+  `b63a8ff` (13 files) and scores **98/100** (≥95 gate cleared). All plan sections COMPLIANT, confirmed
+  by execution: lint clean, **52/52** unit, **12/12** e2e, build **26,315 gzip bytes** within budget
+  with artifact module order `src_config` < `src_lib_audio` < `src_app` and the `src_config.AUDIO` +
+  `src_lib_audio.createScanAudioController` aliases wired. `src/lib/audio.mjs` is factory-based
+  (available when `audioContextFactory` is a function), unlocks from a trusted gesture (suspended→
+  `await resume()`→running), is idempotent on repeated unlock (no second context, `resumeCalls===0`),
+  guards a non-awaited playback resume on `suspended`/`interrupted`, creates per-cue oscillator/gain
+  with the **exact** §4.3 automation (unit-asserted to `880@12`→`1320@12.045`, gain `0.045@12`→
+  `setTargetAtTime(0,12,0.035)`, `start(12)`/`stop(12.09)`), and `dispose()` closes the owned context;
+  all public methods catch and return booleans. `store.mjs` adds default-off audio-settings persistence
+  with volatile fallback; `app.mjs` wires unlock-on-select / play-on-scan-complete / admin settings;
+  `admin.mjs` adds the opt-in checkbox after `.merge-panel`/before `.admin-grid` with inline
+  `?.scanBlipEnabled === true` normalization. Camera privacy preserved and **test-enforced** (probe
+  asserts every `getUserMedia audio === false`; `scan.mjs:40` unchanged; no frame-grab APIs). The last
+  Rev-3/Rev-4 Path-to-100 nit (repeated-unlock idempotency) was folded into the unit suite as
+  recommended. No regressions. Two non-blocking Path-to-100 nits remain (enabled-audio e2e runs in
+  covert mode; no enable→disable→scan e2e). Loop → **State 4 (cycle complete)**. See
+  `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v5.
 - **APPROVED (plan v11, Rev 4)** — Optional scan blip audio plan scores **99/100** (≥95 gate
   cleared; unchanged ceiling). v10→v11 re-reviewed under the staleness rule; the two-hunk,
   documentation-only diff folds in the single Rev-3 Path-to-100 nit — `unlockFromGesture()`
@@ -542,28 +589,22 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 4 is at **State 2 — implement the approved plan**. `IMPLEMENTATION_PLAN.md` v11 (optional scan
-blip audio) is **APPROVED at 99/100**. The plan is now the contract; do **not** revise it again — it
-has been at the 99 ceiling since v9 cleared the gate, and each plan-only commit since has cost another
-−1 inactivity decay (72 → 71 → 70 → 69). Implement the four phases as written and land code:
+Cycle 4 is **complete** (State 4). `IMPLEMENTATION_PLAN.md` v11 (optional scan blip audio) is
+implemented in commit `b63a8ff` and **VERIFIED at 98/100** (Implementation Verification v5, ≥95 gate
+cleared). Do **not** re-touch the now-verified cycle-4 code. The next move is to open a **new planning
+cycle** from a remaining backlog item — the drag on the score is now entirely the three deferred
+`- [ ]` items:
 
-1. **Phase 1** — add `AUDIO` + `AUDIO_KEY` to `src/config.mjs`; add `normalizeAudioSettings` /
-   `loadAudioSettings` / `saveAudioSettings` (default-off, volatile-fallback) to `src/lib/store.mjs`.
-2. **Phase 2** — create `src/lib/audio.mjs` (factory-based availability, gesture unlock, per-cue
-   oscillator/gain scheduling with the exact §4.3 automation, guarded non-awaited playback resume,
-   `dispose()`), all public methods failure-suppressed.
-3. **Phase 3** — wire the controller into `src/app.mjs` (`onSelect` unlock, scan-`onDone` playback,
-   `onAdminHold` passing `audioSettings`/`onAudioSettingsChanged`) and add the opt-in checkbox to
-   `src/screens/admin.mjs` after `.merge-panel` / before `.admin-grid`.
-4. **Phase 4** — insert `src/lib/audio.mjs` after `src/config.mjs` in `scripts/build.mjs`; add the
-   unit/store/build/e2e tests (enabled + disabled workflows, extended privacy probe) and README note.
+1. Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1).
+2. On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2).
+3. Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a).
 
-Then run `npm run lint && npm run test:unit && npm run test:e2e && npm run build` and resubmit for
-Implementation Verification (≥95 gate). The one remaining Path-to-100 nit (add a unit assertion for
-`unlockFromGesture()` idempotency — no second context / at-most-one `resume()` on a repeated
-`running`-state call) is optional polish to fold into `tests/unit/audio.test.mjs` during
-implementation, not a blocker and not a reason to re-touch the plan. Every idle cycle with no code
-change accrues an additional −1 inactivity decay (cap −5) until code lands.
+Each is an independent subsystem. Closing any of them (plan → ≥95 approval → implement → ≥95
+verification) both ships value and recovers the −1 backlog deduction. Until a new cycle opens with
+code, further no-code cycles will re-accrue inactivity decay (−1 per idle cycle, cap −5). The two
+Implementation Verification v5 Path-to-100 nits (enabled-audio e2e in covert mode; no
+enable→disable→scan e2e) are optional polish — fold them opportunistically if `tests/e2e/checkin.spec.mjs`
+is next touched, not as a standalone cycle.
 
 ## Revision History
 
@@ -584,6 +625,7 @@ change accrues an additional −1 inactivity decay (cap −5) until code lands.
 | v13 | 2026-09-02 | 70 | **Cycle 3 opened** (commits `e7083f9` archive, `f6e09eb` plan v6). New plan `IMPLEMENTATION_PLAN.md` v6 (multi-device check-in log merge tooling) critiqued at **93/100 — NOT APPROVED** (Rev 1): three moderate gaps below the gate — (1) build `modules`-order dependency omits that `log-merge.mjs` must sit after `csv.mjs` (imports `parseCsv`) as well as before `store.mjs`; (2) §8 error taxonomy misses `parseCsv`'s unterminated-quote throw (`csv.mjs:41`); (3) cross-device timestamp ordering unspecified (offset-bearing ISO → string sort not chronological across mixed tz/DST). Scope adequate (one backlog item, four correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v12 → −1 inactivity decay (first idle cycle); merge backlog item `[ ]`→`[/]` (strict-unchecked 5→4, backlog −2 holds). Base 73; backlog −2; inactivity −1. Score 71 → 70. |
 | v15 | 2026-09-02 | 72 | **Multi-device log merge IMPLEMENTED & VERIFIED** (commit `3168a28`, 11 files). **Implementation Verification v4 = 98/100 — VERIFIED**: all four phases + §7 integration + §10 testing COMPLIANT, confirmed by execution — lint clean, **38/38** unit, **10/10** e2e (merge spec asserts literal CSV fixture + axe-green dialog), build 24,660 gzip bytes within budget with artifact order `src_lib_csv`<`src_lib_log_merge`<`src_lib_store` + `parseCsv` alias wired. Two of three plan Path-to-100 nits closed in code (e2e seed-vs-live; stray-object sniff test); one non-blocking nit remains (§9 hard 250 ms benchmark). No regressions. Loop → **State 4 (cycle complete)**. Monitoring 8→9; code landed resets decay −2→0; merge backlog `[/]`→`[x]` (backlog −2, 4 unchecked). Base 74; backlog −2; inactivity −0. Score 69 → 72. |
 | v16 | 2026-09-02 | 72 | **Cycle 4 opened** (commits `3a07fcd` archive, `c6c9151` plan v8). New plan `IMPLEMENTATION_PLAN.md` v8 (optional scan blip audio, gesture-gated) critiqued at **93/100 — NOT APPROVED** (Rev 1): three mechanically-fixable gaps below the gate — (1) availability detection vs. injected `audioContextFactory` internally inconsistent (§8/Phase-2 detect from `globalThis` but the documented seam is the factory → Phase-2/§10 unit tests unauthorable); (2) app→admin audio-settings wiring defined but the `mountAdmin(...)` call never shown updated; (3) `mountAdmin`'s new `audioSettings` param has no default/guard. Scope adequate (one in-progress backlog item; three subsystems correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v15 → −1 inactivity decay (first idle cycle); scan-audio backlog item `[ ]`→`[/]` (strict-unchecked 4→3, backlog −2→−1). Base 74; backlog −1; inactivity −1. Score holds 72. |
+| v20 | 2026-09-02 | 75 | **Scan blip audio IMPLEMENTED & VERIFIED** (commit `b63a8ff`, 13 files). **Implementation Verification v5 = 98/100 — VERIFIED**: every plan section COMPLIANT, confirmed by execution — lint clean, **52/52** unit, **12/12** e2e, build 26,315 gzip bytes within budget with module order `src_config`<`src_lib_audio`<`src_app` + both aliases wired. Pure `src/lib/audio.mjs` (factory availability, idempotent gesture unlock, exact §4.3 automation unit-asserted, guarded non-awaited playback resume, `dispose()`); default-off `store.mjs` persistence; app unlock-on-select/play-on-scan wiring; admin opt-in checkbox. Camera privacy preserved & test-enforced (`getUserMedia audio === false`). Last Path-to-100 nit (repeated-unlock idempotency) folded into unit suite. No regressions. Loop → **State 4 (cycle complete)**. Plan compliance 9→10, testing rigor 9→10 → base 74→76; code landed resets decay −4→0; scan-audio backlog `[/]`→`[x]` (backlog −1, 3 unchecked). Score 69 → 75. |
 | v19 | 2026-09-02 | 69 | **Plan v11 APPROVED at 99/100** (commit `b2178c2`, Plan Critique Rev 4). v10→v11 re-reviewed under the staleness rule; the two-hunk, documentation-only diff folds in the single Rev-3 Path-to-100 nit — `unlockFromGesture()` idempotency — now stated in both the Phase-2 contract (lines 293-296) and §8 "Multiple rapid selections" (lines 533-535): an already-unlocked `running` context is a safe no-op (no second context, no repeated `resume()`). No new logic; one equally-cosmetic successor nit (the stated idempotency contract has no matching §10 unit assertion — fold into `tests/unit/audio.test.mjs` at implementation, not another plan revision). Scope unchanged/adequate. Loop stays **State 2 (implement)**. Still zero source since v15 (`3168a28`); commits since are plan/doc only → **fourth** consecutive idle cycle → −4 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −4. Score 70 → 69. |
 | v18 | 2026-09-02 | 70 | **Plan v10 APPROVED at 99/100** (commit `a381a27`, Plan Critique Rev 3). v9→v10 re-reviewed under the staleness rule; the documentation-only diff folds in all four Rev-2 Path-to-100 nits, each verified against diff + source: (1) e2e mock initial state pinned `suspended`→`running` on `resume()` (§10 595-597) — the sole reason v9 held at 97, now deterministic; (2) ms→s `durationSeconds = SCAN_BLIP_DURATION_MS/1000 = 0.09` stated in `scheduleBlip` + unit assertion (§6 266-268, §10 570-572); (3) admin normalizes inline `{ scanBlipEnabled: audioSettings?.scanBlipEnabled === true }`, explicitly not importing `store.normalizeAudioSettings` (391-396); (4) interrupted-cue skip tradeoff documented (§8 514-518). No new issues; one cosmetic nit (unlock idempotency across repeated selections unstated). Scope unchanged/adequate. Loop stays **State 2 (implement)**. Still zero source since v15 (`3168a28`); commits since are plan/doc only → **third** consecutive idle cycle → −3 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −3. Score 71 → 70. |
 | v17 | 2026-09-02 | 71 | **Plan v9 APPROVED at 97/100** (commit `d79f742`, Plan Critique Rev 2). The single revision since v8 closed all three Rev-1 gate-blockers + all five Rev-1 Path-to-100 items, each source-verified: (1) availability now **factory-based** (available when `audioContextFactory` is a function; default factory resolves globals internally + throws when absent; §8 reconciled) → Phase-2/§10 unit tests authorable; (2) `onAdminHold` shows the updated `mountAdmin(...)` passing `audioSettings`/`onAudioSettingsChanged`; (3) `mountAdmin` defaults + normalizes `audioSettings`. Plus: guarded non-awaited `playScanBlip()` resume for iOS auto-suspend (~4.5 s `SCAN_MS` gap), §3/§6 ordering reconciled, exact §4.3 AudioParam automation, precise e2e unlock-vs-playback resume distinction. Scope adequate (one in-progress item; three deferred; zero open defects; §4 alternatives; §7 integration). Three cosmetic Path-to-100 nits (e2e mock initial `suspended` state; ms→s `durationSeconds`; `mountAdmin` normalize import-vs-inline). Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v15 → −2 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −2. Score 72 → 71. |

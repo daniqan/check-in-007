@@ -1,8 +1,68 @@
 # Check-In 007 — Implementation Plan Critique (Cycle 4: Scan Blip Audio)
 
 **Plan Score:** **99/100**
-**Implementation Score:** N/A (plan approved; not yet implemented)
-**Status:** **APPROVED** (≥95 gate cleared — State 2, implement the approved plan)
+**Implementation Score:** **98/100**
+**Status:** **VERIFIED** (implementation ≥95 gate cleared — State 4, cycle complete)
+
+---
+
+## Implementation Verification — v5
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v11 @ approved commit `b2178c2` (approved score: 99/100, Rev 4)
+**Code:** commit `b63a8ff` ("feat(audio): implement scan blip cue", 13 files) audited on 2026-09-02
+**Note:** Plan v11 is unchanged since the Rev-4 approval; per the version-check rule it was **not**
+re-critiqued (that would be an empty critique). The generator has implemented the approved plan
+(State 2 → verification), so this run performs the Mode-2 implementation audit instead.
+
+Every plan section was walked against the landed code and confirmed by execution — not by reading
+comments. All four regression commands were re-run to completion:
+
+- `npm run lint` → **clean** (`prettier --check .`, all files formatted).
+- `npm run test:unit` → **52/52 pass** (was 38 pre-cycle; +14 audio/store assertions).
+- `npm run test:e2e` → **12/12 pass** (was 10; +2 scan-blip workflows).
+- `npm run build` → `dist/index.html` **26,315 gzip bytes** (was 24,660; +~1.65 KB, within the
+  §9 "<3 KB gzip" estimate and far under the ≤750 KB gzip / ≤1.2 MB budget).
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §Phase 1 — config `AUDIO`/`AUDIO_KEY` | COMPLIANT | `config.mjs:8-21` matches the plan block byte-for-byte (default-off, gain `0.045`, 880→1320 Hz, 90 ms, release `0.035`s; `AUDIO_KEY: 'checkin007.audio.v1'`). |
+| §Phase 1 — store settings | COMPLIANT | `store.mjs` adds `normalizeAudioSettings` (JSON-parse-safe, `=== true` coercion, default-off), `loadAudioSettings`, `saveAudioSettings` (compact `{"scanBlipEnabled":true}`), volatile-fallback key seeded. Unit-verified (3 new store tests: default/malformed off, round-trip under versioned key, volatile read). |
+| §Phase 2 — `src/lib/audio.mjs` | COMPLIANT | Factory-based availability (`typeof audioContextFactory === 'function'`); lazy single-context `getContext()`; gesture unlock with suspended→`await resume()`→running; **idempotent** repeated unlock (no second context, `resumeCalls === 0` on the second call — the folded Path-to-100 test); guarded **non-awaited** playback resume on `suspended`/`interrupted`; per-cue oscillator/gain; `dispose()` closes owned context. All public methods catch and return booleans. |
+| §4.3 exact automation | COMPLIANT | Unit test asserts the literal call order + args: `connect`→`connect`, `frequency.setValueAtTime(880,12)`, `linearRampToValueAtTime(1320,12.045)`, `gain.setValueAtTime(0.045,12)`, `setTargetAtTime(0,12,0.035)`, `start(12)`, `stop(12.09)` (`audio.test.mjs:156-165`). `durationSeconds = 90/1000 = 0.09` confirmed. |
+| §Phase 3 — app wiring | COMPLIANT | `app.mjs` constructs the controller, `setEnabled(loadAudioSettings().scanBlipEnabled)` on start; `onSelect` creates the visit id then calls `audio.unlockFromGesture()` (non-awaited) before `setState('SCAN')`; scan `onDone` calls `audio.playScanBlip()` then `setState('RESULT')`; `updateAudioSettings` persists + re-`setEnabled`. Matches §6 snippet + §7 contracts. |
+| §Phase 3 — admin UI | COMPLIANT | Checkbox inserted after `.merge-panel` `</section>` and before `.admin-grid` (plan's exact insertion point); inline normalization `audioSettings?.scanBlipEnabled === true` (does not import `store.normalizeAudioSettings`); change handler persists via `onAudioSettingsChanged`, re-syncs `checked` to saved value, announces "Scan blip audio enabled./disabled." in the existing live region. CSS `.audio-setting` added. |
+| §Phase 4 — build order | COMPLIANT | `src/lib/audio.mjs` inserted immediately after `src/config.mjs` in `build.mjs` `modules`. Build test asserts `src_config` < `src_lib_audio` < `src_app`, the `const AUDIO = …src_config.AUDIO` alias, and the `src_app` `createScanAudioController` alias. |
+| §Phase 4 — e2e | COMPLIANT | Init-script `MockAudioContext` (starts `suspended`, `resume()`→`running`) with unlock/playback-resume counters keyed off first-oscillator creation. Enabled workflow asserts `constructions:1, unlockResume:1, playbackResume:0, oscillators:1, gains:1, starts:1, stops:1, connections:2, checkins:1`. Disabled workflow asserts `constructions:0, starts:0, checkins:1`. Both pass. |
+| §Phase 4 — privacy probe | COMPLIANT | Extended probe records every `getUserMedia` `audio` constraint and asserts `audioConstraints.length > 0 && every(=== false)`; `scan.mjs:40` still `audio: false`; `toDataURL`/`captureStream`/`MediaRecorder` all 0; tracks `ended`. Test-enforced. |
+| §Phase 4 — README | COMPLIANT | "Optional Scan Audio" section documents admin-enabled, gesture-gated, locally-synthesized, no-microphone behavior. |
+
+### Regression detection
+
+- **Behavioral:** all prior unit + e2e specs still green (52/52, 12/12). No previously-passing test now fails.
+- **Performance/artifact:** +~1.65 KB gzip; hot path stays O(1) per cue. No new blocking calls on navigation (playback resume is non-awaited).
+- **API/contract:** `mountAdmin`'s new params are additive with safe defaults; `store` gains two methods without changing existing keys/shapes; `onSelect`/visit-id/`RESULT` semantics preserved.
+- **Coverage:** test suite grew (38→52 unit, 10→12 e2e). No coverage regression.
+- **Privacy invariant:** magic-number grep for audio constants outside `config.mjs`/`audio.mjs` → **none**; camera constraint unchanged. No silent regression.
+
+**Implementation Score:** 98/100
+
+## Defects
+
+No gate-blocking defects. Implementation is COMPLIANT across every section and clears the ≥95 gate → **VERIFIED**. Two non-blocking Path-to-100 nits remain (do not require a fix cycle; fold opportunistically if the file is next touched):
+
+1. **Enabled-audio e2e runs in covert mode.** `installAudioMock` sets `navigator.mediaDevices = undefined`, so the enabled-cue e2e exercises the audio path with the camera absent (covert scan) rather than alongside a live camera stream. The audio flow is independent of camera state and the disabled/enabled cue counters are exact, so coverage is sound — but a maximally thorough test would fire the cue with a granted camera to prove the two subsystems coexist. Cosmetic.
+2. **No enable→disable→scan e2e.** The unit suite proves `disabled-after-unlock` suppresses playback and attempts `suspend()`; e2e proves enabled-plays-once and default-off-silent, but not the admin round-trip of enabling, disabling, then scanning silently. The unit coverage makes this low-value, but it is the one behavioral combination not asserted end-to-end.
+
+## Summary
+
+Plan v11 (approved 99/100) is **implemented and VERIFIED at 98/100** in commit `b63a8ff`. Every
+plan section is COMPLIANT, confirmed by execution: lint clean, 52/52 unit, 12/12 e2e, build 26,315
+gzip bytes within budget with the verified module order `src_config` < `src_lib_audio` < `src_app`
+and both namespace aliases wired. The exact §4.3 AudioParam automation is unit-asserted to the
+literal call sequence; unlock idempotency (the last Rev-3/Rev-4 Path-to-100 nit) was folded into
+`tests/unit/audio.test.mjs` as recommended; camera privacy is preserved and test-enforced. No
+regressions. Loop reaches **State 4 — cycle complete**. Two cosmetic e2e-coverage nits remain
+(Path-to-100 only). See `CONSOLIDATED_AUDIT.md` v20.
 
 ---
 
