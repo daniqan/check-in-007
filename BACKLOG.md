@@ -13,7 +13,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 ## Polish & Technical Debt
 - [x] Add a lint/format check (e.g. `prettier --check`) to `package.json` scripts and Phase 0 acceptance (done in `07ef178`: `npm run lint` + `.prettierrc.json`; `prettier --check .` clean)
 - [x] Font subsetting (Latin + needed glyphs) and a stated single-file artifact size budget (done: `scripts/font-subset.sh` subsets to Latin ranges; `build.mjs` enforces ≤750 KB gzip / ≤1.2 MB; artifact is 20,683 gzip bytes)
-- [ ] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)
+- [/] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)
 - [x] Add both `apple-mobile-web-app-capable` and the modern `mobile-web-app-capable` meta tags (done: present in `index.html` and built `dist/index.html`)
 - [x] axe-core accessibility pass wired into the e2e suite (done: `tests/e2e/checkin.spec.mjs` runs `axe.run` and asserts zero serious/critical)
 

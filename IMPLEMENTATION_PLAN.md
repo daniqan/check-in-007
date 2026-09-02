@@ -1,680 +1,409 @@
-# Check-In 007 — Implementation Plan v11
+# Check-In 007 — Implementation Plan v12
 
-> Cycle 4 backlog plan. Source item: `BACKLOG.md` Deferred Features item
-> "Optional subtle scan \"blip\" audio on identification, gated on a user-gesture unlock
-> (§10 Q6)", now marked in progress as `- [/]`.
+> Cycle 5 backlog plan. Source item: `BACKLOG.md` Polish & Technical Debt item
+> "Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)", now
+> marked in progress as `- [/]`.
 
 ## 1. Overview
 
-This cycle adds an optional, quiet scan-complete audio cue for event operators using the
-kiosk in noisy rooms where the visual result transition can be missed. The sound must
-never autoplay on page load, must never request microphone access, and must only play
-after the operator has unlocked audio through a trusted gesture. The feature stays
-dependency-free and keeps the existing theatrical camera privacy posture intact.
+This cycle moves the project from a broad Node `>=22` development floor to an explicit
+Node 24 LTS toolchain. The app itself remains a static browser kiosk with no runtime
+server dependency; this plan only affects local development, tests, build scripts, and
+operator documentation. The goal is a reproducible maintenance baseline that avoids
+accidentally validating the project only on newer Current releases.
 
 ## 2. Scope
 
 ### In scope
 
-1. Add a small Web Audio helper that can be constructed lazily, unlocked from a trusted
-   user gesture, and asked to play one short scan-identification "blip".
-2. Add explicit configuration for audio duration, gain, frequencies, and disabled/default
-   state in `src/config.mjs`.
-3. Add an admin control to enable or disable the scan blip, persist that preference in
-   local storage through the existing store abstraction, and default the preference to
-   off for existing installs.
-4. Route the first eligible roster selection gesture through audio unlock before entering
-   `SCAN`, then trigger playback exactly once when the scan completes and the result is
-   about to be shown.
-5. Degrade silently when Web Audio is unavailable, blocked, interrupted, suspended, or
-   disabled by preference.
-6. Preserve the existing camera constraint `{ audio: false }`, avoid media recording, and
-   extend privacy probes to prove the feature does not request capture audio.
-7. Add unit tests for audio controller state, user-gesture gating, playback scheduling,
-   disabled/unavailable behavior, and settings persistence.
-8. Add end-to-end coverage that enables the cue, verifies a trusted selection unlock path,
-   verifies one scan-complete playback scheduling event, verifies no playback when
-   disabled, and keeps the existing axe and privacy expectations green.
-9. Document the optional audio setting in the operator README without changing deployment
-   requirements.
+1. Add repository version files that select Node `24.20.0`, the latest Node 24 LTS shown
+   on the official Node.js releases page on 2026-09-02.
+2. Tighten `package.json` and `package-lock.json` engines from `>=22` to `>=24 <25`.
+3. Add a dependency-free Node version check script with actionable failure output.
+4. Wire the check into `lint`, `test`, and `build` so standard validation fails fast on
+   unsupported Node majors.
+5. Document the Node 24 requirement and supported install path in `README.md`.
+6. Verify the current lint, unit, e2e, and build suites under Node 24.
 
 ### Out of scope
 
-- Custom uploaded sounds, volume sliders, multiple cue themes, waveform editors, or
-  per-guest audio.
-- Autoplay on boot, loading-screen sound, roster hover sound, or admin button sound.
-- Microphone access, audio recording, camera-frame capture, `MediaRecorder`, or
-  `captureStream`.
-- Native SwiftUI iPad build, offline static-HTTPS helper, Node 24 LTS toolchain bump, and
-  any network sync.
-- A new settings database or schema migration beyond one localStorage preference key.
+- Changing browser application behavior, kiosk UI, storage keys, roster/log formats, or
+  the scan-audio implementation.
+- Upgrading Playwright, Acorn, axe-core, http-server, Prettier, npm, or browser binaries.
+- Adding CI workflow files where none currently exist.
+- Supporting Node 26 Current as the primary validation target for this cycle.
+- Native SwiftUI iPad work or the offline static-HTTPS helper.
 
 ## 3. Architecture
 
-The app remains a zero-runtime-dependency web app that builds into a single static
-artifact. Audio is isolated behind a pure browser adapter so application flow can call
-small methods without knowing Web Audio node details.
+The project keeps the current static-build architecture. The only new component is a
+small development guard that runs before existing validation commands.
 
 ```text
-Admin Controls
-  -> Scan blip checkbox
-  -> store.saveAudioSettings({ scanBlipEnabled })
-  -> localStorage checkin007.audio.v1
-
-Roster guest button trusted click/tap
-  -> create visit id
-  -> audio.unlockFromGesture()
-  -> mountScan()
-  -> scan timer completes
-  -> audio.playScanBlip()
-  -> mountResult()
+Developer shell
+  -> version manager reads .nvmrc / .node-version
+  -> npm install uses package/package-lock engines
+  -> npm run lint|test|build
+  -> npm run check:node
+  -> scripts/check-node-version.mjs validates process.versions.node
+  -> existing Prettier / node:test / Playwright / build flow
 ```
 
 Ownership boundaries:
 
-- `src/lib/audio.mjs` owns Web Audio feature detection, lazy `AudioContext` creation,
-  gesture unlock, state tracking, oscillator/gain scheduling, failure suppression, and
-  cleanup.
-- `src/config.mjs` owns all audio constants; production code must not hard-code cue
-  durations, gain, or frequencies outside this file.
-- `src/lib/store.mjs` owns persistent audio preference load/save behavior using a new
-  `checkin007.audio.v1` key and the existing volatile-memory fallback.
-- `src/app.mjs` owns lifecycle wiring: constructing the audio controller, unlocking it
-  from the roster selection event, passing settings into admin, and calling playback
-  during the scan-complete transition.
-- `src/screens/admin.mjs` owns the checkbox UI and status text, but does not instantiate
-  Web Audio directly.
-- `src/screens/scan.mjs` stays focused on camera display and scan timing. It must keep
-  `getUserMedia({ video: { facingMode: 'user' }, audio: false })`.
-- `scripts/build.mjs` owns module order. `src/lib/audio.mjs` imports config only and must
-  execute after `src/config.mjs` and before `src/app.mjs`; `src/lib/store.mjs` must remain
-  before admin/app as it is today.
+- `.nvmrc` and `.node-version` own the human/tool version selection hint.
+- `package.json` and `package-lock.json` own npm engine metadata and script wiring.
+- `scripts/check-node-version.mjs` owns local runtime validation and error messaging.
+- `README.md` owns operator/developer setup instructions.
+- Existing source modules in `src/`, tests, Playwright config, and build internals must
+  remain behaviorally unchanged unless a Node 24 incompatibility is discovered during
+  implementation.
 
 Failure domains:
 
-- If AudioContext construction or resume fails, the audio controller records
-  `available:false`/`unlocked:false`, returns `false`, and the scan flow continues.
-- If playback scheduling throws, the error is swallowed by the controller and the app
-  proceeds to `RESULT`.
-- If storage throws, the existing volatile fallback preserves the setting for the current
-  session only.
-- If the admin dialog is closed without changing the checkbox, no setting write occurs.
+- If a developer runs validation under Node 22, 23, 25, 26, or any non-24 major, the
+  guard exits with code `1` before slower checks start.
+- If the version string is malformed or unavailable, the guard exits with code `1` and
+  prints the detected value.
+- If Node 24 reveals a latent test/build failure, fix the project code or tests to
+  preserve existing behavior under Node 24; do not widen the engine range to hide it.
 
 ## 4. Technical Decisions & Rationale
 
-1. **Use Web Audio oscillator synthesis instead of an audio file.** MDN documents Web
-   Audio as an audio graph built from nodes inside an `AudioContext`
-   (https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API), and
-   `OscillatorNode` is a baseline API for generated periodic waveforms
-   (https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode). A synthesized
-   two-tone cue adds no asset bytes, no decode latency, and no file-loading failure mode.
-   An `<audio>` asset was considered, but it increases the single-file artifact and still
-   faces autoplay gating.
+1. **Target Node `24.20.0` and engine range `>=24 <25`.** The official Node.js releases
+   page lists Node v24, codename Krypton, as LTS and identifies `v24.20.0` as the latest
+   LTS release on 2026-09-02 (https://nodejs.org/en/about/previous-releases). The same
+   page says production applications should use Active LTS or Maintenance LTS releases.
+   A broad `>=24` range was considered, but it would silently admit Node 25/26+ before
+   this project has audited them. `>=24 <25` expresses "Node 24 LTS" exactly.
 
-2. **Unlock only from a trusted user gesture.** MDN's Web Audio best practices summarize
-   modern autoplay policy as creating or resuming an audio context from inside a user
-   gesture (https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices).
-   The roster guest button click/tap is already the operator's intentional check-in
-   action, so the app will call `unlockFromGesture()` there before changing state.
-   Page-load unlock is explicitly rejected. A later playback-path `resume()` is allowed
-   only after the controller has already been unlocked by a trusted roster-selection
-   gesture; it is non-awaited and failure-suppressed so it cannot become autoplay on boot
-   or block navigation.
+2. **Use a local guard instead of adding a dependency.** `process.versions.node` is
+   stable in Node and sufficient for major-version validation. Packages such as
+   `check-node-version` were considered, but this repo has intentionally kept runtime
+   dependencies at zero and dev dependencies tightly scoped; a 30-line script avoids
+   lockfile churn and supply-chain surface.
 
-3. **Schedule a short envelope with oscillator and gain nodes.** MDN documents
-   `createGain()` for controlling gain
-   (https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/createGain),
-   `AudioParam.setValueAtTime()` for precise parameter changes
-   (https://developer.mozilla.org/en-US/docs/Web/API/AudioParam/setValueAtTime), and
-   `setTargetAtTime()` for gradual changes
-   (https://developer.mozilla.org/en-US/docs/Web/API/AudioParam/setTargetAtTime). The
-   cue will use one oscillator at 880 Hz, ramp to 1320 Hz halfway through, peak at gain
-   `0.045`, and release to silence over 90 ms. The exact automation contract is:
-   oscillator frequency `setValueAtTime(880, now)` then
-   `linearRampToValueAtTime(1320, now + durationSeconds / 2)`, gain
-   `setValueAtTime(0.045, now)`, gain release
-   `setTargetAtTime(0, now, SCAN_BLIP_RELEASE_SECONDS)`, oscillator `start(now)`, and
-   oscillator `stop(now + durationSeconds)`. This is audible enough for feedback but
-   less intrusive than a long chime.
+3. **Keep dependency versions pinned.** `@playwright/test@1.62.1`, `acorn@8.18.0`,
+   `axe-core@4.13.0`, `http-server@14.1.1`, and `prettier@3.9.6` already declare engine
+   support compatible with Node 24 in `package-lock.json` (`@playwright/test` and
+   `playwright` require `>=20`; `http-server` requires `>=12`; Prettier requires
+   `>=14`). Upgrading them would conflate a toolchain bump with dependency migration.
 
-4. **Persist only a boolean preference.** The existing store already handles
-   localStorage failures and has no settings subsystem. A single versioned key
-   `checkin007.audio.v1` keeps the feature reversible and avoids coupling audio settings
-   to roster/log data. A broader settings object was considered, but only one setting is
-   in scope and unnecessary expansion would complicate audit.
+4. **Keep both `.nvmrc` and `.node-version`.** `.nvmrc` covers nvm and many CI images;
+   `.node-version` covers asdf and mise. A single file was considered, but maintaining
+   both is low cost and reduces setup ambiguity across developer machines.
 
-5. **Keep audio disabled by default.** Browser autoplay rules, event etiquette, and the
-   backlog wording "optional" all point to opt-in behavior. Existing installs continue
-   silently until an admin enables the cue.
-
-6. **No runtime dependencies.** Web Audio is built into target browsers, and tests can
-   mock `AudioContext` in `node:test` and Playwright init scripts. Adding Tone.js or
-   Howler.js would increase bundle size and solve problems this cue does not have.
+5. **Do not add CI in this cycle.** The repository has no `.github/` workflow today.
+   Adding CI would be useful, but it is a separate operational change with secrets,
+   runner, cache, and browser-install policy decisions that are outside this focused
+   backlog item.
 
 ## 5. File Manifest
 
 ```text
-BACKLOG.md                     (MOD) — Mark the selected scan-audio backlog item in progress.
-IMPLEMENTATION_PLAN.md         (MOD) — Replace completed cycle-3 plan with this cycle-4 plan.
-src/config.mjs                 (MOD) — Add AUDIO and audio storage-key constants.
-src/lib/audio.mjs              (NEW) — Web Audio detection, gesture unlock, playback scheduling, and cleanup.
-src/lib/store.mjs              (MOD) — Add load/save audio settings with volatile fallback support.
-src/app.mjs                    (MOD) — Wire audio controller into roster selection, scan completion, and admin settings.
-src/screens/admin.mjs          (MOD) — Add an opt-in scan-blip checkbox and status handling.
-scripts/build.mjs              (MOD) — Include `src/lib/audio.mjs` in the static module list after config.
-tests/unit/audio.test.mjs      (NEW) — Unit coverage for unlock, disabled/unavailable states, scheduling, and cleanup.
-tests/unit/store.test.mjs      (MOD) — Verify audio settings persistence, default-off behavior, and volatile fallback.
-tests/unit/build.test.mjs      (MOD) — Assert the built artifact contains the audio module in a valid dependency order.
-tests/e2e/checkin.spec.mjs     (MOD) — Add audio opt-in/disabled workflow coverage and extend privacy probes.
-README.md                      (MOD) — Document optional scan audio and its gesture-gated behavior.
+BACKLOG.md                       (MOD) — Mark the Node 24 LTS toolchain backlog item in progress.
+IMPLEMENTATION_PLAN.md           (MOD) — Replace completed cycle-4 plan with this cycle-5 plan.
+.nvmrc                           (NEW) — Select Node 24.20.0 for nvm-compatible tooling.
+.node-version                    (NEW) — Select Node 24.20.0 for asdf/mise-style tooling.
+package.json                     (MOD) — Tighten engines and add check:node script wiring.
+package-lock.json                (MOD) — Mirror the root package engine range.
+scripts/check-node-version.mjs   (NEW) — Fail-fast Node major guard.
+tests/unit/node-version.test.mjs (NEW) — Unit-test version parsing and supported range logic.
+README.md                        (MOD) — Document Node 24 setup and validation expectations.
 ```
 
-No production dependency, camera-capture, log-schema, or roster-format changes are
-planned.
+No `src/` files, data fixtures, styles, browser screens, or deployment artifacts are
+planned to change.
 
 ## 6. Implementation Phases
 
-### Phase 1: Audio Configuration And Store Settings [COMPLETE]
+### Phase 1: Version Metadata
 
-Modify `src/config.mjs`:
+Create `.nvmrc` and `.node-version`, each containing exactly:
 
-```js
-export const STORAGE = {
-  LOG_KEY: 'checkin007.log.v1',
-  ROSTER_KEY: 'checkin007.roster.v1',
-  AUDIO_KEY: 'checkin007.audio.v1',
-};
-
-export const AUDIO = {
-  SCAN_BLIP_DEFAULT_ENABLED: false,
-  SCAN_BLIP_GAIN: 0.045,
-  SCAN_BLIP_START_HZ: 880,
-  SCAN_BLIP_END_HZ: 1320,
-  SCAN_BLIP_DURATION_MS: 90,
-  SCAN_BLIP_RELEASE_SECONDS: 0.035,
-};
+```text
+24.20.0
 ```
 
-Modify `src/lib/store.mjs`:
+Modify `package.json` and the root `packages[""].engines` entry in `package-lock.json`:
 
-```js
-export function normalizeAudioSettings(raw) {
-  /**
-   * Return { scanBlipEnabled: boolean }.
-   * Unknown, null, malformed JSON, or missing values return the default-off setting.
-   */
-  ...
+```json
+{
+  "engines": {
+    "node": ">=24 <25"
+  }
 }
-
-return {
-  ...
-  loadAudioSettings() {
-    /**
-     * Read STORAGE.AUDIO_KEY from the same active storage backend as roster/log data.
-     * Return default-off settings when storage is absent, malformed, or volatile.
-     */
-    ...
-  },
-  saveAudioSettings(nextSettings) {
-    /**
-     * Normalize and persist the boolean audio setting.
-     * Return the normalized saved settings.
-     */
-    ...
-  },
-};
 ```
 
 Acceptance criteria:
 
-- Fresh installs and malformed stored settings load `{ scanBlipEnabled: false }`.
-- Saving `{ scanBlipEnabled: true }` persists a compact JSON object under
-  `checkin007.audio.v1`.
-- Existing roster/log storage keys and APIs behave exactly as before.
-- Volatile storage mode can save and read the setting during the current session.
+- `npm install` and npm engine warnings reference Node 24 instead of Node 22.
+- The lockfile root package metadata matches `package.json`.
+- No dependency versions or integrity hashes change.
 
-### Phase 2: Web Audio Helper [COMPLETE]
+### Phase 2: Node Version Guard
 
-Create `src/lib/audio.mjs`:
+Create `scripts/check-node-version.mjs`:
 
 ```js
-import { AUDIO } from '../config.mjs';
+export const SUPPORTED_NODE_MAJOR = 24;
 
-function defaultAudioContextFactory() {
-  const AudioContextConstructor = globalThis.AudioContext || globalThis.webkitAudioContext;
-  if (typeof AudioContextConstructor !== 'function') {
-    throw new Error('Web Audio unavailable');
-  }
-  return new AudioContextConstructor();
-}
-
-export function createScanAudioController({
-  audioContextFactory = defaultAudioContextFactory,
-  config = AUDIO,
-} = {}) {
+export function parseNodeMajor(version = process.versions.node) {
   /**
-   * Return an object with unlockFromGesture(), playScanBlip(), setEnabled(),
-   * isEnabled(), getState(), and dispose().
-   * The controller lazily creates one AudioContext only after enabled audio receives
-   * an unlock attempt from a trusted interaction path.
+   * Return the numeric major version from strings like "24.20.0" or "v24.20.0".
+   * Return null for empty, non-string, or non-numeric input.
    */
   ...
 }
 
-function scheduleBlip(context, config) {
+export function isSupportedNodeVersion(version = process.versions.node) {
   /**
-   * Create a fresh OscillatorNode and GainNode for each cue.
-   * Connect oscillator -> gain -> destination. Convert
-   * config.SCAN_BLIP_DURATION_MS to durationSeconds with
-   * config.SCAN_BLIP_DURATION_MS / 1000. At context.currentTime, call
-   * oscillator.frequency.setValueAtTime(config.SCAN_BLIP_START_HZ, now), then
-   * oscillator.frequency.linearRampToValueAtTime(config.SCAN_BLIP_END_HZ,
-   * now + durationSeconds / 2). Call gain.gain.setValueAtTime(config.SCAN_BLIP_GAIN,
-   * now), then gain.gain.setTargetAtTime(0, now, config.SCAN_BLIP_RELEASE_SECONDS).
-   * Start at now and stop at now + durationSeconds.
-   * Disconnect nodes on oscillator ended when supported.
+   * Return true only when parseNodeMajor(version) === SUPPORTED_NODE_MAJOR.
+   */
+  ...
+}
+
+export function formatUnsupportedNodeMessage(version = process.versions.node) {
+  /**
+   * Return a one-line stderr message naming the detected version and the required
+   * "Node 24 LTS" target. Include "nvm install && nvm use" as the recovery hint.
+   */
+  ...
+}
+
+export function main({ version = process.versions.node, stderr = process.stderr } = {}) {
+  /**
+   * Return 0 when supported. Otherwise write the formatted message to stderr and
+   * return 1. Do not throw for malformed versions.
    */
   ...
 }
 ```
 
-Controller contract:
+The executable tail must be guarded so unit tests can import the functions without
+exiting the test process:
 
-- `setEnabled(false)` prevents future context creation and playback.
-- Availability is factory-based: the controller is potentially available when
-  `audioContextFactory` is a function. The default factory resolves
-  `globalThis.AudioContext || globalThis.webkitAudioContext` and throws when neither
-  constructor exists; injected mock factories are fully testable without also stubbing
-  `globalThis`.
-- `unlockFromGesture()` returns `false` without side effects when disabled or when
-  `audioContextFactory` is not a function.
-- `unlockFromGesture()` creates/resumes the context only when enabled. If context state is
-  `suspended`, it awaits `context.resume()`. If state is `running`, it marks unlocked.
-- `unlockFromGesture()` is idempotent across repeated roster selections: after the
-  controller is already unlocked and the context is `running`, a later call re-marks the
-  controller unlocked and returns `true` without creating another context or calling
-  `resume()` again.
-- Constructor failure marks the controller unavailable for the session and returns
-  `false` from future unlock/play calls.
-- `playScanBlip()` returns `false` when disabled, unavailable, not unlocked, closed, or
-  disposed. When an already-unlocked context is `suspended` or `interrupted`, it starts a
-  guarded non-awaited `context.resume()` attempt, skips the current cue, and allows a
-  later scan-complete call to play if the browser resumes the context.
-- `playScanBlip()` creates new oscillator/gain nodes for each successful cue because
-  scheduled source nodes are one-shot.
-- `dispose()` disconnects known nodes, closes the context when it was created by this
-  controller and `close()` exists, and makes later calls no-ops.
-- All public methods catch Web Audio exceptions and return boolean state instead of
-  throwing into UI flow.
+```js
+if (import.meta.url === `file://${process.argv[1]}`) {
+  process.exitCode = main();
+}
+```
 
 Acceptance criteria:
 
-- A mocked running AudioContext records exactly one oscillator start/stop pair per
-  successful scan-complete call.
-- A mocked suspended context receives `resume()` during unlock.
-- Disabled, unavailable, closed, not-unlocked, suspended, and interrupted states schedule
-  no nodes.
-- A mocked suspended/interrupted context after prior unlock records one non-awaited
-  resume attempt during `playScanBlip()` and schedules no cue for that call.
-- Repeated successful scan completions create separate oscillator instances and do not
-  reuse a stopped source node.
+- Node `24.x.y` exits `0`.
+- Node `22.x`, `23.x`, `25.x`, `26.x`, empty strings, and malformed values exit `1`.
+- Failure output is one line and names the detected version.
 
-### Phase 3: App And Admin Integration [COMPLETE]
+### Phase 3: Script Wiring And Docs
 
-Modify `src/app.mjs`:
+Modify `package.json` scripts:
 
-```js
-import { createScanAudioController } from './lib/audio.mjs';
-
-export function start(root = document.getElementById('app')) {
-  const store = createStore();
-  const audio = createScanAudioController();
-  audio.setEnabled(store.loadAudioSettings().scanBlipEnabled);
-
-  function updateAudioSettings(nextSettings) {
-    /**
-     * Persist normalized settings through store.saveAudioSettings(), update the audio
-     * controller enabled flag, and return saved settings for admin status rendering.
-     */
-    ...
-  }
-
-  ...
-  onSelect: (guestId) => {
-    /**
-     * Preserve visit-id creation and state transition semantics.
-     * Create the visit id first as today, then call audio.unlockFromGesture()
-     * synchronously from this trusted click path before setState('SCAN'). Do not await it
-     * before navigation because mountRoster does not await onSelect; the audio helper
-     * handles any resume promise internally.
-     * Unlock failure must not block scan.
-     */
-    ...
-  }
-  ...
-  onAdminHold: () => {
-    if (state !== 'ROSTER' || adminCleanup) return;
-    adminCleanup = mountAdmin(root, {
-      store,
-      audioSettings: store.loadAudioSettings(),
-      onAudioSettingsChanged: updateAudioSettings,
-      onRosterChanged: (nextGuests) => {
-        guests = buildSearchIndex(nextGuests);
-      },
-      onClose: () => {
-        adminCleanup = null;
-        setState('ROSTER');
-      },
-    });
-  },
-  ...
-  if (state === 'SCAN') {
-    cleanup = mountScan(root, {
-      guest,
-      timing,
-      onDone: () => {
-        audio.playScanBlip();
-        setState('RESULT', { guest });
-      },
-    });
+```json
+{
+  "scripts": {
+    "check:node": "node scripts/check-node-version.mjs",
+    "build": "npm run check:node && node scripts/build.mjs",
+    "lint": "npm run check:node && prettier --check .",
+    "test": "npm run check:node && npm run test:unit && npm run test:e2e"
   }
 }
 ```
 
-Modify `src/screens/admin.mjs`:
+Leave `test:unit`, `test:e2e`, `serve`, `serve:https`, and `fonts:subset` unchanged so
+development servers can still be started for diagnosis, but documented validation uses
+the guarded commands.
 
-```js
-export function mountAdmin(root, {
-  store,
-  audioSettings = { scanBlipEnabled: false },
-  onAudioSettingsChanged = (settings) => settings,
-  onRosterChanged,
-  onClose,
-}) {
-  /**
-   * Render a checkbox labeled "Scan blip audio".
-   * Normalize the received audioSettings inline with
-   * `{ scanBlipEnabled: audioSettings?.scanBlipEnabled === true }` before any dereference
-   * so direct mounts or omitted params default off instead of throwing. Do not import
-   * store.normalizeAudioSettings into this screen; store remains responsible for
-   * persisted shape normalization, while admin only needs a defensive UI boolean.
-   * Initialize checked from normalizedAudioSettings.scanBlipEnabled.
-   * On change, call onAudioSettingsChanged({ scanBlipEnabled: checked }) and announce
-   * "Scan blip audio enabled." or "Scan blip audio disabled." in the existing status
-   * live region.
-   */
-  ...
-}
-```
+Modify `README.md`:
 
-Admin UI contract:
-
-- Add one checkbox, not a button-only toggle, because this is a persistent binary
-  setting.
-- The checkbox appears in the existing admin panel after the existing `.merge-panel` and
-  before the `.admin-grid` action buttons, keeping it near operational controls without
-  moving roster import/export/reset actions.
-- No visible instructional paragraph is added; the label is enough for the control.
-- Closing admin preserves focus restoration and does not alter the audio setting.
-- Existing roster import, log merge, export/copy, reset, and clear-log actions are
-  unchanged.
+- Add Node 24 LTS as a prerequisite before `npm ci`.
+- Add `nvm install && nvm use` as the default setup path.
+- State that `npm run lint`, `npm test`, and `npm run build` fail fast outside Node 24.
+- Preserve the existing iPad HTTPS and privacy wording.
 
 Acceptance criteria:
 
-- Enabling audio in admin persists the setting and updates the live controller without
-  reloading.
-- Disabling audio prevents later scan-complete playback even if a context was previously
-  unlocked.
-- Selecting a guest still creates exactly one visit id and logs exactly once.
-- Scan completion still transitions to result when audio unlock or playback fails.
+- README setup from a fresh clone is deterministic for Node 24 users.
+- Existing command names remain familiar.
+- No user-facing kiosk copy changes.
 
-### Phase 4: Build, Tests, Documentation [COMPLETE]
+### Phase 4: Verification
 
-Modify `scripts/build.mjs` by inserting `src/lib/audio.mjs` immediately after
-`src/config.mjs`. This ensures `AUDIO` is available before the audio module runs, while
-keeping store, screens, and app after their dependencies.
+Add `tests/unit/node-version.test.mjs`:
 
-Modify `tests/unit/build.test.mjs` to assert:
+```js
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  formatUnsupportedNodeMessage,
+  isSupportedNodeVersion,
+  main,
+  parseNodeMajor,
+} from '../../scripts/check-node-version.mjs';
 
-- `window.__CHECKIN007.modules.src_lib_audio` appears after
-  `window.__CHECKIN007.modules.src_config`.
-- `src_app` aliases `window.__CHECKIN007.modules.src_lib_audio.createScanAudioController`.
-- no residual module syntax remains in the generated artifact.
+test('parseNodeMajor accepts plain and v-prefixed versions', () => { ... });
+test('isSupportedNodeVersion accepts only Node 24', () => { ... });
+test('main returns 1 and writes a recovery hint for unsupported versions', () => { ... });
+```
 
-Modify `tests/e2e/checkin.spec.mjs`:
-
-- Extend the existing privacy probe to count `getUserMedia` audio constraints and assert
-  every request keeps `audio === false`.
-- Add a test with mocked `AudioContext`:
-  1. boot to roster,
-  2. open admin,
-  3. check "Scan blip audio",
-  4. close admin,
-  5. select a guest,
-  6. verify one unlock/resume attempt happened from the selection flow,
-  7. verify one oscillator start/stop pair after scan completes,
-  8. verify the check-in log still has one row.
-- Add a disabled-path test with the same mock proving a normal scan schedules no audio
-  when the setting remains default-off.
-
-Modify `README.md` with a concise note that scan audio is optional, admin-enabled,
-gesture-gated by the first guest selection, synthesized locally with Web Audio, and does
-not request microphone access.
-
-## 7. Integration Points
-
-1. **Admin checkbox -> store**
-   - Contract: checkbox state maps to `{ scanBlipEnabled: boolean }`.
-   - Failure mode: storage exceptions fall back to volatile memory; status still reports
-     the normalized setting.
-   - Migration path: missing `checkin007.audio.v1` defaults off, so existing events are
-     unchanged.
-
-2. **Store -> app audio controller**
-   - Contract: app reads settings on start and calls `audio.setEnabled(boolean)`.
-   - Failure mode: malformed settings normalize to off; audio controller remains idle.
-   - Migration path: roster/log keys and exported data are untouched.
-
-3. **Roster selection -> audio unlock**
-   - Contract: `mountRoster` invokes `onSelect` directly from a trusted button event; app
-     creates the visit id as it does today, then calls `audio.unlockFromGesture()`
-     synchronously in that same call stack before moving to scan. The helper may continue
-     an internal resume promise without blocking navigation.
-   - Failure mode: unlock returns false or throws internally; app still enters scan.
-   - Migration path: existing selection behavior and visit-id generation are preserved.
-
-4. **Scan completion -> result**
-   - Contract: scan timer calls `onDone`; app calls `audio.playScanBlip()` immediately
-     before `setState('RESULT')`.
-   - Failure mode: playback returns false; result screen still appears and logging remains
-     idempotent in the `RESULT` state.
-   - Migration path: `mountScan` timing API remains compatible.
-
-5. **Build transform**
-   - Contract: imported modules are listed earlier in `scripts/build.mjs`; audio imports
-     only `config`.
-   - Failure mode: wrong order produces undefined namespace aliases in `dist/index.html`.
-   - Migration path: build unit assertions catch ordering regressions.
-
-6. **Privacy surface**
-   - Contract: camera access remains video-only and no audio capture APIs are used.
-   - Failure mode: a regression that requests `getUserMedia({ audio: true })`, calls
-     `captureStream`, or constructs `MediaRecorder` fails e2e privacy tests.
-   - Migration path: existing privacy probes are extended rather than replaced.
-
-## 8. Error Handling & Edge Cases
-
-- **Web Audio unavailable:** the default `audioContextFactory` throws on first
-  construction when neither `AudioContext` nor `webkitAudioContext` exists. Injected
-  factories are treated as the availability source for tests. Constructor failure marks
-  the controller unavailable for the session and returns false from unlock/play.
-- **Audio disabled:** controller does not create a context, unlock, or schedule nodes.
-- **AudioContext constructor throws:** unlock catches the error, marks unavailable for the
-  session, and scan continues.
-- **Suspended context:** unlock awaits `resume()`; if resume rejects, unlocked remains
-  false and later playback is skipped. If a previously unlocked context becomes suspended
-  before playback, `playScanBlip()` starts a guarded non-awaited `resume()` and skips that
-  cue instead of blocking result navigation.
-- **Interrupted context:** playback checks `context.state`; if it is `interrupted`, it
-  starts the same guarded non-awaited `resume()` attempt when available, skips scheduling,
-  and lets a future scan play after recovery. The cue for the scan that encountered
-  `interrupted` is intentionally skipped because waiting for resume would delay result
-  navigation and could violate autoplay policy on browsers that reject the resume.
-- **Closed context:** playback skips, and repeated calls do not try to use closed nodes.
-- **Repeated scans:** each successful playback creates new oscillator/gain nodes and
-  disconnects them on end when possible.
-- **Admin toggled off after unlock:** `setEnabled(false)` suppresses future playback and
-  may suspend the context when `suspend()` is available; failure to suspend is ignored.
-- **Admin toggled on but no scan yet:** no sound plays until the next scan completion.
-- **Reduced motion:** reduced timing shortens screen durations as today; audio duration is
-  unchanged because it is already 90 ms and not a visual animation.
-- **Multiple rapid selections:** existing state gating prevents roster interaction while
-  in scan; audio controller also avoids parallel cue reuse by creating per-cue nodes.
-  Repeated eligible selections across a normal session may call `unlockFromGesture()`
-  again, but an already-unlocked running context is treated as a safe no-op and does not
-  create a second context or churn `resume()` calls.
-- **Storage malformed:** settings normalize to default off and overwrite only when admin
-  explicitly changes the checkbox.
-- **File URL build:** Web Audio may be available from `file://`; camera may not be. The
-  audio feature must not depend on secure camera context and must still degrade if blocked.
-
-## 9. Stability & Performance
-
-The hot path is constant-time. Unlock creates at most one `AudioContext` for the app
-session. Each successful cue creates one oscillator and one gain node, schedules a handful
-of AudioParam events, starts immediately, and stops after 90 ms.
-
-- Time complexity per cue: `O(1)`.
-- Memory growth: `O(1)` steady state. The controller keeps only the context, enabled
-  state, and a small set of active nodes until they end.
-- Artifact size impact: expected below 3 KB gzip because no binary audio asset or runtime
-  dependency is added. `npm run build` must remain under the existing 750 KB gzip and
-  1.2 MB uncompressed budgets.
-- Startup impact: zero AudioContext construction on boot when default off; when enabled,
-  the context still waits for the first selection gesture.
-- Latency target: playback scheduling must occur synchronously during scan completion and
-  add less than one animation frame of JavaScript work before `RESULT`.
-- Cleanup: `dispose()` closes or suspends owned context where supported; per-cue nodes
-  disconnect on end. App-level cleanup does not need to dispose the global controller
-  between screens.
-- Degradation: any audio failure is non-fatal and never blocks camera startup, scan
-  timing, result display, check-in logging, or admin operations.
-
-## 10. Testing Strategy
-
-Unit tests:
-
-- `tests/unit/audio.test.mjs`
-  - default controller is disabled and does not construct AudioContext.
-  - enabled controller unlocks a running context from `unlockFromGesture()`.
-  - suspended context calls and awaits `resume()`.
-  - unavailable constructor/default factory returns false and schedules no nodes; injected
-    mock factories work without stubbing `globalThis.AudioContext`.
-  - `playScanBlip()` before unlock returns false.
-  - successful playback creates oscillator/gain, connects oscillator -> gain ->
-    destination, calls the exact frequency/gain automation sequence from §4.3, and
-    schedules start/stop exactly once.
-  - successful playback converts `SCAN_BLIP_DURATION_MS` to seconds with
-    `SCAN_BLIP_DURATION_MS / 1000`, then uses that value for
-    `now + durationSeconds / 2` and `now + durationSeconds`.
-  - suspended/interrupted state after unlock starts one non-awaited resume attempt during
-    playback and schedules no oscillator for that skipped cue.
-  - repeated successful playback creates two oscillator instances.
-  - disabled-after-unlock suppresses playback.
-  - thrown constructor/resume/scheduling errors are caught.
-  - `dispose()` prevents future playback and calls `close()` when available.
-- `tests/unit/store.test.mjs`
-  - fresh settings load default off.
-  - malformed settings load default off.
-  - saving true and false round-trips under `checkin007.audio.v1`.
-  - volatile fallback can still read the saved setting.
-  - existing roster/log tests continue to pass.
-- `tests/unit/build.test.mjs`
-  - audio module ordering and app alias assertions described in Phase 4.
-
-End-to-end tests:
-
-- Existing boot/search/scan/result/privacy test additionally asserts `getUserMedia` was
-  never called with `audio: true`.
-- New enabled-audio workflow:
-  - install an init-script mocked `AudioContext` with counters for constructor,
-    unlock-phase resume, playback-phase resume, oscillator creation, gain creation,
-    start, stop, and connection calls. The mock context starts in `suspended`, and its
-    `resume()` implementation changes state to `running`, so the unlock-phase resume
-    assertion is load-bearing and deterministic.
-  - open admin, enable "Scan blip audio", close admin.
-  - select a guest and wait for result.
-  - assert one context construction, one unlock/resume-attempt counter increment from
-    `unlockFromGesture()` during the roster selection path, zero playback-path resume
-    attempts while the mock remains running, one oscillator start, one oscillator stop,
-    and one stored check-in. The test mock distinguishes unlock from playback by counting
-    `resume()` before the first oscillator creation as unlock-phase and counting
-    `resume()` after that point as playback-phase.
-- New disabled-audio workflow:
-  - use the same mock with default settings.
-  - select a guest and wait for result.
-  - assert zero context constructions and zero oscillator starts.
-- Existing admin accessibility smoke remains axe-green with the new checkbox visible.
-
-Regression commands:
+Run under Node 24.20.0:
 
 ```bash
+node --version
+npm ci
 npm run lint
 npm run test:unit
 npm run test:e2e
 npm run build
 ```
 
-## 11. Environment & Toolchain
+Acceptance criteria:
 
-Fresh clone setup remains unchanged:
+- `node --version` prints `v24.20.0` or another `v24.x.y` LTS patch if the official
+  installer advances before implementation.
+- Unit tests include the new guard tests and all existing tests remain green.
+- E2E tests remain green with the existing Playwright fake-camera launch flags.
+- `dist/index.html` still builds under the existing gzip/raw byte budgets.
+
+## 7. Integration Points
+
+1. **npm engines**
+   - Contract: `package.json` and `package-lock.json` both say `>=24 <25`.
+   - Failure mode: mismatched metadata causes npm warnings or discriminator findings.
+   - Migration path: update both files in the same implementation commit.
+
+2. **developer validation scripts**
+   - Contract: `lint`, `test`, and `build` invoke `check:node` first.
+   - Failure mode: unsupported Node exits before Prettier, node:test, Playwright, or
+     build work begins.
+   - Migration path: developers run `nvm install && nvm use`, then rerun the same command.
+
+3. **test runner**
+   - Contract: `tests/unit/node-version.test.mjs` imports pure functions from the guard.
+   - Failure mode: an unguarded `process.exit()` would abort the unit suite.
+   - Migration path: keep CLI execution behind the `import.meta.url` check.
+
+4. **static artifact build**
+   - Contract: `scripts/build.mjs` output is unchanged except being invoked under Node 24.
+   - Failure mode: Acorn or Node API behavior differences break the build.
+   - Migration path: fix the specific incompatibility while preserving the classic
+     self-contained artifact contract and size budget.
+
+5. **operator documentation**
+   - Contract: README install instructions name the required Node line before `npm ci`.
+   - Failure mode: stale docs leave developers on Node 22/26 and validation fails.
+   - Migration path: docs and guard message use the same recovery command.
+
+## 8. Error Handling & Edge Cases
+
+- **Unsupported Node major:** detected by `parseNodeMajor`; `main()` writes a one-line
+  message and returns `1`.
+- **Malformed version string:** parse returns `null`; response is the same unsupported
+  path and includes the raw detected value.
+- **Patch release drift:** `.nvmrc`/`.node-version` pin `24.20.0`; if the official Node 24
+  LTS patch advances before implementation, use the newer `24.x.y` only if README,
+  version files, and tests are updated together in the implementation commit.
+- **Running from Node 26 Current:** guard fails by design even though the code may work;
+  this prevents unreviewed Current-only behavior from becoming the validation baseline.
+- **npm without engine-strict:** npm may only warn on engines, so guarded scripts provide
+  the hard failure.
+- **Direct `node scripts/build.mjs`:** still bypasses the guard. This is acceptable
+  because documented validation uses `npm run build`; adding a hard import-level guard to
+  every script would couple unrelated modules to toolchain policy.
+- **CI or shell without nvm:** README also names `.node-version` so asdf/mise users can
+  select the same version. Other installers may install Node 24 manually from nodejs.org.
+
+## 9. Stability & Performance
+
+- The guard is O(1): it parses a short version string once and does no filesystem or
+  network I/O.
+- Added runtime cost to guarded commands is below 50 ms on typical local machines because
+  it starts a single Node process and exits before slower tools.
+- No browser bundle bytes change; `scripts/check-node-version.mjs` is never included in
+  `dist/index.html`.
+- Memory use is constant and negligible: a few strings and one stderr write on failure.
+- The existing build size limits remain `<=750 KiB gzip` and `<=1.2 MiB` raw HTML.
+- Stability improves by preventing accidental validation on unsupported or unreviewed
+  Node majors.
+
+## 10. Testing Strategy
+
+Unit tests:
+
+- `parseNodeMajor('24.20.0') === 24`.
+- `parseNodeMajor('v24.20.0') === 24`.
+- `parseNodeMajor('')`, `parseNodeMajor('abc')`, and `parseNodeMajor(null)` return
+  `null`.
+- `isSupportedNodeVersion('24.0.0')` and `isSupportedNodeVersion('24.20.0')` return
+  `true`.
+- Node `22.99.0`, `23.0.0`, `25.0.0`, and `26.3.0` return `false`.
+- `main({ version: '26.3.0', stderr })` returns `1` and writes a message containing
+  `Node 24 LTS`, `26.3.0`, and `nvm install && nvm use`.
+- `main({ version: '24.20.0', stderr })` returns `0` and writes nothing.
+
+Regression tests:
+
+- `npm run lint` remains Prettier-clean.
+- `npm run test:unit` passes all existing unit suites plus `node-version.test.mjs`.
+- `npm run test:e2e` remains green; no camera/audio privacy assertions are weakened.
+- `npm run build` emits `dist/index.html` inside the existing size budget.
+
+Manual negative check:
 
 ```bash
-npm ci
-npm run build
-npm run test
+node scripts/check-node-version.mjs
 ```
 
-Toolchain remains `node >=22` as declared in `package.json`, with current dev
-dependencies `@playwright/test`, `acorn`, `axe-core`, `http-server`, and `prettier`.
-No new npm packages or browser permissions are required.
+When run under a non-24 local runtime, it must fail with the same recovery hint without
+mutating files.
 
-Browser APIs used:
+## 11. Environment & Toolchain
 
-- `AudioContext` / `webkitAudioContext`
-- `AudioContext.resume()`, `suspend()`, `close()`, `currentTime`, and `state`
-- `createOscillator()`, `createGain()`
-- `AudioParam.setValueAtTime()` and `setTargetAtTime()`
+Fresh clone setup:
+
+```bash
+nvm install
+nvm use
+node --version
+npm ci
+npm run lint
+npm test
+npm run build
+```
+
+Expected version:
+
+- Node: `v24.20.0` from `.nvmrc`/`.node-version`, or a newer official Node 24 LTS patch
+  if the implementation deliberately updates all version references together.
+- npm: the npm bundled with the selected Node 24 distribution; no separate npm pin in
+  this cycle.
+
+Current project dev dependencies remain pinned in `package-lock.json`.
 
 ## 12. Deployment & Distribution
 
-Distribution remains the existing static artifact:
+Deployment remains unchanged:
 
-```bash
-npm run build
-```
-
-The generated `dist/index.html` continues to run from HTTPS for live camera access and
-from `file://` for non-camera fallback. The optional audio cue uses only local browser
-APIs and does not require a server, network, microphone permission, or additional
-assets.
+- `npm run build` produces `dist/index.html`.
+- `dist/index.html` remains self-contained and can still be opened from `file://`.
+- `npm run serve` and `npm run serve:https` keep the same ports and http-server flags.
 
 Rollback procedure:
 
 1. Revert the implementation commit for this cycle.
-2. Rebuild with `npm run build`.
-3. Existing `checkin007.audio.v1` settings become unused data and do not affect older
-   code. Roster and log storage remain valid because their keys and formats are unchanged.
+2. Rerun `npm ci`, `npm run lint`, `npm test`, and `npm run build` under the previous
+   accepted runtime.
+3. Restore the backlog item from `[/]` to `[ ]` only if the discriminator asks for the
+   cycle to be abandoned.
 
 ## 13. Open Questions
 
-1. **Should the cue be enabled by default for new events?** Proposed resolution: no.
-   Default-off matches the backlog's "optional" wording and browser/user expectations.
-   Confirmation would require operator usability feedback after this cycle ships.
-2. **Should volume be user-adjustable?** Proposed resolution: no for this cycle. A single
-   conservative gain avoids UI scope creep. Add a future backlog item only if operators
-   report the cue is too quiet or too loud in real venues.
-3. **Should the audio context be closed when disabled or only suspended?** Proposed
-   resolution: disable suppresses playback and attempts `suspend()`; `dispose()` closes
-   on app teardown/test cleanup. This avoids re-unlock churn during one session while
-   still making tests deterministic.
+1. **Should this also add CI?**
+   - Proposed resolution: no for this cycle. The repository has no workflow directory,
+     and CI design is a separate operational decision.
+   - Needed to confirm: maintainer preference for GitHub Actions or another runner.
+
+2. **Should Node 26 Current be allowed as an additional validation target?**
+   - Proposed resolution: no. The backlog item specifically names Node 24 LTS, and Node
+     26 Current can be evaluated in a future toolchain cycle.
+   - Needed to confirm: a future audit or maintainer request for Current-release testing.
