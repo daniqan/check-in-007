@@ -1,722 +1,629 @@
-# Check-In 007 — Implementation Plan v16
+# Check-In 007 — Implementation Plan v17
 
-> **Implementation status (v16 landed):** all five phases COMPLETE.
+> **Cycle 7 — Node 24 LTS toolchain pin + GitHub Actions CI.** This is a NEW cycle
+> started from `BACKLOG.md`. It bundles the two remaining, tightly-coupled Polish &
+> Technical-Debt items:
 >
-> - [x] **Phase 1 — Native project & roster parity:** Xcode project (3 targets, file-system-synchronized
->   groups, `xcodebuild -list` verified), `scripts/export-native-guests.mjs` (acorn-parsed, reuses the web
->   `normalizeGuests`), generated `default-guests.json` (40 rows, Prettier-conformant), `SearchNormalizer`/
->   `GuestCatalog` ports.
-> - [x] **Phase 2 — Domain persistence/import/export/merge:** `CheckInStore`, `CSVCodec`, `LogMerger`,
->   models; storage keys mirror web; append idempotent by `visitId`; CSV columns
->   `visitId,guestId,name,table,timestamp`.
-> - [x] **Phase 3 — SwiftUI kiosk flow:** `AppModel` state machine, `LoadingView`/`RosterView`/`ScanView`/
->   `ResultView`/`AdminSheet`/`Theme`; `Timing` enum byte-matches `src/config.mjs`.
-> - [x] **Phase 4 — Camera & audio privacy:** `CameraPreviewModel` (preview-only, no audio input/outputs),
->   `ScanAudioPlayer` (default-off; `Cue` constants match `src/config.mjs` `AUDIO`), `Info.plist`
->   `NSCameraUsageDescription`.
-> - [x] **Phase 5 — Verification & docs:** native unit + UI tests; web gates green (`prettier --check .`
->   clean with `native/` ignored, `npm run test:unit` 57/57 incl. the parity test, `npm run build` 26315
->   gzip bytes). Core Swift (models/services/viewmodel + non-UIKit views) type-checks against the macOS
->   toolchain; README documents both tracks.
+> - "Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)"
+> - "Add a CI workflow (e.g. GitHub Actions) running `npm ci` + `npm run lint`/`test`/`build`
+>   on the pinned Node 24 line, with Playwright browser install/cache"
 >
-> **Verification note (per §11):** `xcodebuild … test` was NOT run in the implementation environment —
-> the iOS/iPadOS 26 platform + simulator runtime are not installed (`xcrun simctl list runtimes` empty,
-> and the iOS build SDK reports "iOS 26.4 is not installed"), the exact multi-GB-download state §11
-> documents. Install a runtime per §11/README to run the native test gate.
+> They are coupled: the CI item explicitly runs "on the pinned Node 24 line", so CI must
+> consume the Node-24 pin this cycle produces. The third unchecked backlog item — the
+> on-device static-HTTPS helper for offline iPad camera — is an unrelated native subsystem
+> and is deferred to a future cycle (§2 Out of scope).
 >
-> **Deviation (§4.2 production path):** the `.pbxproj` was authored directly (modern
-> `objectVersion = 77` file-system-synchronized-group format, the shape Xcode 26 generates) because this
-> automated session has no interactive Xcode GUI. It is validated with `xcodebuild -list` (all 3 targets +
-> the `CheckIn007` scheme resolve). A shared scheme was added so `xcodebuild -scheme CheckIn007` works.
-
-> Cycle 6 backlog plan. Source item: `BACKLOG.md` Deferred Features item
-> "Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)", now marked in
-> progress as `- [/]`. This plan intentionally does not include the separate
-> "On-device static-HTTPS helper" backlog item.
+> The Node-24 portion re-uses the previously-APPROVED (98/100, Cycle-5 Rev 3) plan v14
+> preserved in git `ff40b18`, which this cycle abandoned unimplemented. That approval
+> covered only the toolchain pin; the CI workflow (its §13 Open Question #1, resolved "no
+> for that cycle") is net-new here and is the primary reason this is a fresh plan, not a
+> re-implementation.
 
 ## 1. Overview
 
-This cycle adds a native SwiftUI iPad build that mirrors the existing static web kiosk
-for operators who want maximum iPad fidelity without depending on Safari camera and web
-storage behavior. The current web app remains supported and unchanged; the native app is
-an alternative client that preserves the same roster, theatrical scan, admin controls,
-export formats, audio privacy posture, and event-log semantics. The implementation must
-be shippable from the repository with Xcode and testable without requiring App Store
-distribution.
+Pin the project's Node.js toolchain to the **Node 24 LTS** line (`.nvmrc`,
+`.node-version`, tightened `engines`, and a dependency-free fail-fast guard wired into the
+`lint`/`test`/`build` scripts), and add a **GitHub Actions** workflow that runs the full
+web quality gate — `npm ci`, `npm run lint`, unit tests, Playwright e2e, and `npm run
+build` — on that pinned Node line, with npm and Playwright-browser caching. This closes the
+last two toolchain/infra backlog items, gives the project a longer support runway, and makes
+the previously-manual quality gate reproducible on every push and pull request. No
+application source, data, styles, or the native SwiftUI target change.
 
 ## 2. Scope
 
-### In Scope
+### In scope
 
-1. Add a native iPadOS SwiftUI app under `native/CheckIn007/`.
-2. Commit an Xcode project under `native/CheckIn007.xcodeproj/` with app, unit-test, and
-   UI-test targets.
-3. Port the core domain contracts from the web app: guest normalization, folded search,
-   duplicate-name dropping, stable generated IDs, check-in log append idempotency by
-   visit ID, CSV/JSON export, CSV roster import, and multi-device log merge.
-4. Provide a native camera-preview scan screen using AVFoundation video input only; do
-   not capture, store, transmit, or process frames.
-5. Provide optional default-off scan blip audio gated by an explicit admin setting and
-   user interaction.
-6. Preserve operator workflows: roster search, guest selection, loading/scan/result
-   progression, hidden admin entry, roster import/reset, log export/copy/share,
-   merge preview/apply, clear-log confirmation, and audio setting toggle.
-7. Add native unit tests and UI smoke tests covering core behavior, privacy boundaries,
-   accessibility labels, and persistence/export contracts.
-8. Document native build/test/run instructions in `README.md`.
+1. `.nvmrc` and `.node-version` pinning Node `24.20.0`.
+2. `package.json` + `package-lock.json` root `engines.node` tightened from `">=22"` to
+   `">=24 <25"`.
+3. A dependency-free Node major-version guard `scripts/check-node-version.mjs`, wired as a
+   fail-fast prefix into `lint`, `test`, and `build`, plus a standalone `check:node` script.
+4. Unit tests for the guard (`tests/unit/node-version.test.mjs`), including a child-process
+   smoke test of the executable tail.
+5. A GitHub Actions workflow `.github/workflows/ci.yml` running the web gate on Node 24
+   (`ubuntu-latest`), with `actions/setup-node` npm caching and a Playwright browser cache.
+6. `README.md` updated with the Node 24 setup path and a CI/badge note.
 
-### Out Of Scope
+### Out of scope
 
-- Removing, replacing, or behaviorally changing the existing web app.
-- Implementing the offline static-HTTPS helper backlog item.
-- Adding CI workflow files.
-- App Store signing, provisioning profile management, TestFlight setup, or paid Apple
-  Developer Program enrollment.
-- iPhone-specific layout optimization beyond adaptive SwiftUI constraints that prevent
-  crashes or overlap.
-- Cloud sync, networking, external databases, QR/barcode scanning, or real biometric
-  capture.
+- **On-device static-HTTPS helper** for offline iPad camera (§10 Q2) — a separate native
+  subsystem; remains `[ ]` in the backlog for a future cycle.
+- **Native SwiftUI CI** (macOS runner + `xcodebuild` + multi-GB simulator-runtime download).
+  Native correctness stays source-verified per Cycle 6; a macOS CI lane is a separate, much
+  heavier operational decision (§13 Open Question #2). This workflow is web-only.
+- **Dependency upgrades.** Dev-dependency versions and lockfile integrity hashes are frozen;
+  this is a toolchain/CI cycle, not a dependency migration.
+- **Node 25/26 "Current" validation.** The backlog item names Node 24 LTS specifically; the
+  guard deliberately rejects non-24 majors, including this machine's Node 26.
+- **Any change to application source** in `src/`, `data/`, `assets/`, `vendor/`, the build
+  internals of `scripts/build.mjs`, screen behavior, or the kiosk/privacy contract.
 
 ## 3. Architecture
 
-The native app is a separate SwiftUI target with shared concepts, not shared runtime
-code. The web app continues to build from `index.html`, `src/`, and `scripts/build.mjs`.
-The native app consumes a generated JSON copy of the default guest roster and persists
-operator state locally on the device.
+Three thin, independent layers are added around the existing web app; none touches
+`src/` or the browser artifact.
 
-```text
-data/guests.default.js
-  -> scripts/export-native-guests.mjs
-  -> native/CheckIn007/Resources/default-guests.json
-
-CheckIn007App
-  -> AppModel (@MainActor observable state coordinator)
-  -> GuestCatalog + SearchNormalizer
-  -> CheckInStore
-       -> UserDefaults: roster override + audio settings
-       -> Documents/check-in-007-log.json: event log
-  -> SwiftUI screens
-       -> LoadingView -> RosterView -> ScanView -> ResultView
-       -> AdminSheet
-  -> CameraPreviewModel / CameraPreviewView (AVFoundation preview only)
-  -> ScanAudioPlayer (default-off synthesized cue)
+```
+Developer / CI runner
+        │
+        ▼
+  version selection hint ──────►  .nvmrc / .node-version   (24.20.0)
+        │
+        ▼
+  npm script entry (lint|test|build)
+        │  guard runs FIRST, fails closed on non-24
+        ▼
+  scripts/check-node-version.mjs  ──(exit 1 + stderr hint)──►  abort before slow tools
+        │  exit 0 on Node 24
+        ▼
+  existing tools: prettier --check .  │  node --test  │  playwright test  │  build.mjs
+        ▲
+        │ same commands, same order
+  .github/workflows/ci.yml  ── setup-node(.nvmrc) → npm ci → lint → test:unit
+                                → cache+install chromium → test:e2e → build → upload dist
 ```
 
-Failure domains:
+**Components & responsibilities**
 
-- Roster parsing failures affect only the imported roster and leave the existing roster
-  intact.
-- Log read/write failures surface as admin status errors and keep in-memory state for
-  the current session when possible.
-- Camera authorization denial or camera startup failure falls back to the existing
-  "covert mode" theatrical state.
-- Audio engine startup failure disables the cue for the current attempt without blocking
-  check-in.
-- Native build/test failures must not alter the web app validation path.
+- **Version files** (`.nvmrc`, `.node-version`): the single source of truth for the pinned
+  Node line. `setup-node` reads `.nvmrc` in CI; nvm/asdf/mise read them locally.
+- **Guard** (`scripts/check-node-version.mjs`): pure, dependency-free major-version
+  validation with a guarded executable tail. Fails **closed** (exit 1) on every non-24
+  major, including runtimes where `import.meta.main` is unavailable.
+- **CI workflow** (`.github/workflows/ci.yml`): orchestrates the same commands a developer
+  runs locally, on the pinned Node line, with caching. It is the *only* new component that
+  consumes both the version pin and the guard.
+
+**Data-flow direction:** version files → guard → tools; CI wraps the same chain. **Ownership
+boundaries:** version files own the pin; `package.json`/lockfile own engine metadata + script
+wiring; the guard owns runtime validation/messaging; the workflow owns CI orchestration;
+`README.md` owns setup docs. **Failure domains:** a non-24 runtime fails at the guard before
+any slow tool runs (local and CI alike); a CI infra failure (cache miss, browser download)
+degrades to a slower-but-correct run, never a false green.
 
 ## 4. Technical Decisions & Rationale
 
-1. **Use SwiftUI on stable Xcode 26, not Xcode 27 beta.** Apple documents Xcode 26 as
-   including Swift 6.2 and SDKs for iPadOS 26, while the current Xcode 27 line is beta
-   as of 2026-09-02. A beta-only project was considered, but this kiosk should build on
-   the stable public toolchain used for event operations.
-   Source: https://developer.apple.com/documentation/xcode-release-notes/xcode-26-release-notes
+1. **Target Node `24.20.0`, engine range `>=24 <25`.** Node v24 (codename *Krypton*) is the
+   Active LTS line; `24.20.0` is the pinned patch (carried forward from approved plan v14,
+   which cited the nodejs.org previous-releases page listing v24 as LTS on 2026-09-02).
+   `>=24 <25` expresses "Node 24 LTS" exactly. **Alternative considered:** a broad `>=24`,
+   rejected because it would silently admit un-audited Node 25/26. **Tradeoff:** a pinned
+   patch needs a deliberate bump when the LTS patch advances (documented in §8), in exchange
+   for reproducibility.
 
-2. **Commit a plain Xcode project instead of introducing Tuist/XcodeGen.** Third-party
-   project generators reduce `.pbxproj` hand editing, but they add bootstrap tooling and
-   version policy to a repo that currently has only npm-based web tooling. A committed
-   single-app Xcode project is verbose but inspectable in Xcode, requires no extra
-   install step, and keeps the native track independent from Node.
-   **Production path (not hand-authored):** the `project.pbxproj` is created by Xcode 26
-   locally — File → New → Project → iOS App (SwiftUI, Swift), then add the Unit Testing and
-   UI Testing targets via File → New → Target — and the Xcode-generated `.pbxproj` is
-   committed verbatim. A hand-written multi-target `.pbxproj` is error-prone and a malformed
-   one makes the whole cycle unverifiable, so we never author it by hand; the Swift/resource
-   files listed in §5 are then added to their targets in Xcode before committing.
+2. **Dependency-free local guard over a package.** `process.versions.node` is stable and
+   sufficient for major-version validation; a ~30-line script avoids lockfile churn and
+   supply-chain surface. **Alternative considered:** `check-node-version` (npm), rejected to
+   keep runtime deps at zero and dev deps tightly scoped. **Tradeoff:** we maintain a small
+   script instead of importing one.
 
-3. **Use SwiftUI `NavigationStack`, `List`, `sheet`, and `@Observable` app state.**
-   SwiftUI is the native UI framework Apple positions for Apple-platform apps, and the
-   kiosk is state-driven rather than graphics-engine-driven. UIKit was considered for
-   total control, but SwiftUI reduces custom layout code and improves Dynamic Type and
-   VoiceOver behavior when labels are supplied explicitly.
-   Source: https://developer.apple.com/documentation/swiftui/
+3. **`pathToFileURL(process.argv[1]).href` for CLI-execution detection.** The guard must run
+   on the very runtimes it *rejects* (Node 20, Node 22 before `22.18.0`, Node 23), so it
+   cannot rely on `import.meta.main` (added in `v24.2.0`, backported to `v22.18.0`; elsewhere
+   `undefined`, which would let the CLI no-op with exit 0 — a guard-fails-**open** bug). This
+   exact decision was the Cycle-5 Rev-2 blocker; `pathToFileURL` (in `node:url` on every
+   supported/unsupported runtime) fixes it and handles spaces/percent-encoding/platform paths.
+   **Alternative considered:** `` import.meta.url === `file://${process.argv[1]}` ``, rejected
+   for mishandling those paths.
 
-4. **Use AVFoundation preview-only camera integration.** `AVCaptureSession` coordinates
-   camera input and preview flow, and Apple requires explicit camera authorization for
-   capture access. The app will add a video device input and preview layer, but no
-   photo/movie/data output, no microphone input, and no frame-processing delegate.
-   `UIImagePickerController` was considered but rejected because it is capture-oriented
-   and does not express the privacy boundary as clearly.
-   Sources:
-   https://developer.apple.com/documentation/avfoundation/avcapturesession and
-   https://developer.apple.com/documentation/avfoundation/requesting-authorization-to-capture-and-save-media
+4. **Keep both `.nvmrc` and `.node-version`.** `.nvmrc` covers nvm + `setup-node`'s
+   `node-version-file`; `.node-version` covers asdf/mise. Low cost, less setup ambiguity.
 
-5. **Persist settings in `UserDefaults` and logs as JSON in app Documents.**
-   `UserDefaults` is appropriate for small preferences and the roster override; event
-   logs can grow and need explicit export/readback behavior, so they belong in a file
-   managed through `FileManager` with atomic writes. SQLite was considered but rejected
-   because the log is append-mostly, small for event use, and already exports as a flat
-   array.
-   Source: https://developer.apple.com/documentation/foundation/userdefaults
+5. **GitHub Actions on `ubuntu-latest`, web-only.** GitHub Actions is the repo's host
+   platform's native CI, needs no extra service, and its `actions/setup-node` has first-class
+   `.nvmrc` support and built-in npm caching. **Alternative considered:** a macOS runner that
+   also builds the native target — rejected this cycle: it needs a multi-GB simulator-runtime
+   download and a much longer job, a separate operational decision (§13). Ubuntu is the
+   fastest correct host for the web gate.
 
-6. **Use XCTest/XCUIAutomation for native verification.** Apple documents XCTest for unit
-   and UI tests, including UI automation through XCUIAutomation. Snapshot testing
-   libraries were considered, but this cycle needs behavior, accessibility, persistence,
-   and privacy assertions more than pixel-perfect image diffs.
-   Sources: https://developer.apple.com/documentation/xctest and
-   https://developer.apple.com/documentation/xcuiautomation
+6. **`node-version-file: '.nvmrc'` in CI, not a hard-coded version.** The workflow reads the
+   same pin developers use, so the version has exactly one source of truth. **Tradeoff:** the
+   exact patch (`24.20.0`) must be resolvable by `setup-node`'s version index; `24.20.0` is a
+   published LTS patch, so it resolves. If a future pin bump outpaces the index, the fallback
+   is a fuzzy `24` in `.nvmrc` — not needed now.
 
-7. **Keep the native app visually faithful, not byte-for-byte CSS-equivalent.** Fonts,
-   layout rhythm, black kiosk shell, 007 topbar, roster rows, scan copy, and admin
-   workflows should match the web app's intent. Exact CSS animations are not portable to
-   SwiftUI and are less important than camera reliability, hit targets, VoiceOver, and
-   full-screen iPad ergonomics.
+7. **First-party `actions/*` pinned to major tags (`@v4`).** `actions/checkout`,
+   `actions/setup-node`, `actions/cache`, and `actions/upload-artifact` are GitHub-maintained;
+   major-tag pinning is GitHub's documented default and gets security patches automatically.
+   **Alternative considered:** full 40-char SHA pinning (strongest supply-chain posture),
+   deferred — it adds a manual bump burden and is most valuable for third-party actions, of
+   which this workflow uses none. Documented as a future hardening option (§13).
+
+8. **Cache npm via `setup-node` and Playwright browsers via `actions/cache`.** `setup-node`'s
+   `cache: 'npm'` keys on `package-lock.json`. Playwright's browser binaries live outside
+   `node_modules` (`~/.cache/ms-playwright`), so they need a separate cache keyed on the
+   lockfile (which pins `@playwright/test@1.62.1`). `npx playwright install --with-deps
+   chromium` is then idempotent: it skips the download on a cache hit but still ensures the
+   apt system libraries are present. **Alternative considered:** installing all three
+   browser engines — rejected: the e2e suite is chromium-only (it relies on chromium fake-
+   media launch flags), so chromium alone is correct and faster.
+
+9. **CI runs the *guarded* npm scripts, not raw tools.** Running `npm run lint` / `npm run
+   build` (guard-prefixed) under Node 24 proves the guard passes on the supported runtime and
+   exercises the exact developer commands. `test:unit`/`test:e2e` stay unguarded (called by
+   the guarded `test`) so CI can install browsers between them; both still run on Node 24.
 
 ## 5. File Manifest
 
 ```text
-BACKLOG.md                                             (MOD) — Mark native SwiftUI backlog item in progress.
-IMPLEMENTATION_PLAN.md                                 (MOD) — Replace cycle-5 plan with this cycle-6 plan.
-README.md                                              (MOD) — Add native iPad build/test/run instructions (kept Prettier-clean; README is linted).
-.prettierignore                                        (MOD) — Add `native/` so Swift/plist/pbxproj/JSON are excluded from `prettier --check .`.
-scripts/export-native-guests.mjs                       (NEW) — Generate native default roster JSON via the web app's own normalizeGuests.
-tests/unit/native-guests-export.test.mjs                (NEW) — Verify exported native roster stays in sync with web defaults (regenerate-and-diff).
-native/CheckIn007.xcodeproj/project.pbxproj            (NEW) — Xcode-GENERATED app/unit-test/UI-test project (created in Xcode 26, committed verbatim; not hand-authored — see §4.2).
-native/CheckIn007/CheckIn007App.swift                  (NEW) — SwiftUI app entry point.
-native/CheckIn007/Info.plist                           (NEW) — Camera usage string and iPad orientation metadata.
-native/CheckIn007/Resources/default-guests.json        (NEW) — Generated default guest roster (Prettier-conformant JSON).
-native/CheckIn007/Models/Guest.swift                   (NEW) — Guest model and normalization helpers.
-native/CheckIn007/Models/CheckInEntry.swift            (NEW) — Log entry model and visit ID semantics.
-native/CheckIn007/Models/MergeSummary.swift            (NEW) — Merge preview result model.
-native/CheckIn007/Models/AudioSettings.swift           (NEW) — Default-off audio preference model.
-native/CheckIn007/Services/SearchNormalizer.swift      (NEW) — Diacritic-insensitive folding and ID slugging.
-native/CheckIn007/Services/GuestCatalog.swift          (NEW) — Default roster load, import validation, search.
-native/CheckIn007/Services/CSVCodec.swift              (NEW) — CSV parse/export matching web edge cases.
-native/CheckIn007/Services/CheckInStore.swift          (NEW) — Local persistence and export APIs.
-native/CheckIn007/Services/LogMerger.swift             (NEW) — JSON/CSV log merge normalization and dedupe.
-native/CheckIn007/Services/CameraPreviewModel.swift    (NEW) — Camera authorization/session lifecycle.
-native/CheckIn007/Services/ScanAudioPlayer.swift       (NEW) — Optional synthesized scan cue.
-native/CheckIn007/ViewModels/AppModel.swift            (NEW) — Kiosk state machine and orchestration.
-native/CheckIn007/Views/LoadingView.swift              (NEW) — Native loading screen.
-native/CheckIn007/Views/RosterView.swift               (NEW) — Searchable guest roster and admin hold entry.
-native/CheckIn007/Views/ScanView.swift                 (NEW) — Camera/covert scan screen.
-native/CheckIn007/Views/CameraPreviewView.swift        (NEW) — UIKit preview-layer bridge for SwiftUI.
-native/CheckIn007/Views/ResultView.swift               (NEW) — Assignment result screen.
-native/CheckIn007/Views/AdminSheet.swift               (NEW) — Import/export/merge/settings controls.
-native/CheckIn007/Views/Theme.swift                    (NEW) — Shared colors, spacing, typography helpers.
-native/CheckIn007Tests/GuestCatalogTests.swift         (NEW) — Guest normalization/search tests.
-native/CheckIn007Tests/CSVCodecTests.swift             (NEW) — CSV parser/exporter tests.
-native/CheckIn007Tests/CheckInStoreTests.swift         (NEW) — Persistence/idempotency/export tests.
-native/CheckIn007Tests/LogMergerTests.swift            (NEW) — Multi-device merge tests.
-native/CheckIn007Tests/CameraPrivacyTests.swift        (NEW) — Preview-only camera configuration tests.
-native/CheckIn007Tests/ScanAudioPlayerTests.swift      (NEW) — Default-off and failure-tolerant audio tests.
-native/CheckIn007UITests/CheckIn007UITests.swift       (NEW) — Native smoke workflow and accessibility tests.
+BACKLOG.md                          (MOD) — Mark BOTH the Node 24 and CI items in progress ([ ]→[/]).
+IMPLEMENTATION_PLAN.md              (MOD) — Replace completed cycle-6 plan with this cycle-7 plan.
+.nvmrc                              (NEW) — Select Node 24.20.0 for nvm / setup-node.
+.node-version                       (NEW) — Select Node 24.20.0 for asdf / mise.
+package.json                        (MOD) — Tighten engines; add check:node; guard-prefix lint/test/build.
+package-lock.json                   (MOD) — Mirror root packages[""].engines.node to ">=24 <25" only.
+scripts/check-node-version.mjs      (NEW) — Fail-fast Node major guard (pure fns + guarded CLI tail).
+tests/unit/node-version.test.mjs    (NEW) — Unit-test parse/range/message/CLI dispatch (+ smoke test).
+.github/workflows/ci.yml            (NEW) — GitHub Actions web gate on pinned Node 24 with caching.
+README.md                           (MOD) — Node 24 setup path + CI note (Prettier-clean).
 ```
 
-No existing `src/`, `index.html`, `data/guests.default.js`, or web test files are
-planned to change except for the new parity test that reads the existing web roster.
-
-**Lint coupling (why `.prettierignore` is a MOD):** `prettier --check .` (the `npm run lint`
-command) has parsers for `.json` and `.md` but not `.swift`/`.plist`/`.pbxproj`. Adding the
-`native/` tree therefore only risks lint on `native/CheckIn007/Resources/default-guests.json`
-and any Markdown; the README edits stay Prettier-clean and the generated JSON is
-Prettier-conformant, and — belt-and-suspenders — `native/` is added to `.prettierignore` so
-the native tree cannot break `npm run lint` regardless. The JSON's parity is instead enforced
-by `tests/unit/native-guests-export.test.mjs`.
-
-**Simulator-runtime prerequisite (see §11):** this machine has Xcode 26.4 but **no installed
-iPadOS runtime** (`xcrun simctl list runtimes` returns an empty `== Runtimes ==` list), so the
-`xcodebuild … test` gate cannot run until a runtime is downloaded. §11 documents the one-time
-install and confirmation step required before native verification.
+No `src/`, `data/`, `assets/`, `vendor/`, `native/`, style, screen, or deployment-artifact
+files change. `package-lock.json` changes are limited to the **root** `packages[""].engines`
+value; no dependency versions or integrity hashes change.
 
 ## 6. Implementation Phases
 
-### Phase 1: Native Project And Roster Parity
+### Phase 1: Version metadata
 
-Create the Xcode project, app target, unit-test target, UI-test target, and default
-resource structure. Add `scripts/export-native-guests.mjs` so the native JSON resource is
-derived from `data/guests.default.js` rather than manually copied.
+Create `.nvmrc` and `.node-version`, each exactly:
+
+```text
+24.20.0
+```
+
+Edit `package.json` and the root `packages[""].engines` entry in `package-lock.json`
+(`package-lock.json:17-18`, the `packages[""]` block — **not** the transitive `>=20`/`>=8`
+floors) to:
+
+```json
+{ "engines": { "node": ">=24 <25" } }
+```
+
+**Acceptance criteria**
+
+- Both version files contain exactly `24.20.0` and a trailing newline.
+- `package.json` and lockfile root engine metadata both read `">=24 <25"`.
+- No dependency versions or integrity hashes change (verify with `git diff` — only the two
+  engine lines and the root package differ).
+- Validate the hand-edited lockfile with `npm ci` (not `npm install`, which may rewrite
+  unrelated metadata).
+
+### Phase 2: Node version guard
+
+Create `scripts/check-node-version.mjs`:
 
 ```js
-import { normalizeGuests } from '../src/lib/roster.mjs';
+import { pathToFileURL } from 'node:url';
 
-export function extractDefaultGuests(sourceText) {
-  /**
-   * Parse the `window.CHECKIN007_DEFAULT_GUESTS = [ ... ]` assignment and return the raw
-   * guest rows as `{ name, table }` objects (an optional string `id` is preserved when
-   * present). The real web roster rows carry only `{ name, table }` and NO `id` — IDs are
-   * generated downstream by `normalizeGuests` via `slugify`, so `id` is NOT required input.
-   * Throws only when the source is not a single array assignment of object literals whose
-   * `name` and `table` are string literals.
-   */
+export const SUPPORTED_NODE_MAJOR = 24;
+
+export function parseNodeMajor(version = process.versions.node) {
+  /** Return the numeric major from "24.20.0" or "v24.20.0".
+   *  Return null for empty, non-string, or non-numeric input. */
   ...
 }
 
-export function writeNativeGuests({ sourcePath, outputPath }) {
-  /**
-   * Read `sourcePath`, `extractDefaultGuests` the raw rows, then run the web app's OWN
-   * `normalizeGuests` (imported from `src/lib/roster.mjs`) so the generated `id`, duplicate
-   * dropping, and `searchText` are byte-identical to the web client — a single source of
-   * truth, no re-implemented slugify to drift. Write the resulting `guests` array as
-   * Prettier-conformant JSON (2-space indent, trailing newline) with stable source row
-   * order. Return `{ count, outputPath }`.
-   */
+export function isSupportedNodeVersion(version = process.versions.node) {
+  /** True only when parseNodeMajor(version) === SUPPORTED_NODE_MAJOR. */
   ...
 }
-```
 
-```swift
-struct Guest: Identifiable, Codable, Equatable {
-    var id: String
-    var name: String
-    var table: String
-    var searchText: String
+export function formatUnsupportedNodeMessage(version = process.versions.node) {
+  /** One-line stderr message naming the detected version and the required
+   *  "Node 24 LTS" target, including "nvm install && nvm use" as the recovery hint. */
+  ...
 }
 
-enum SearchNormalizer {
-    static func fold(_ value: String) -> String { ... }
-    static func slugify(_ value: String) -> String { ... }
+export function main({ version = process.versions.node, stderr = process.stderr } = {}) {
+  /** Return 0 when supported. Otherwise write the formatted message to stderr and
+   *  return 1. Never throw for malformed versions. */
+  ...
 }
 
-struct GuestCatalog {
-    static func normalize(_ rows: [RawGuest]) -> (guests: [Guest], droppedDuplicates: Int) { ... }
-    static func loadDefaultGuests(bundle: Bundle = .main) throws -> [Guest] { ... }
-    static func filter(_ guests: [Guest], query: String) -> [Guest] { ... }
+// Version-agnostic executable-tail guard: runs on unsupported majors too, so the CLI
+// fails CLOSED (exit 1) on Node 20/22-pre-22.18/23 where import.meta.main is undefined.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = main();
 }
 ```
 
-Acceptance criteria:
+**Acceptance criteria**
 
-- `native/CheckIn007/Resources/default-guests.json` contains the same 40 default rows as
-  `data/guests.default.js` (verified: `grep -c "name:" data/guests.default.js` → 40), each
-  as `{ id, name, table, searchText }`.
-- Generated IDs, duplicate-name dropping, and `searchText` match the web app exactly,
-  because the script calls the web app's own `normalizeGuests` rather than re-implementing
-  `slugify` — the source rows are `{ name, table }` with no `id`, and IDs are generated
-  (punctuation/whitespace folded, empty→`guest`, collisions suffixed `-2`, `-3`).
-- The generated JSON is Prettier-conformant (2-space indent, trailing newline) so
-  `prettier --check .` stays green even though `native/` is also added to `.prettierignore`
-  (belt-and-suspenders; see Phase 5 and §7 contract 5).
-- The Xcode project opens without needing generated files outside the repo.
+- `node 24.x.y` → exit `0`, no output.
+- `22.x`, `23.x`, `25.x`, `26.x`, empty, and malformed → exit `1`, one-line stderr naming
+  the detected version + `Node 24 LTS` + `nvm install && nvm use`.
+- Imported by the unit test without exiting the test process (tail is guarded).
+- `node scripts/check-node-version.mjs` reaches `main()` when executed directly on Node
+  20/22/23/24/25/26 (fails closed on non-24).
 
-### Phase 2: Domain Persistence, Import, Export, And Merge
+### Phase 3: Script wiring and docs
 
-Implement native equivalents of the existing store, CSV, and merge behavior.
+Edit `package.json` scripts (leave `serve`, `serve:https`, `test:unit`, `test:e2e`,
+`fonts:subset` unchanged so dev servers still start for diagnosis):
 
-```swift
-struct CheckInEntry: Codable, Equatable, Identifiable {
-    var visitId: String
-    var guestId: String
-    var name: String
-    var table: String
-    var timestamp: String
-    var id: String { visitId }
-}
-
-protocol KeyValueStore {
-    func string(forKey key: String) -> String?
-    func set(_ value: String, forKey key: String)
-    func removeObject(forKey key: String)
-}
-
-final class CheckInStore {
-    init(defaults: KeyValueStore, fileURL: URL, clock: @escaping () -> Date)
-    func loadRoster() -> [Guest]
-    func saveRosterOverride(_ guests: [Guest]) throws -> [Guest]
-    func resetRoster() -> [Guest]
-    func appendCheckIn(guest: Guest, visitId: String) throws -> [CheckInEntry]
-    func loadLog() -> [CheckInEntry]
-    func clearLog() throws
-    func exportLogCsv() -> String
-    func exportLogJson() throws -> String
-    func loadAudioSettings() -> AudioSettings
-    func saveAudioSettings(_ settings: AudioSettings) -> AudioSettings
-}
-
-enum CSVCodec {
-    static func parseRows(_ input: String) throws -> [[String]]
-    static func parseGuests(_ input: String) throws -> ImportResult
-    static func export(rows: [[String: String]], columns: [String]) -> String
-}
-
-enum LogMerger {
-    static func parseLogFile(name: String, contents: String) throws -> ParsedLogFile
-    static func merge(existing: [CheckInEntry], imported: [CheckInEntry]) -> MergeSummary
+```json
+{
+  "scripts": {
+    "check:node": "node scripts/check-node-version.mjs",
+    "build": "node scripts/check-node-version.mjs && node scripts/build.mjs",
+    "lint": "node scripts/check-node-version.mjs && prettier --check .",
+    "test": "node scripts/check-node-version.mjs && npm run test:unit && npm run test:e2e"
+  }
 }
 ```
 
-Acceptance criteria:
+Edit `README.md` (keep Prettier-formatted — it is checked by `prettier --check .`):
 
-- Storage keys intentionally mirror the web keys where meaningful:
-  `checkin007.roster.v1`, `checkin007.audio.v1`; the native log file stores the same
-  JSON array shape as web `checkin007.log.v1`.
-- Append is idempotent by `visitId`.
-- CSV import requires `name` and `table`; optional `id` behaves like web import.
-- CSV export columns are exactly `visitId,guestId,name,table,timestamp`.
-- Merge preview reports current, imported, accepted, duplicate, invalid, and final
-  counts before apply.
-- File write failures are thrown to the caller and rendered as admin status messages.
+- Add "Node 24 LTS" as a prerequisite before `npm ci`, with `nvm install && nvm use` as the
+  default setup path (and `.node-version` for asdf/mise).
+- State that `npm run lint`, `npm test`, and `npm run build` fail fast outside Node 24.
+- Add a short "Continuous Integration" note pointing at `.github/workflows/ci.yml` (and,
+  optionally, a status badge — see Phase 4).
+- Preserve existing iPad-HTTPS, privacy, merge, audio, and native-app wording verbatim.
 
-### Phase 3: SwiftUI Kiosk Flow
+**Acceptance criteria**
 
-Build the native state machine and screens.
+- Fresh-clone README setup is deterministic for Node 24 users; command names stay familiar.
+- No user-facing kiosk copy changes; `prettier --check .` stays clean.
 
-```swift
-@MainActor
-@Observable
-final class AppModel {
-    enum Screen { case loading, roster, scan(Guest), result(Guest, repeatVisit: Bool) }
+### Phase 4: GitHub Actions CI workflow
 
-    var screen: Screen
-    var guests: [Guest]
-    var query: String
-    var adminStatus: String
-    var audioSettings: AudioSettings
+Create `.github/workflows/ci.yml`:
 
-    init(store: CheckInStore, camera: CameraPreviewModel, audio: ScanAudioPlaying)
-    func start()
-    func selectGuest(_ guest: Guest)
-    func finishScan()
-    func dismissResult()
-    func openAdmin()
-    func importRoster(contents: String)
-    func resetRoster()
-    func previewMerge(files: [ImportedFile])
-    func applyMerge()
-    func clearLog(confirming: Bool)
-    func setScanBlipEnabled(_ enabled: Bool)
-}
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web gate (Node 24 LTS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 24 (pinned via .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies (reproducible)
+        run: npm ci
+
+      - name: Lint (guarded, Node 24)
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-playwright-
+
+      - name: Install Playwright chromium (+ system deps)
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Build self-contained artifact (guarded, Node 24)
+        run: npm run build
+
+      - name: Upload built kiosk
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-index-html
+          path: dist/index.html
+          if-no-files-found: error
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
 ```
 
-Native timing constants (mirror `src/config.mjs` `TIMING` / `REDUCED` exactly, in a
-`Theme.swift` `Timing` enum, so the sequence is deterministic and testable):
+**Acceptance criteria**
 
-```swift
-enum Timing {
-    // Mirrors src/config.mjs TIMING (standard) and REDUCED (Reduce Motion).
-    static let loadingMs   = 2600, loadingReducedMs   = 900
-    static let scanMs      = 4500, scanReducedMs      = 2500
-    static let resultMs    = 5000, resultReducedMs    = 4000
-    static let transitionMs = 500, transitionReducedMs = 150
-}
+- Workflow is valid YAML and parses (`node -e "…YAML.parse…"` is unavailable without a dep;
+  validate structurally — see §10 — and by GitHub's own parse on push).
+- `setup-node` resolves Node `24.20.0` from `.nvmrc`; every subsequent step runs on Node 24,
+  so the guard-prefixed `lint`/`build` pass rather than fail closed.
+- `npm ci` uses the committed lockfile; npm cache keyed on `package-lock.json`.
+- Playwright chromium is cached across runs and installed with system deps; `test:e2e` runs
+  headless against the auto-started `npm run serve` webServer (config already sets
+  `reuseExistingServer: true`).
+- `dist/index.html` is uploaded as an artifact on every run; the Playwright HTML report is
+  uploaded only on failure.
+- The workflow never invokes `xcodebuild` or touches `native/` (web-only, per §2).
+
+### Phase 5: Verification
+
+Add `tests/unit/node-version.test.mjs`:
+
+```js
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import {
+  SUPPORTED_NODE_MAJOR,
+  formatUnsupportedNodeMessage,
+  isSupportedNodeVersion,
+  main,
+  parseNodeMajor,
+} from '../../scripts/check-node-version.mjs';
+
+test('parseNodeMajor accepts plain and v-prefixed versions', () => { ... });
+test('parseNodeMajor returns null for empty/non-numeric/null', () => { ... });
+test('isSupportedNodeVersion accepts only Node 24', () => { ... });
+test('main returns 1 and writes a recovery hint for unsupported versions', () => { ... });
+test('main returns 0 and stays silent for Node 24', () => { ... });
+test('CLI executable tail runs main for the current process major', () => { ... });
 ```
 
-Screen requirements (each timer uses the standard value, or the `…ReducedMs` value when
-`UIAccessibility.isReduceMotionEnabled`):
-
-- `LoadingView` shows the same event-operations identity and advances after
-  `Timing.loadingMs` (2600 ms; 900 ms under Reduce Motion).
-- `RosterView` uses a searchable `List`/`LazyVStack` that remains responsive for at least
-  2,000 guests, preserves 44 pt minimum hit targets, and exposes each row as
-  "`name`, `table or table pending`" to VoiceOver.
-- Admin entry uses a long press on the 007 mark with the same two-second intent as the
-  web app.
-- `ScanView` starts camera preview on entry, stops the session on exit, falls back to
-  covert mode on denial/unavailability, and advances after `Timing.scanMs` (4500 ms;
-  2500 ms under Reduce Motion).
-- `ResultView` writes the check-in exactly once per generated visit ID and returns to
-  roster after `Timing.resultMs` (5000 ms; 4000 ms under Reduce Motion).
-- `AdminSheet` supports roster CSV import, reset roster, CSV/JSON export through the iPad
-  share sheet, copy actions where pasteboard APIs are available, merge preview/apply,
-  clear-log double confirmation, and scan blip toggle.
-
-Acceptance criteria:
-
-- The primary event workflow is usable with touch and VoiceOver.
-- Search, import, export, merge, clear, and audio settings are reachable without exposing
-  implementation instructions in the UI.
-- Reduced Motion shortens transitions and avoids sweeping/animated effects while keeping
-  state timing deterministic.
-
-### Phase 4: Camera And Audio Privacy
-
-Implement camera preview and optional audio as isolated services.
-
-```swift
-@MainActor
-final class CameraPreviewModel: ObservableObject {
-    enum State: Equatable { case idle, requestingPermission, running, denied, unavailable, failed(String) }
-
-    var state: State { get }
-    var session: AVCaptureSession { get }
-    func start() async
-    func stop()
-}
-
-struct CameraPreviewView: UIViewRepresentable {
-    @ObservedObject var model: CameraPreviewModel
-    func makeUIView(context: Context) -> PreviewView
-    func updateUIView(_ uiView: PreviewView, context: Context)
-}
-
-protocol ScanAudioPlaying {
-    func setEnabled(_ enabled: Bool)
-    func unlockFromGesture()
-    func playScanBlip()
-    func stop()
-}
-```
-
-Acceptance criteria:
-
-- `Info.plist` contains `NSCameraUsageDescription` that states the camera is used for a
-  live theatrical preview.
-- The capture session contains video input and preview only; it has no audio input and no
-  photo/movie/video-data outputs.
-- `stop()` stops all capture inputs/session work when leaving scan.
-- Audio is default-off, does not request microphone permission, and failures are
-  non-fatal.
-- The scan cue approximates the web sweep: short duration, low gain, rising pitch, and no
-  looping/background playback.
-
-### Phase 5: Native Verification And Documentation
-
-Add unit/UI tests and README instructions.
-
-Required commands:
+Then, under **Node 24.20.0** (the accepted validation path):
 
 ```bash
-# Web parity checks (run on any Node; this machine is Node v26.3.0).
-npm run lint          # prettier --check . — stays green (README clean, native/ ignored)
-npm run test:unit     # includes tests/unit/native-guests-export.test.mjs
+nvm install && nvm use     # or asdf/mise/nodejs.org → node --version prints v24.x.y
+node --version
+npm ci
+npm run lint
+npm run test:unit
+npm run test:e2e
 npm run build
-
-# One-time: install an iPadOS runtime if none is present (see §11). Confirm, then test.
-xcrun simctl list runtimes                       # must show an iOS/iPadOS 26 runtime
-xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 \
-  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4)' test
 ```
 
-If the named simulator is unavailable but a runtime is installed, use `xcrun simctl list
-devices available` and select the newest available iPad simulator on the installed iPadOS
-26 runtime; document the exact fallback in the implementation notes. If **no** runtime is
-installed, `xcrun simctl list runtimes` is empty and the fallback cannot help — install a
-runtime first per §11 before either `xcodebuild … test` command.
+**Verifying on this non-24 shell (Node v26.3.0).** After Phase 3 the guarded commands
+intentionally fail on Node 26. If Node 24 cannot be selected during implementation/audit,
+verify the underlying tools directly and record that the guard's Node-26 rejection is
+*expected, not a regression*:
 
-Acceptance criteria:
+```bash
+node scripts/check-node-version.mjs        # expected: exit 1 on Node 26 (fails closed)
+npx prettier --check .                      # must be clean (incl. new .yml, README, script)
+node --test tests/unit/*.test.mjs           # all unit suites incl. node-version.test.mjs green
+npx playwright test                         # e2e green
+node scripts/build.mjs                       # dist/index.html within size budget
+```
 
-- Native unit tests cover normalization, slugging, CSV parse/export, log append
-  idempotency, merge dedupe/invalid rows, persistence fallback/error surfaces, camera
-  privacy configuration, and audio default-off behavior.
-- Native UI tests complete first check-in, repeated guest check-in, admin open/close,
-  roster search, and clear-log confirmation using accessibility identifiers.
-- Existing web lint/unit/build commands remain green after the native tree is added:
-  `prettier --check .` passes (README edits Prettier-formatted; generated JSON is
-  Prettier-conformant; `native/` is in `.prettierignore`), `npm run test:unit` passes
-  including the new parity test, and `npm run build` produces the same self-contained
-  `dist/index.html` within its existing budget.
-- README explains native prerequisites (including the one-time iPadOS-runtime install),
-  Xcode open/run path, the `xcrun simctl list runtimes` confirmation, the `xcodebuild`
-  test command, and the privacy boundary. README stays Prettier-clean.
+The direct-tool bypass is a diagnostic escape hatch only; the accepted validation path is
+the guarded npm scripts under Node 24, and CI runs exactly that on Node 24.
+
+**Acceptance criteria**
+
+- New guard unit tests pass; all existing unit + e2e suites stay green (no privacy/camera
+  assertions weakened).
+- The child-process smoke test `spawnSync(process.execPath, [<abs path to
+  check-node-version.mjs>])` asserts exit status ===
+  `isSupportedNodeVersion(process.versions.node) ? 0 : 1`, proving the tail calls `main()`.
+- `prettier --check .` is clean including the new `.github/workflows/ci.yml`, README, and
+  guard script (`.github/` is **not** in `.prettierignore`, so the YAML is checked).
+- `dist/index.html` builds within the ≤750 KB gzip / ≤1.2 MB raw budget.
 
 ## 7. Integration Points
 
-1. **Default roster generation**
-   - Contract: `scripts/export-native-guests.mjs` reads `data/guests.default.js` and
-     writes `native/CheckIn007/Resources/default-guests.json`.
-   - Failure mode: malformed source or unsupported literals aborts generation with a
-     non-zero exit and leaves the prior JSON untouched.
-   - Migration path: web app keeps reading `window.CHECKIN007_DEFAULT_GUESTS`; native app
-     reads the generated JSON bundled at build time.
+1. **npm engines**
+   - Contract: `package.json` and lockfile root both say `">=24 <25"`.
+   - Failure mode: mismatch → npm warnings / discriminator finding.
+   - Migration: edit both in the same commit; validate via `npm ci`.
 
-2. **Native local persistence**
-   - Contract: roster/audio preferences use `UserDefaults`; log entries use the same
-     JSON row fields as web exports.
-   - Failure mode: decode failure resets only the corrupted preference; log decode/write
-     failure is surfaced in admin status and does not silently discard imported files.
-   - Migration path: no automatic migration from browser `localStorage`; operators can
-     export from web and merge/import into native through Admin.
+2. **Developer validation scripts**
+   - Contract: `lint`/`test`/`build` invoke the guard first; `check:node` is the standalone
+     diagnostic.
+   - Failure mode: unsupported Node exits before Prettier/node:test/Playwright/build.
+   - Migration: `nvm install && nvm use`, then rerun the same command.
 
-3. **Camera permission**
-   - Contract: the app requests `.video` authorization only when scan starts.
-   - Failure mode: denied/restricted/unavailable camera renders covert mode and continues
-     the check-in flow.
-   - Migration path: web HTTPS camera behavior remains unchanged.
+3. **Test runner**
+   - Contract: `node-version.test.mjs` imports pure functions and spawns the CLI tail.
+   - Failure mode: an unguarded `process.exit()` would abort the unit suite.
+   - Migration: keep the tail behind `import.meta.url === pathToFileURL(process.argv[1]).href`;
+     the smoke test proves direct execution reaches `main()`.
 
-4. **Export and merge**
-   - Contract: exported CSV/JSON must be accepted by the existing web merge tooling and
-     native merge tooling.
-   - Failure mode: invalid rows are reported and skipped; duplicate visit IDs are counted
-     and not appended.
-   - Migration path: event teams can mix web and native devices if they consolidate using
-     exported files.
+4. **GitHub Actions ↔ version files**
+   - Contract: `setup-node` reads `.nvmrc`; all steps then run on Node 24, so guarded
+     scripts pass.
+   - Failure mode: if `.nvmrc` and `package.json` engines disagree, `npm ci` warns and a
+     guarded step could fail. They are edited together in Phase 1/3.
+   - Migration: a version bump updates `.nvmrc`, `.node-version`, `engines`, and the pinned
+     patch in one commit (§8).
 
-5. **Build/test tooling**
-   - Contract: web commands stay npm-based; native commands stay Xcode/xcodebuild-based.
-     `native/` is added to `.prettierignore`, and the generated JSON is Prettier-conformant,
-     so `prettier --check .` (the `npm run lint` command) stays green after the native tree
-     lands; native JSON parity is enforced by the unit parity test, not by lint.
-   - Failure mode: missing Xcode fails native verification only and does not block web
-     artifact generation. Missing iPadOS **runtime** (the current state — `xcrun simctl list
-     runtimes` is empty) blocks only the `xcodebuild … test` gate; §11 documents the one-time
-     `xcodebuild -downloadPlatform iOS` install to unblock it.
-   - Migration path: README documents both tracks separately.
+5. **GitHub Actions ↔ Playwright**
+   - Contract: the browser cache (`~/.cache/ms-playwright`, keyed on the lockfile) plus
+     `npx playwright install --with-deps chromium` provide chromium + apt deps; the e2e
+     `webServer` auto-starts `npm run serve` on port 8080.
+   - Failure mode: cache miss → slower (re-download) but still correct; missing system deps →
+     `--with-deps` installs them every run regardless of cache.
+   - Migration: bumping `@playwright/test` changes the lockfile hash → cache key rotates
+     automatically.
 
-## 8. Error Handling And Edge Cases
+6. **Static artifact build**
+   - Contract: `scripts/build.mjs` output is unchanged except being invoked under Node 24
+     (locally and in CI); artifact stays self-contained and within budget.
+   - Failure mode: an Acorn/Node API difference under Node 24 breaks the build.
+   - Migration: fix the specific incompatibility while preserving the artifact contract and
+     size budget; do not widen the engine range to hide it.
 
-- Empty default roster: show an empty roster state; admin import can recover by loading a
-  CSV.
-- Empty search query: return all guests in stable order.
-- Duplicate imported names: drop later duplicates, count them, and keep the first folded
-  name match.
-- Duplicate generated IDs: suffix `-2`, `-3`, etc. exactly like web normalization.
-- CSV with BOM, CRLF, quoted commas, doubled quotes, or blank lines: parse successfully.
-- CSV with unterminated quotes or missing required columns: reject import and preserve
-  current roster.
-- Log file missing on first run: treat as an empty log and create it on first write.
-- Corrupted log JSON: surface an admin error and preserve the file for manual export
-  rather than overwriting it automatically.
-- Disk full or permission denied on log write: keep current in-memory entries, report the
-  failure, and allow retry/export of the prior persisted log.
-- Rapid repeated guest taps: ignore while transitioning so one selection creates one
-  visit ID.
-- App backgrounding during scan: stop the camera session; resume only when the scan view
-  is active again.
-- Camera permission denied: never retry in a loop; show covert mode.
-- Camera session interruption: stop session and mark covert/unavailable until the next
-  scan attempt.
-- Audio session unavailable, muted, interrupted, or disabled: skip cue without blocking
-  result display.
-- VoiceOver enabled: all actionable controls have labels; scan/result status changes are
-  announced through accessible text.
-- Reduced Motion enabled: skip decorative sweep/large transitions and use shorter
-  timers.
-- Large rosters: list rendering remains lazy and search is debounced.
+7. **Operator documentation**
+   - Contract: README names the required Node line before `npm ci` and points at CI.
+   - Failure mode: stale docs leave developers on Node 22/26 and validation fails.
+   - Migration: docs and the guard message share the same recovery command.
 
-## 9. Stability And Performance
+## 8. Error Handling & Edge Cases
 
-- Guest normalization is `O(n)` over imported rows with `Set`/`Dictionary` lookups for
-  folded names and generated IDs. Expected event size is 40-2,000 guests; memory is one
-  `Guest` array plus search strings.
-- Search is `O(n * q)` per query where `q` is folded query length; for 2,000 guests this
-  is well under a frame when debounced to 120 ms on modern iPads.
-- Log append is `O(n)` to check visit-ID idempotency. At 5,000 check-ins, the JSON log is
-  still small enough for atomic file rewrites; if future event size exceeds this, SQLite
-  becomes a separate backlog item.
-- Merge is `O(e + i)` for existing plus imported rows using a `Set` of visit IDs.
-- Camera startup occurs off the main actor where AVFoundation configuration permits;
-  UI state updates return to the main actor.
-- Camera session lifetime is bounded to the scan screen and stopped on cleanup,
-  backgrounding, or deinit.
-- Audio cue allocation is per short cue or prewarmed engine with explicit stop; no
-  unbounded timers or background loops are allowed.
-- Native tests should complete in under two minutes on a warmed simulator; unit tests
-  should complete in under ten seconds.
+- **Unsupported Node major (local):** `parseNodeMajor` detects it; `main()` writes one line
+  and returns `1` before any slow tool runs.
+- **Malformed / empty version string:** `parseNodeMajor` returns `null`; same unsupported
+  path, message echoes the raw detected value; never throws.
+- **`import.meta.main` unavailability:** the tail uses `pathToFileURL(process.argv[1]).href`,
+  so the CLI still runs (and fails closed) on Node 20 / Node 22 < 22.18 / Node 23 — the exact
+  Cycle-5 fails-open bug this avoids.
+- **Running from Node 26 Current (this machine):** the guard rejects it by design; §5 gives
+  the direct-tool diagnostic path so implementation/audit can proceed on Node 26 while
+  treating the guard's rejection as expected.
+- **Patch-release drift:** `.nvmrc`/`.node-version` pin `24.20.0`; if the official Node 24
+  LTS patch advances, bump all version references *together* in one commit. `setup-node`
+  resolves the pinned patch from its index; if a future patch is briefly unavailable there,
+  relax `.nvmrc` to a fuzzy `24` (not needed now).
+- **CI cache miss (npm or Playwright):** degrades to a full install/download — slower, still
+  correct; never a false green.
+- **CI on a fork PR:** `permissions: contents: read` + no secrets used, so forked PRs run
+  safely with read-only tokens; no secret is exposed.
+- **Concurrent pushes:** `concurrency` with `cancel-in-progress` supersedes stale runs on the
+  same ref, bounding runner usage.
+- **npm without `engine-strict`:** npm may only warn on `engines`; the guarded scripts
+  provide the hard local failure that `engines` alone does not.
+- **`.github/` not in `.prettierignore`:** the new `ci.yml` **is** Prettier-checked (YAML
+  parser). It must be authored Prettier-clean; Phase 5 verifies `prettier --check .`.
+
+## 9. Stability & Performance
+
+- **Guard:** O(1) — parses one short string, no I/O. Added cost to each guarded command is
+  <50 ms because the script is invoked directly (`node scripts/check-node-version.mjs && …`),
+  avoiding a nested `npm run` startup. Constant, negligible memory (a few strings + one
+  stderr write on failure).
+- **Browser bundle:** unchanged — the guard and CI files are never included in
+  `dist/index.html`; the ≤750 KB gzip / ≤1.2 MB raw budget is unaffected (current artifact
+  ≈26,315 gzip bytes).
+- **CI wall-clock (steady state, warm caches):** npm cache hit + Playwright cache hit make
+  `npm ci` and browser install the fast paths; expected job time is a few minutes, dominated
+  by the e2e run. `cancel-in-progress` bounds concurrent runner minutes.
+- **CI cold cache:** first run (or after a lockfile change) re-downloads chromium (~100+ MB)
+  and re-installs deps — a one-time cost amortized by the cache on subsequent runs.
+- **Stability:** the guard prevents accidental validation on unsupported/unreviewed Node
+  majors; CI makes the previously-manual gate reproducible, catching regressions per push
+  without weakening any privacy/camera assertion. `--with-deps` every run guarantees apt
+  libraries are present regardless of cache state, avoiding flaky browser launches.
 
 ## 10. Testing Strategy
 
-Unit tests:
+**Unit tests** (`tests/unit/node-version.test.mjs`):
 
-- `GuestCatalogTests`: folding, slugging, duplicate-name dropping, ID collision suffixes,
-  default roster load count, empty/malformed resource errors.
-- `CSVCodecTests`: BOM, CRLF, quoted commas, doubled quotes, blank rows, missing columns,
-  unterminated quote rejection, export escaping.
-- `CheckInStoreTests`: first-run empty log, append idempotency, JSON/CSV export shape,
-  roster override/reset, audio default false, write failure surfacing.
-- `LogMergerTests`: JSON and CSV import, duplicate visit IDs, invalid rows, final sort,
-  file-error summaries.
-- `CameraPrivacyTests`: session builder never adds audio input or capture outputs and
-  denial maps to covert state.
-- `ScanAudioPlayerTests`: default-off no-op, enabled cue path, interruption/failure
-  no-throw behavior.
+- `parseNodeMajor('24.20.0') === 24`, `parseNodeMajor('v24.20.0') === 24`.
+- `parseNodeMajor('')`, `parseNodeMajor('abc')`, `parseNodeMajor(null)` all `=== null`.
+- `isSupportedNodeVersion('24.0.0')` and `('24.20.0')` are `true`;
+  `('22.99.0')`, `('23.0.0')`, `('25.0.0')`, `('26.3.0')` are `false`.
+- `main({ version: '26.3.0', stderr })` returns `1` and writes a message containing
+  `Node 24 LTS`, `26.3.0`, and `nvm install && nvm use`.
+- `main({ version: '24.20.0', stderr })` returns `0` and writes nothing.
+- Child-process smoke test: `spawnSync(process.execPath, [<abs path to
+  check-node-version.mjs>])` (path resolved via `fileURLToPath(new URL(...))` so cwd does not
+  matter) and assert `status === (isSupportedNodeVersion(process.versions.node) ? 0 : 1)` —
+  proves the executable tail calls `main()`.
 
-UI tests:
+**Workflow validation** (no new dependency): the YAML is validated three ways —
+(1) `prettier --check .` parses it (Prettier has a YAML parser) as part of `npm run lint`;
+(2) a structural read in Phase 5 confirms required keys (`on`, `jobs.web.runs-on`,
+`steps[].uses` pins, `node-version-file: '.nvmrc'`); (3) GitHub itself parses and runs it on
+the first push, which is the definitive check.
 
-- Launch to roster, search a known guest, select, scan, result, return to roster.
-- Repeat the same guest and verify repeat state without duplicate visit ID for one scan.
-- Open admin by long press, toggle audio, close, and verify focus/roster recovery.
-- Import invalid CSV and verify the existing roster remains visible.
-- Clear log requires two confirmations.
-- Accessibility identifiers exist for roster search, rows, scan status, result title,
-  admin sheet, export buttons, merge controls, and clear-log control.
+**Regression tests:**
 
-Regression tests:
+- `npm run lint` stays Prettier-clean (now including `.github/workflows/ci.yml`, README, and
+  the guard script).
+- `npm run test:unit` passes all existing suites plus `node-version.test.mjs`.
+- `npm run test:e2e` stays green; no camera/audio privacy assertion is weakened.
+- `npm run build` emits `dist/index.html` within the existing size budget.
 
-- Existing web `npm run lint`, `npm run test:unit`, and `npm run build` remain green.
-- The native exported JSON is regenerated deterministically from the existing web roster
-  and compared in `tests/unit/native-guests-export.test.mjs`. **Comparison method:** the
-  test calls `writeNativeGuests` targeting a temp path (or an in-memory string), then
-  **byte-compares** the produced string against the committed
-  `native/CheckIn007/Resources/default-guests.json`; it fails if they differ, catching a
-  stale committed file. Determinism is guaranteed because (a) input row order is the source
-  order in `data/guests.default.js`, (b) IDs/dedupe come from the single shared
-  `normalizeGuests`, and (c) serialization is fixed Prettier-conformant JSON (2-space
-  indent, trailing newline). The test also asserts `count === 40`. If Prettier's JSON
-  formatting or the export order ever changes, this test fails until the committed file is
-  regenerated, keeping the two in lockstep.
+**Manual negative check:** `node scripts/check-node-version.mjs` under a non-24 runtime must
+fail with the recovery hint and mutate no files.
 
-## 11. Environment And Toolchain
+## 11. Environment & Toolchain
 
-Required:
-
-- macOS capable of running Xcode 26.
-- Xcode 26 stable with the iPadOS 26 SDK. **Minimum deployment target: iPadOS 26.0.**
-- **At least one installed iPadOS simulator runtime** (see the note below — this is NOT
-  installed by default with Xcode).
-- Command Line Tools selected with `sudo xcode-select -s /Applications/Xcode.app`.
-- Existing Node/npm environment for web parity checks and roster export script.
-
-**Verifying without a preinstalled simulator runtime (current machine state).** This machine
-has Xcode 26.4 (`xcodebuild -version` → `Xcode 26.4`) but **no installed iPadOS runtime**:
-`xcrun simctl list runtimes` returns an empty `== Runtimes ==` list and `xcrun simctl list
-devices available` lists no iOS/iPadOS devices. A simulator runtime is a multi-GB download
-separate from Xcode itself, so the `xcodebuild … test` gate cannot run until one is
-installed. Install it once, then confirm before testing:
+**Fresh-clone setup (accepted path, Node 24):**
 
 ```bash
-xcodebuild -downloadPlatform iOS        # or: Xcode → Settings → Components → iOS/iPadOS 26
-xcrun simctl list runtimes              # confirm an iOS/iPadOS 26 runtime now appears
-xcrun simctl list devices available | grep -i 'iPad Pro 13-inch (M4)'   # confirm the device
-```
-
-If the `iPad Pro 13-inch (M4)` device is not present on the installed runtime, pick the
-newest available iPad from `xcrun simctl list devices available` and pass its name to the
-`-destination` flag (record the exact substitution in the implementation notes).
-
-Fresh clone setup:
-
-```bash
+nvm install        # reads .nvmrc → 24.20.0  (or: asdf/mise via .node-version, or nodejs.org)
+nvm use
+node --version     # v24.20.0 (or a newer v24.x.y LTS patch, updated together per §8)
 npm ci
-node scripts/export-native-guests.mjs
-open native/CheckIn007.xcodeproj
-# Ensure a runtime is installed (see above) before the test command:
-xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4)' test
+npm run lint
+npm test
+npm run build
 ```
 
-The native app must not require network access at runtime. Camera permission is the only
-system permission needed for the event workflow.
+**This workspace reports `node --version` = `v26.3.0`.** After Phase 3 that is an
+intentionally unsupported runtime for the guarded commands. Select Node 24 first, or use the
+§5 direct-tool diagnostic set and treat the Node-26 guard failure as expected.
 
-## 12. Deployment And Distribution
+**CI toolchain:** `ubuntu-latest`, `actions/setup-node@v4` resolving Node `24.20.0` from
+`.nvmrc`, npm bundled with that Node, Playwright chromium `1.62.1` (from the lockfile) cached
+in `~/.cache/ms-playwright`. Dev dependencies stay pinned in `package-lock.json`; no new npm
+dependency is added by this cycle.
 
-- Development run: open the Xcode project, select the `CheckIn007` scheme, select an iPad
-  simulator or connected iPad, and Run.
-- Local device distribution: use Xcode signing for a connected iPad. Signing team and
-  provisioning decisions are operator-owned and documented as out of scope for this
-  cycle.
-- Artifact: the source-controlled Xcode project and Swift files are the deliverable; no
-  `.ipa` is committed.
-- Rollback: revert the native directory, README native section, roster export script,
-  parity test, and the backlog marker. The web app is isolated and remains deployable
-  throughout.
+## 12. Deployment & Distribution
+
+Deployment is unchanged:
+
+- `npm run build` produces the self-contained `dist/index.html` (also openable from
+  `file://`); `serve`/`serve:https` keep the same ports and flags.
+- CI additionally uploads `dist/index.html` as a build artifact per run; this is a
+  convenience, not a release channel — distribution still happens via the committed/served
+  artifact.
+
+**Rollback:**
+
+1. Revert this cycle's implementation commit(s).
+2. Rerun `npm ci`, `npm run lint`, `npm test`, `npm run build` under the previous accepted
+   runtime.
+3. Delete `.github/workflows/ci.yml` if CI itself must be withdrawn; the app is unaffected.
+4. Restore the two backlog items from `[/]` to `[ ]` only if the discriminator asks for the
+   cycle to be abandoned.
 
 ## 13. Open Questions
 
-1. **Exact iPad simulator name availability.**
-   Proposed resolution: install an iPadOS 26 runtime first (§11 — this machine has none by
-   default), default to `iPad Pro 13-inch (M4)` for Xcode 26, and fall back to the newest
-   device from `xcrun simctl list devices available` on the installed runtime, recording the
-   exact substitution during implementation.
+1. **SHA-pin the `actions/*` steps instead of major tags?**
+   - Proposed resolution: not this cycle — all four actions are first-party GitHub-maintained
+     and major-tag pinning is the documented default that still receives security patches. SHA
+     pinning is a reasonable future hardening (and would pair well with Dependabot for actions).
+   - Needed to confirm: maintainer supply-chain policy.
 
-2. **Native typography asset reuse.**
-   Proposed resolution: start with system fonts styled to match the existing hierarchy;
-   only bundle the existing web font subsets if visual review shows the native app loses
-   the intended event identity.
+2. **Add a macOS lane that builds/tests the native SwiftUI target?**
+   - Proposed resolution: no this cycle. It requires a multi-GB `xcodebuild -downloadPlatform
+     iOS` simulator-runtime step and a much longer job; native correctness is source-verified
+     per Cycle 6. A dedicated native-CI cycle can add it later.
+   - Needed to confirm: maintainer appetite for macOS runner minutes.
 
-3. **Distribution signing team.**
-   Proposed resolution: leave signing automatic/manual settings at development defaults
-   and document that operators must choose their own team before installing on physical
-   iPads.
-
-4. **Whether native and web logs should share storage automatically.**
-   Proposed resolution: no automatic sharing in this cycle. Cross-client consolidation is
-   through explicit CSV/JSON export and merge to preserve the offline, auditable workflow.
+3. **Should Node 26 "Current" be an additional validation target?**
+   - Proposed resolution: no. The backlog item names Node 24 LTS; the guard deliberately
+     rejects non-24. Evaluate Node 26 in a future toolchain cycle.
+   - Needed to confirm: a future audit or maintainer request for Current-release testing.
