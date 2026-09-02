@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v6
+# Check-In 007 — Implementation Plan v7
 
 > Cycle 3 backlog plan. Source item: `BACKLOG.md` Deferred Features item
 > "Multi-device check-in log consolidation / merge tooling (§9)", now marked in
@@ -25,8 +25,9 @@ data over the network.
    `{ visitId, guestId, name, table, timestamp }`.
 4. Deduplicate by `visitId` first, then by `guestId + timestamp` when a legacy or edited
    file has a blank visit id.
-5. Sort the merged log by timestamp ascending, with deterministic tie-breaks by
-   `guestId`, normalized `name`, `table`, and `visitId`.
+5. Sort the merged log by numeric `Date.parse(timestamp)` ascending, preserving the
+   original offset-bearing timestamp string for display/export, with deterministic
+   tie-breaks by `guestId`, normalized `name`, `table`, and `visitId`.
 6. Show an accessible merge summary before applying: current local count, imported row
    count, accepted new row count, skipped duplicate count, skipped invalid row count, and
    parse errors per file.
@@ -78,7 +79,9 @@ Ownership boundaries:
 - `src/lib/csv.mjs` remains the shared CSV parser/serializer; no second CSV parser is
   introduced.
 - `scripts/build.mjs` owns bundle module order and must include `src/lib/log-merge.mjs`
-  before `src/lib/store.mjs` if `store.mjs` imports it.
+  after `src/lib/csv.mjs` and before `src/lib/store.mjs`. `log-merge.mjs` imports
+  `parseCsv` from `csv.mjs`, and `store.mjs` imports the merge helper, so this exact slot is
+  the only valid static bundle order.
 
 Failure domains:
 
@@ -138,7 +141,8 @@ src/lib/log-merge.mjs            (NEW) — Pure log import, validation, dedupe, 
 src/lib/store.mjs                (MOD) — Add merge persistence APIs while preserving existing export behavior.
 src/screens/admin.mjs            (MOD) — Add admin merge-log controls, preview, confirmation, and status handling.
 src/styles.css                   (MOD) — Add compact admin merge preview and error-list styling.
-scripts/build.mjs                (MOD) — Include `src/lib/log-merge.mjs` before `src/lib/store.mjs`.
+scripts/build.mjs                (MOD) — Include `src/lib/log-merge.mjs` after `src/lib/csv.mjs` and before `src/lib/store.mjs`.
+tests/unit/build.test.mjs        (MOD) — Assert the built artifact resolves the `src_lib_log_merge` namespace with no residual module syntax.
 tests/unit/log-merge.test.mjs    (NEW) — Unit coverage for parser, normalizer, merge, invalid rows, and ordering.
 tests/unit/store.test.mjs        (MOD) — Verify merge persistence, idempotency, and volatile fallback behavior.
 tests/e2e/checkin.spec.mjs       (MOD) — Add full admin merge workflow coverage with overlapping files.
@@ -163,6 +167,7 @@ export function normalizeLogEntry(raw, context = {}) {
    * Optional: visitId and table default to '' after trimming.
    * Reject invalid timestamps that Date.parse cannot interpret.
    * Preserve the original timestamp string after validation so exports stay familiar.
+   * Carry numeric sortTime = Date.parse(timestamp) internally for offset-aware ordering.
    */
   ...
 }
@@ -178,8 +183,10 @@ export function parseLogJson(text, sourceName = 'log.json') {
 
 export function parseLogCsv(text, sourceName = 'log.csv') {
   /**
-   * Parse CSV using parseCsv().
+   * Parse CSV using parseCsv() inside try/catch.
    * Require columns visitId, guestId, name, table, timestamp.
+   * Convert parseCsv() throws, including "CSV has an unterminated quoted field.",
+   * into file-level errors instead of letting one malformed CSV abort the whole batch.
    * Return the same shape as parseLogJson().
    */
   ...
@@ -198,7 +205,9 @@ export function mergeLogEntries(existingEntries, importedEntries) {
    * Normalize existing and imported rows.
    * Build dedupe key: visit:<visitId> when visitId is non-empty, otherwise
    * fallback:<guestId>|<timestamp>.
-   * Return { entries, summary } where entries are timestamp-sorted canonical rows.
+   * Return { entries, summary } where entries are sorted by numeric Date.parse(timestamp),
+   * then guestId, normalized name, table, and visitId. The original timestamp string remains
+   * on the canonical row so existing exports are not reformatted.
    */
   ...
 }
@@ -211,8 +220,13 @@ Acceptance criteria:
 - Blank-visit legacy rows dedupe by normalized `guestId + timestamp`.
 - Invalid JSON produces a file-level error in the admin preview.
 - CSV files missing a required column produce a file-level error.
+- CSV files with an unterminated quoted field produce a file-level error and do not
+  abort the rest of the selected batch.
 - Invalid rows count includes missing `guestId`, missing `name`, missing `timestamp`, and
   unparsable timestamp rows.
+- Mixed-offset timestamps sort by absolute instant, not string order; for example
+  `2026-09-02T09:30:00-04:00` sorts after `2026-09-02T14:00:00+01:00` even though the
+  timestamp strings compare differently.
 - Final merged output is deterministic for identical inputs.
 
 ### Phase 2: Store Integration
@@ -220,7 +234,7 @@ Acceptance criteria:
 Modify `src/lib/store.mjs`:
 
 ```js
-import { mergeLogEntries } from './log-merge.mjs';
+import { mergeLogEntries as mergeLogEntrySets } from './log-merge.mjs';
 
 function replaceLog(entries) {
   /** Persist canonical log entries as JSON through the same write path used by saveLog(). */
@@ -233,12 +247,15 @@ return {
     /**
      * Merge imported entries with loadLog(), persist the merged entries, and return
      * { entries, summary }. Idempotent when the same imports are applied repeatedly.
+     * Calls imported mergeLogEntrySets(loadLog(), importedEntries); the store method name
+     * intentionally remains mergeLogEntries for the public store API but must not recurse
+     * into itself.
      */
     ...
   },
   previewLogMerge(importedEntries) {
     /**
-     * Return mergeLogEntries(loadLog(), importedEntries) without persisting.
+     * Return mergeLogEntrySets(loadLog(), importedEntries) without persisting.
      */
     ...
   },
@@ -288,7 +305,9 @@ async function handleMergeSelection(event) {
 
 function applyMerge() {
   /**
-   * Require an active preview and explicit Apply button click.
+   * Require an active preview and explicit Apply button click from the delegated
+   * dialog click handler's data-action="apply-merge" branch.
+   * If no preview is active or the button is disabled, return without calling store APIs.
    * Persist through store.mergeLogEntries(), update status, and re-render summary.
    */
   ...
@@ -300,6 +319,10 @@ UI contract:
 - Add a labeled `<input class="log-merge-input" type="file" multiple
   accept=".json,.csv,application/json,text/csv" />`.
 - Add an `Apply Merge` button disabled until a preview exists.
+- Route Apply Merge through the existing `dialog.addEventListener('click', ...)` delegation as
+  a new `data-action="apply-merge"` branch. That branch must exit before export/copy/clear
+  logic when no active preview exists, and the existing export/copy branches continue to
+  compute CSV/JSON only for their own actions.
 - Keep the dialog's existing `role="dialog"`, close behavior, status live region, and
   focus restoration.
 - Report parse errors in text, not `alert()`.
@@ -317,10 +340,20 @@ Modify `src/styles.css` with compact admin-specific rules:
 - `.merge-errors` with bounded height and visible focus-safe text.
 - Disabled `Apply Merge` button styling that matches existing admin buttons.
 
-Modify `scripts/build.mjs` by inserting `src/lib/log-merge.mjs` before
-`src/lib/store.mjs` in the static `modules` array. Because the bundler rewrites named
-imports into `window.__CHECKIN007.modules.<namespace>` aliases at module initialization,
-the new helper must execute before `store.mjs`.
+Modify `scripts/build.mjs` by inserting `src/lib/log-merge.mjs` after `src/lib/csv.mjs`
+and before `src/lib/store.mjs` in the static `modules` array. Because the bundler
+rewrites named imports into `window.__CHECKIN007.modules.<namespace>` aliases at module
+initialization, `csv.mjs` must execute before `log-merge.mjs`, and `log-merge.mjs` must
+execute before `store.mjs`.
+
+Modify `tests/unit/build.test.mjs` to build the artifact and assert all of the following:
+
+- no residual `import` or `export` module syntax remains in the generated script.
+- `window.__CHECKIN007.modules.src_lib_log_merge` exists in the artifact text after
+  `window.__CHECKIN007.modules.src_lib_csv` and before
+  `window.__CHECKIN007.modules.src_lib_store`.
+- the `src_lib_log_merge` chunk contains a `src_lib_csv.parseCsv` alias, proving the
+  namespace dependency is wired through the build transform.
 
 Modify `README.md` with a short operator procedure:
 
@@ -340,8 +373,8 @@ Modify `README.md` with a short operator procedure:
 
 2. **Parser -> merge helper**
    - Contract: parser returns canonical-ish rows plus invalid-row metadata.
-   - Failure mode: missing columns, invalid JSON, and invalid timestamps are counted and
-     displayed, not persisted.
+   - Failure mode: missing columns, invalid JSON, malformed CSV parser throws, and invalid
+     timestamps are counted and displayed, not persisted.
    - Migration path: existing app-exported CSV/JSON files remain valid inputs.
 
 3. **Merge helper -> store**
@@ -359,7 +392,7 @@ Modify `README.md` with a short operator procedure:
 
 5. **Build transform**
    - Contract: every imported module appears earlier in `scripts/build.mjs`'s `modules`
-     array.
+     array; specifically `csv.mjs` -> `log-merge.mjs` -> `store.mjs`.
    - Failure mode: wrong ordering causes undefined namespace aliases in `dist/index.html`.
    - Migration path: unit build tests and `npm run build` catch residual module/order
      regressions.
@@ -371,17 +404,25 @@ Modify `README.md` with a short operator procedure:
   file-level error.
 - **Invalid JSON:** catch `JSON.parse` errors, report the file name, and continue other
   files.
+- **Malformed CSV syntax:** catch `parseCsv()` errors such as unterminated quoted fields,
+  report the file name and parser message as a file-level error, accept no rows from that
+  file, and continue other selected files.
 - **CSV missing required columns:** report a file-level error and accept no rows from that
   file.
 - **Empty files:** count as a file-level error for JSON and a missing-column error for CSV.
 - **Row missing guest id/name/timestamp:** skip row, increment invalid count, and keep
   processing.
 - **Invalid timestamp:** skip row; do not invent timestamps during consolidation.
+- **Mixed timezone/DST timestamps:** validate with `Date.parse(timestamp)`, sort by that
+  numeric instant, and preserve the original timestamp string. This handles two devices
+  whose local offsets differ, plus rows spanning a daylight-saving offset change.
 - **Duplicate rows across devices:** skip by deterministic dedupe key and count as
   duplicates.
 - **Duplicate rows inside one imported file:** same duplicate handling as cross-file rows.
-- **Malformed existing local rows:** preview discloses invalid existing-row count; apply
-  persists only canonical merged rows so future exports are clean.
+- **Malformed existing local rows:** preview discloses invalid existing-row count but does
+  not mutate storage. Apply persists only canonical merged rows, which drops invalid
+  pre-existing rows after explicit operator confirmation. If all existing rows are already
+  canonical and the import has no accepted new rows, Apply does not change stored entries.
 - **Storage blocked/quota errors:** use the current volatile fallback; status should still
   report completion, and `store.isVolatile()` remains available for tests.
 - **Dialog close during preview:** remove preview DOM and cached rows with the dialog.
@@ -395,7 +436,8 @@ reasonable upper bound of 10,000 total rows for planning and tests.
 
 - Parsing is `O(total characters + rows)` per file.
 - Dedupe is `O(n)` with a `Map`/`Set` over normalized keys.
-- Final ordering is `O(n log n)` by timestamp and stable tie-break fields.
+- Final ordering is `O(n log n)` by numeric `Date.parse(timestamp)` and stable tie-break
+  fields.
 - Memory is `O(n)` for parsed rows, dedupe keys, summaries, and the merged array. For
   10,000 rows at roughly 250 bytes per canonical row plus JS overhead, expected peak
   memory is comfortably below tens of MB on a modern iPad.
@@ -405,6 +447,9 @@ reasonable upper bound of 10,000 total rows for planning and tests.
   removes the merge input, buttons, cached rows, and preview markup.
 - The workflow degrades gracefully: bad files and rows are reported while valid files can
   still be applied.
+- A unit benchmark will generate 10,000 canonical rows and assert `mergeLogEntries()` completes
+  in under 250 ms on the Node test runner environment. The threshold is generous enough for
+  CI variance but catches accidental quadratic dedupe or comparison behavior.
 
 ## 10. Testing Strategy
 
@@ -414,18 +459,25 @@ Unit tests:
   - parses app-exported JSON arrays.
   - parses app-exported CSV with quoted commas and CRLF.
   - rejects CSV missing required columns.
+  - converts an unterminated-quote CSV parser throw into a file-level error.
   - skips rows missing `guestId`, `name`, or `timestamp`.
   - skips rows with invalid timestamps.
   - dedupes by `visitId`.
   - dedupes blank-visit rows by `guestId + timestamp`.
-  - sorts deterministically by timestamp and tie-break fields.
+  - sorts deterministically by numeric timestamp and tie-break fields.
+  - sorts mixed-offset timestamps by absolute instant while preserving original strings.
   - returns repeatable summaries for repeated identical imports.
+  - merges 10,000 rows in under 250 ms to guard against accidental quadratic behavior.
 - `tests/unit/store.test.mjs`
   - `previewLogMerge()` does not persist.
   - `mergeLogEntries()` persists accepted rows.
   - applying the same import twice is idempotent.
   - volatile storage fallback still merges.
   - existing export CSV column order remains unchanged.
+- `tests/unit/build.test.mjs`
+  - built script has no residual module syntax.
+  - `src_lib_log_merge` is emitted after `src_lib_csv` and before `src_lib_store`.
+  - the generated `src_lib_log_merge` IIFE aliases `window.__CHECKIN007.modules.src_lib_csv.parseCsv`.
 
 End-to-end tests:
 
@@ -437,7 +489,19 @@ End-to-end tests:
   - verify preview counts.
   - apply merge.
   - verify localStorage contains the expected deduped sorted entries.
-  - copy/export CSV and assert exact match with expected serialized storage.
+  - copy/export CSV and assert exact match against this literal fixture, including header,
+    order, and no trailing newline after the final timestamp:
+
+    ```text
+    visitId,guestId,name,table,timestamp
+    visit-local-1,alpha,Ada Lovelace,7,2026-09-02T09:00:00-04:00
+    visit-remote-2,bravo,Grace Hopper,12,2026-09-02T14:00:00+01:00
+    visit-remote-3,charlie,Katherine Johnson,4,2026-09-02T09:30:00-04:00
+    ```
+
+    The test may compute storage objects from the same expected rows, but the CSV assertion
+    must compare against this literal text rather than serializing expected rows with the
+    production `toCsv()` helper.
   - run axe against the admin dialog with the merge preview visible and assert zero
     serious/critical violations.
 
