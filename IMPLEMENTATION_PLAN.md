@@ -1,637 +1,618 @@
-# Check-In 007 — Implementation Plan v17
+# Check-In 007 — Implementation Plan v18
 
-> **Cycle 7 — Node 24 LTS toolchain pin + GitHub Actions CI.** This is a NEW cycle
-> started from `BACKLOG.md`. It bundles the two remaining, tightly-coupled Polish &
-> Technical-Debt items:
+> **Cycle 8 — On-device static-HTTPS helper for the offline-iPad live camera.** This is a
+> NEW cycle started from `BACKLOG.md`. It addresses the **single remaining unchecked**
+> Deferred-Features item:
 >
-> - "Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)"
-> - "Add a CI workflow (e.g. GitHub Actions) running `npm ci` + `npm run lint`/`test`/`build`
->   on the pinned Node 24 line, with Playwright browser install/cache"
+> - "On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)"
 >
-> They are coupled: the CI item explicitly runs "on the pinned Node 24 line", so CI must
-> consume the Node-24 pin this cycle produces. The third unchecked backlog item — the
-> on-device static-HTTPS helper for offline iPad camera — is an unrelated native subsystem
-> and is deferred to a future cycle (§2 Out of scope).
+> (`§10 Q2` refers to the original cycle-1 plan `archive/cycle-1/IMPLEMENTATION_PLAN.md`
+> §10 "Defaults & Revisit Triggers" item 2: *"`file://` runs in covert mode; live camera
+> requires HTTPS from a static host or on-site laptop. Revisit only if a fully offline
+> live-camera iPad is a hard requirement."*)
 >
-> The Node-24 portion re-uses the previously-APPROVED (98/100, Cycle-5 Rev 3) plan v14
-> preserved in git `ff40b18`, which this cycle abandoned unimplemented. That approval
-> covered only the toolchain pin; the CI workflow (its §13 Open Question #1, resolved "no
-> for that cycle") is net-new here and is the primary reason this is a fresh plan, not a
-> re-implementation.
+> With this item done, **every** backlog item is closed.
 
 ## 1. Overview
 
-Pin the project's Node.js toolchain to the **Node 24 LTS** line (`.nvmrc`,
-`.node-version`, tightened `engines`, and a dependency-free fail-fast guard wired into the
-`lint`/`test`/`build` scripts), and add a **GitHub Actions** workflow that runs the full
-web quality gate — `npm ci`, `npm run lint`, unit tests, Playwright e2e, and `npm run
-build` — on that pinned Node line, with npm and Playwright-browser caching. This closes the
-last two toolchain/infra backlog items, gives the project a longer support runway, and makes
-the previously-manual quality gate reproducible on every push and pull request. No
-application source, data, styles, or the native SwiftUI target change.
+The theatrical scan screen only shows a live front-camera feed when the page runs in a
+**secure context** (`window.isSecureContext`) — see `src/screens/scan.mjs:32`. On a
+**fully offline iPad** the two available origins are both insecure: `file://` (Safari
+treats it as non-secure) and `http://<LAN-IP>` (plain HTTP to a non-loopback host is not a
+secure context). Both fall back to covert mode. The only secure-context origins Safari
+honours are `https://…` (with a **trusted** certificate) and loopback
+(`http://localhost` / `http://127.0.0.1`).
+
+This cycle adds a **dependency-free, fully-offline HTTPS kiosk helper**
+(`scripts/serve-https.mjs`) that (a) mints its own SubjectAltName self-signed certificate
+in **pure Node** — no `mkcert`, no `openssl`, no network, no npm dependency — (b) serves
+the kiosk over HTTPS with a hardened static file handler, (c) exposes the certificate for
+one-tap download so the iPad can **trust** it (Safari requires a *trusted* cert for a
+secure context — clicking through a warning is not enough for `getUserMedia`), and (d)
+prints the exact LAN URL and the iPad trust-install steps. It **replaces** the
+mkcert-based `serve:https` script. No application source, styles, data, build output, CI,
+or the native SwiftUI target change.
+
+**Scope honesty (stated up front so the reviewer can evaluate it, not guess):** iOS Safari
+cannot host its own web server, so a *truly standalone* iPad running the **web** kiosk
+still needs an HTTPS host reachable on an offline link (ad-hoc Wi-Fi / Personal Hotspot /
+a travel router — all zero-internet). This helper is that host, made **self-contained and
+zero-install** so "offline" is real (no CA download, no trust-store mutation, no external
+tooling). For a single iPad with **no companion device at all**, the **native SwiftUI
+app** (Cycle 6, already shipped) provides the live camera via AVFoundation with no HTTPS
+required. "On-device" is interpreted as *"served from the local device set on an offline
+network, with nothing fetched from the internet or any external CA"* — §2 states this
+boundary explicitly and §13 records the standalone-single-device limitation.
 
 ## 2. Scope
 
 ### In scope
 
-1. `.nvmrc` and `.node-version` pinning Node `24.20.0`.
-2. `package.json` + `package-lock.json` root `engines.node` tightened from `">=22"` to
-   `">=24 <25"`.
-3. A dependency-free Node major-version guard `scripts/check-node-version.mjs`, wired as a
-   fail-fast prefix into `lint`, `test`, and `build`, plus a standalone `check:node` script.
-4. Unit tests for the guard (`tests/unit/node-version.test.mjs`), including a child-process
-   smoke test of the executable tail.
-5. A GitHub Actions workflow `.github/workflows/ci.yml` running the web gate on Node 24
-   (`ubuntu-latest`), with `actions/setup-node` npm caching and a Playwright browser cache.
-6. `README.md` updated with the Node 24 setup path and a CI/badge note.
+1. `scripts/lib/der.mjs` (NEW) — a minimal, pure-function ASN.1/DER encoder (the primitives
+   needed to emit an X.509 certificate).
+2. `scripts/lib/dev-cert.mjs` (NEW) — pure-Node self-signed **SAN** certificate generation
+   (RSA-2048 + SHA-256, `serverAuth` EKU, ≤825-day validity) and an on-disk cache
+   (`ensureCert`).
+3. `scripts/lib/static-server.mjs` (NEW) — a transport-agnostic hardened static request
+   handler (correct MIME map, path-traversal rejection, `GET`/`HEAD` only, no directory
+   listing, a certificate-download route).
+4. `scripts/serve-https.mjs` (NEW) — the CLI: parse flags, ensure the cert, start an
+   `node:https` server bound to `0.0.0.0`, print LAN URL(s) + the certificate-download URL +
+   the iPad trust-install steps. Exports a testable `startServer(...)`; the CLI tail is
+   guarded.
+5. `package.json` (MOD) — repoint `serve:https` at the new helper; remove the mkcert/
+   `http-server -S` invocation. **No new dependency; no dependency removed** (`http-server`
+   stays for plain `serve`, which the e2e suite uses).
+6. Unit + integration tests: `tests/unit/der.test.mjs`, `tests/unit/dev-cert.test.mjs`,
+   `tests/unit/static-server.test.mjs`, `tests/unit/serve-https.test.mjs`.
+7. `README.md` (MOD) — rewrite the iPad-HTTPS section: the offline helper, the iPad
+   cert-trust walkthrough, the offline ad-hoc/hotspot setup, and an honest secure-context
+   matrix. Prettier-clean.
+8. `.gitignore` (MOD) — ensure the generated certificate cache directory (`.certs/`) is
+   ignored (existing `*.pem`/`*.key` already cover the files; add the directory for clarity).
+9. `BACKLOG.md` (MOD) — mark the offline-HTTPS item `[ ]` → `[/]`.
 
 ### Out of scope
 
-- **On-device static-HTTPS helper** for offline iPad camera (§10 Q2) — a separate native
-  subsystem; remains `[ ]` in the backlog for a future cycle.
-- **Native SwiftUI CI** (macOS runner + `xcodebuild` + multi-GB simulator-runtime download).
-  Native correctness stays source-verified per Cycle 6; a macOS CI lane is a separate, much
-  heavier operational decision (§13 Open Question #2). This workflow is web-only.
-- **Dependency upgrades.** Dev-dependency versions and lockfile integrity hashes are frozen;
-  this is a toolchain/CI cycle, not a dependency migration.
-- **Node 25/26 "Current" validation.** The backlog item names Node 24 LTS specifically; the
-  guard deliberately rejects non-24 majors, including this machine's Node 26.
-- **Any change to application source** in `src/`, `data/`, `assets/`, `vendor/`, the build
-  internals of `scripts/build.mjs`, screen behavior, or the kiosk/privacy contract.
+- **Any change to `src/`, `data/`, `assets/`, `vendor/`, `dist/`, `scripts/build.mjs`,
+  screen behaviour, or the kiosk/privacy contract.** `scan.mjs`'s existing secure-context
+  gate and covert fallback are correct and unchanged.
+- **A publicly-trusted / ACME / Let's-Encrypt certificate.** Offline by definition rules
+  out any CA that requires network reachability. The cert is self-signed and locally
+  trusted on the iPad.
+- **Making the *web* kiosk run with a live camera on a single iPad with no companion
+  device.** That requires an on-iOS web server (native code); the shipped native SwiftUI
+  app already covers standalone-offline live camera (§13 Open Question #1).
+- **Changing the plain-HTTP `serve` script** (used by the Playwright `webServer`) or the
+  CI workflow. CI does not run `serve:https`.
+- **Adding the helper to the Node-24 guard chain.** Consistent with the existing policy
+  that `serve`/`serve:https` stay unguarded so a dev/host server starts on any runtime
+  (README "serve/serve:https stay unguarded"). The new tests *are* covered by `test:unit`.
+- **HTTP/2, gzip/deflate transfer encoding, byte-range requests, ETags.** A kiosk serves a
+  handful of small static assets to one device; these add surface without benefit.
 
 ## 3. Architecture
 
-Three thin, independent layers are added around the existing web app; none touches
-`src/` or the browser artifact.
-
 ```
-Developer / CI runner
-        │
-        ▼
-  version selection hint ──────►  .nvmrc / .node-version   (24.20.0)
-        │
-        ▼
-  npm script entry (lint|test|build)
-        │  guard runs FIRST, fails closed on non-24
-        ▼
-  scripts/check-node-version.mjs  ──(exit 1 + stderr hint)──►  abort before slow tools
-        │  exit 0 on Node 24
-        ▼
-  existing tools: prettier --check .  │  node --test  │  playwright test  │  build.mjs
-        ▲
-        │ same commands, same order
-  .github/workflows/ci.yml  ── setup-node(.nvmrc) → npm ci → lint → test:unit
-                                → cache+install chromium → test:e2e → build → upload dist
+Offline iPad (Safari)                         Host device (laptop / mini-PC / travel box)
+        │                                               running Node 24
+        │  1. GET https://<lan-ip>:8443/checkin007-cert.pem   (download cert)
+        │  2. Settings ▸ General ▸ VPN & Device Mgmt ▸ install profile
+        │  3. Settings ▸ General ▸ About ▸ Certificate Trust ▸ enable full trust
+        │  4. GET https://<lan-ip>:8443/  (now a TRUSTED secure context)
+        ▼                                               ▲
+   getUserMedia() succeeds  ◄── secure context ─────────┤
+                                                         │
+                                   ┌─────────────────────┴───────────────────────┐
+                                   │  scripts/serve-https.mjs  (CLI + startServer) │
+                                   │      │ ensureCert()                          │
+                                   │      ▼                                        │
+                                   │  scripts/lib/dev-cert.mjs                     │
+                                   │      │ generateSelfSignedCert()               │
+                                   │      ▼        (RSA-2048, SHA-256, SAN, EKU)    │
+                                   │  scripts/lib/der.mjs   (ASN.1/DER TLV)        │
+                                   │      │ writes .certs/{key,cert}.pem (cached)  │
+                                   │      ▼                                        │
+                                   │  node:https.createServer({key,cert}, handler)│
+                                   │      handler = createStaticHandler({ root })  │
+                                   │                 scripts/lib/static-server.mjs │
+                                   └───────────────────────────────────────────────┘
 ```
 
 **Components & responsibilities**
 
-- **Version files** (`.nvmrc`, `.node-version`): the single source of truth for the pinned
-  Node line. `setup-node` reads `.nvmrc` in CI; nvm/asdf/mise read them locally.
-- **Guard** (`scripts/check-node-version.mjs`): pure, dependency-free major-version
-  validation with a guarded executable tail. Fails **closed** (exit 1) on every non-24
-  major, including runtimes where `import.meta.main` is unavailable.
-- **CI workflow** (`.github/workflows/ci.yml`): orchestrates the same commands a developer
-  runs locally, on the pinned Node line, with caching. It is the *only* new component that
-  consumes both the version pin and the guard.
+- **`der.mjs`** — pure TLV encoders (`SEQUENCE`, `SET`, `INTEGER`, `BIT STRING`,
+  `OCTET STRING`, `OID`, `UTF8String`, `IA5String`, `UTCTime`, `BOOLEAN`, `NULL`, explicit/
+  implicit context tags, raw passthrough). No Node APIs beyond `Buffer`. The riskiest unit,
+  so it is the most heavily tested.
+- **`dev-cert.mjs`** — uses `node:crypto` (`generateKeyPairSync('rsa')`, SPKI DER export,
+  `sign('sha256', …)`) plus `der.mjs` to emit a valid X.509 v3 self-signed cert; `ensureCert`
+  caches key/cert PEM on disk and regenerates when missing or expired.
+- **`static-server.mjs`** — transport-agnostic `(req,res)` handler: resolves+sandboxes the
+  path under `root`, maps extensions to MIME types, streams the file, serves the cert-download
+  route, and returns `404`/`405` for everything else. No `node:https` dependency, so it is
+  unit-testable over plain `node:http`.
+- **`serve-https.mjs`** — the only component that wires TLS: flag parsing, `ensureCert`,
+  `https.createServer`, LAN-address discovery (`node:os` `networkInterfaces`), operator
+  output, graceful shutdown. Exports `startServer` for the integration test; the executable
+  tail is guarded exactly like `scripts/check-node-version.mjs`.
 
-**Data-flow direction:** version files → guard → tools; CI wraps the same chain. **Ownership
-boundaries:** version files own the pin; `package.json`/lockfile own engine metadata + script
-wiring; the guard owns runtime validation/messaging; the workflow owns CI orchestration;
-`README.md` owns setup docs. **Failure domains:** a non-24 runtime fails at the guard before
-any slow tool runs (local and CI alike); a CI infra failure (cache miss, browser download)
-degrades to a slower-but-correct run, never a false green.
+**Data-flow:** flags → `ensureCert` → `{key,cert}` → `https.createServer(handler)`; each
+request → `createStaticHandler` → file stream or error. **Ownership boundaries:** `der.mjs`
+owns byte encoding; `dev-cert.mjs` owns certificate shape + caching; `static-server.mjs`
+owns HTTP semantics + path safety; `serve-https.mjs` owns TLS wiring + operator UX; README
+owns the operator/iPad procedure. **Failure domains:** a cert-generation or file-write error
+aborts startup with a clear message (never a silent insecure fallback); a per-request error
+(missing file, bad method, traversal attempt) yields a clean 4xx without crashing the server.
 
 ## 4. Technical Decisions & Rationale
 
-1. **Target Node `24.20.0`, engine range `>=24 <25`.** Node v24 (codename *Krypton*) is the
-   Active LTS line; `24.20.0` is the pinned patch (carried forward from approved plan v14,
-   which cited the nodejs.org previous-releases page listing v24 as LTS on 2026-09-02).
-   `>=24 <25` expresses "Node 24 LTS" exactly. **Alternative considered:** a broad `>=24`,
-   rejected because it would silently admit un-audited Node 25/26. **Tradeoff:** a pinned
-   patch needs a deliberate bump when the LTS patch advances (documented in §8), in exchange
-   for reproducibility.
+1. **Pure-Node self-signed certificate over `mkcert`/`openssl`.** The item's core word is
+   *offline*. `mkcert` is an external binary that also mutates the OS trust store; `openssl`
+   is a system tool absent on some hosts and impossible to invoke from the eventual test
+   environment portably. Node ships every primitive needed — `crypto.generateKeyPairSync`,
+   SPKI DER export, and `crypto.sign` — so a ~150-line DER encoder produces a self-contained,
+   zero-install, fully-offline cert whose generation is **unit-testable without any external
+   process**. **Alternatives considered:** (a) `mkcert` — rejected: external install +
+   trust-store mutation + not self-contained-testable; (b) shell out to `openssl` — rejected:
+   not guaranteed present, non-portable flags, still an external dependency; (c) an npm cert
+   library (e.g. `node-forge`, `selfsigned`) — rejected: adds a runtime/dev dependency and
+   supply-chain surface, contrary to the project's demonstrated dependency-free ethos (the
+   Node-24 guard was praised for exactly this). **Tradeoff:** we own ~150 lines of DER, fully
+   covered by tests, in exchange for zero external dependency and self-contained testing.
 
-2. **Dependency-free local guard over a package.** `process.versions.node` is stable and
-   sufficient for major-version validation; a ~30-line script avoids lockfile churn and
-   supply-chain surface. **Alternative considered:** `check-node-version` (npm), rejected to
-   keep runtime deps at zero and dev deps tightly scoped. **Tradeoff:** we maintain a small
-   script instead of importing one.
+2. **RSA-2048 + SHA-256, not Ed25519 or a bare EC cert.** Apple's TLS trust rules (iOS 13+)
+   require RSA ≥2048 or EC P-256/384 with a signature hash ≥ SHA-256. RSA-2048 is the
+   broadest-compatible choice and its DER is simplest: the public key is embedded via Node's
+   ready-made SPKI export (`publicKey.export({type:'spki',format:'der'})`), so **no key bytes
+   are hand-encoded**, and the signature is a single `crypto.sign('sha256', tbs, key)` call
+   (PKCS#1 v1.5 → OID `sha256WithRSAEncryption`). **Alternative considered:** Ed25519 —
+   rejected: Safari TLS support for Ed25519 server certs is not dependable. **Alternative
+   considered:** EC P-256 — viable but needs `ecdsa-with-SHA256` signature DER unwrapping;
+   RSA avoids that complexity. **Tradeoff:** a slightly larger cert/handshake, negligible for
+   a LAN kiosk.
 
-3. **`pathToFileURL(process.argv[1]).href` for CLI-execution detection.** The guard must run
-   on the very runtimes it *rejects* (Node 20, Node 22 before `22.18.0`, Node 23), so it
-   cannot rely on `import.meta.main` (added in `v24.2.0`, backported to `v22.18.0`; elsewhere
-   `undefined`, which would let the CLI no-op with exit 0 — a guard-fails-**open** bug). This
-   exact decision was the Cycle-5 Rev-2 blocker; `pathToFileURL` (in `node:url` on every
-   supported/unsupported runtime) fixes it and handles spaces/percent-encoding/platform paths.
-   **Alternative considered:** `` import.meta.url === `file://${process.argv[1]}` ``, rejected
-   for mishandling those paths.
+3. **Mandatory SubjectAltName + `serverAuth` EKU + `basicConstraints CA:FALSE` +
+   `keyUsage` + ≤825-day validity.** Apple rejects CN-only certs (SAN required since 2019),
+   requires `id-kp-serverAuth` in ExtendedKeyUsage, and rejects TLS certs with validity
+   > 825 days. The generator bakes all of these in (validity = 820 days; SAN always includes
+   `DNS:localhost`, `IP:127.0.0.1`, plus every host/IP passed on the CLI). Getting any of
+   these wrong is the classic "cert installs but Safari still refuses the secure context"
+   failure, so each is asserted in tests via `crypto.X509Certificate`. **Evidence:** Apple
+   Support HT210176 ("Requirements for trusted certificates in iOS 13 and macOS 10.15").
 
-4. **Keep both `.nvmrc` and `.node-version`.** `.nvmrc` covers nvm + `setup-node`'s
-   `node-version-file`; `.node-version` covers asdf/mise. Low cost, less setup ambiguity.
+4. **Bind `0.0.0.0` and print discovered LAN URLs; default port `8443`.** An offline iPad
+   reaches the host by LAN IP, so the server must listen on all interfaces, and the operator
+   needs the exact `https://<ip>:8443` URL to type. `node:os.networkInterfaces()` yields the
+   non-internal IPv4 addresses to print. `8443` keeps the prior `serve:https` port (README
+   continuity) and needs no privileged bind. **Alternative considered:** bind `localhost`
+   only — rejected: an external iPad could not reach it. **Tradeoff:** binding all interfaces
+   is standard for a LAN dev/kiosk host; the cert restricts trust and no secrets are served.
 
-5. **GitHub Actions on `ubuntu-latest`, web-only.** GitHub Actions is the repo's host
-   platform's native CI, needs no extra service, and its `actions/setup-node` has first-class
-   `.nvmrc` support and built-in npm caching. **Alternative considered:** a macOS runner that
-   also builds the native target — rejected this cycle: it needs a multi-GB simulator-runtime
-   download and a much longer job, a separate operational decision (§13). Ubuntu is the
-   fastest correct host for the web gate.
+5. **Serve the certificate for download at a fixed route (`/checkin007-cert.pem`).** Trust
+   installation on iOS needs the cert file on the device first; serving it over the same
+   (initially untrusted) HTTPS origin — Safari still downloads over an untrusted cert; it
+   only blocks *secure-context APIs*, not the download — removes AirDrop/email/cable steps and
+   keeps the flow fully offline and self-contained. **Alternative considered:** require the
+   operator to hand-copy the pem — rejected: worse UX, more error-prone.
 
-6. **`node-version-file: '.nvmrc'` in CI, not a hard-coded version.** The workflow reads the
-   same pin developers use, so the version has exactly one source of truth. **Tradeoff:** the
-   exact patch (`24.20.0`) must be resolvable by `setup-node`'s version index; `24.20.0` is a
-   published LTS patch, so it resolves. If a future pin bump outpaces the index, the fallback
-   is a fuzzy `24` in `.nvmrc` — not needed now.
+6. **Reuse the guarded executable-tail idiom
+   (`import.meta.url === pathToFileURL(process.argv[1]).href`).** Identical to
+   `scripts/check-node-version.mjs`, so `serve-https.mjs` can be imported by the integration
+   test without starting a server, and its CLI still runs when executed directly. Consistency
+   with the vetted existing pattern.
 
-7. **First-party `actions/*` pinned to major tags (`@v4`).** `actions/checkout`,
-   `actions/setup-node`, `actions/cache`, and `actions/upload-artifact` are GitHub-maintained;
-   major-tag pinning is GitHub's documented default and gets security patches automatically.
-   **Alternative considered:** full 40-char SHA pinning (strongest supply-chain posture),
-   deferred — it adds a manual bump burden and is most valuable for third-party actions, of
-   which this workflow uses none. Documented as a future hardening option (§13).
+7. **Keep `serve:https` unguarded (no Node-24 guard prefix).** Matches the existing,
+   deliberate policy (README: "serve/serve:https stay unguarded so a dev server still starts
+   for diagnosis"). A host that only *serves static files* need not be pinned to Node 24; the
+   correctness-bearing code paths are covered by the guarded `test:unit`. **Tradeoff:** the
+   helper must use only APIs stable across the Node LTS lines it might run on
+   (`node:https`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url` — all
+   long-stable); no bleeding-edge API is used.
 
-8. **Cache npm via `setup-node` and Playwright browsers via `actions/cache`.** `setup-node`'s
-   `cache: 'npm'` keys on `package-lock.json`. Playwright's browser binaries live outside
-   `node_modules` (`~/.cache/ms-playwright`), so they need a separate cache keyed on the
-   lockfile (which pins `@playwright/test@1.62.1`). `npx playwright install --with-deps
-   chromium` is then idempotent: it skips the download on a cache hit but still ensures the
-   apt system libraries are present. **Alternative considered:** installing all three
-   browser engines — rejected: the e2e suite is chromium-only (it relies on chromium fake-
-   media launch flags), so chromium alone is correct and faster.
-
-9. **CI runs the *guarded* npm scripts, not raw tools.** Running `npm run lint` / `npm run
-   build` (guard-prefixed) under Node 24 proves the guard passes on the supported runtime and
-   exercises the exact developer commands. `test:unit`/`test:e2e` stay unguarded (called by
-   the guarded `test`) so CI can install browsers between them; both still run on Node 24.
+8. **Cache the cert on disk (`.certs/`) and regenerate on missing/expired.** Re-minting per
+   start is wasteful and would force the iPad to re-trust a new cert each launch. Caching keeps
+   the trusted cert stable across restarts; regeneration triggers only when the file is absent
+   or `notAfter` is in the past. `.certs/` is git-ignored (keys never committed).
 
 ## 5. File Manifest
 
 ```text
-BACKLOG.md                          (MOD) — Mark BOTH the Node 24 and CI items in progress ([ ]→[/]).
-IMPLEMENTATION_PLAN.md              (MOD) — Replace completed cycle-6 plan with this cycle-7 plan.
-.nvmrc                              (NEW) — Select Node 24.20.0 for nvm / setup-node.
-.node-version                       (NEW) — Select Node 24.20.0 for asdf / mise.
-package.json                        (MOD) — Tighten engines; add check:node; guard-prefix lint/test/build.
-package-lock.json                   (MOD) — Mirror root packages[""].engines.node to ">=24 <25" only.
-scripts/check-node-version.mjs      (NEW) — Fail-fast Node major guard (pure fns + guarded CLI tail).
-tests/unit/node-version.test.mjs    (NEW) — Unit-test parse/range/message/CLI dispatch (+ smoke test).
-.github/workflows/ci.yml            (NEW) — GitHub Actions web gate on pinned Node 24 with caching.
-README.md                           (MOD) — Node 24 setup path + CI note (Prettier-clean).
+BACKLOG.md                          (MOD) — Offline-HTTPS item [ ] → [/].
+IMPLEMENTATION_PLAN.md              (MOD) — Replace cycle-7 plan with this cycle-8 plan.
+.gitignore                          (MOD) — Add `.certs/` (files already covered by *.pem/*.key).
+package.json                        (MOD) — Repoint `serve:https` to scripts/serve-https.mjs.
+scripts/lib/der.mjs                 (NEW) — Minimal pure ASN.1/DER TLV encoder.
+scripts/lib/dev-cert.mjs            (NEW) — Pure-Node self-signed SAN cert + on-disk cache.
+scripts/lib/static-server.mjs       (NEW) — Hardened transport-agnostic static handler.
+scripts/serve-https.mjs             (NEW) — HTTPS CLI + exported startServer(); guarded tail.
+tests/unit/der.test.mjs             (NEW) — TLV encoder correctness (lengths, tags, OIDs).
+tests/unit/dev-cert.test.mjs        (NEW) — Generated cert parses & satisfies iOS TLS rules.
+tests/unit/static-server.test.mjs   (NEW) — MIME, traversal, methods, 404/405, cert route.
+tests/unit/serve-https.test.mjs     (NEW) — TLS integration: handshake + GET over https.
+README.md                           (MOD) — Offline iPad-HTTPS section + trust walkthrough.
 ```
 
-No `src/`, `data/`, `assets/`, `vendor/`, `native/`, style, screen, or deployment-artifact
-files change. `package-lock.json` changes are limited to the **root** `packages[""].engines`
-value; no dependency versions or integrity hashes change.
+No `src/`, `data/`, `assets/`, `vendor/`, `native/`, `dist/`, `scripts/build.mjs`,
+`.github/`, style, or screen file changes. `package-lock.json` is **not** touched (no
+dependency added or removed).
 
 ## 6. Implementation Phases
 
-> **Implementation status (all phases COMPLETE ✅ — verified on Node v26.3.0 via the §5
-> direct-tool diagnostic path; the guarded npm scripts run this same chain on Node 24 in CI):**
-> `npm ci` validated the hand-edited lockfile; guard fails closed (exit 1) on Node 26 as
-> designed; `prettier --check .` clean (incl. new `ci.yml`, README, guard); **63/63** unit
-> tests pass (+6 new guard tests, was 57); **12/12** e2e pass; `dist/index.html` builds at
-> 26315 gzip bytes (within the ≤750 KB budget). Lockfile diff limited to the root
-> `packages[""].engines` line.
+### Phase 1: DER encoder (`scripts/lib/der.mjs`)
 
-### Phase 1: Version metadata ✅ COMPLETE
+Pure functions returning `Buffer`s. DER is deterministic TLV (tag, definite length, value).
 
-Create `.nvmrc` and `.node-version`, each exactly:
+```js
+// scripts/lib/der.mjs
+// Minimal DER encoder — only the primitives an X.509 v3 cert needs.
 
-```text
-24.20.0
-```
+/** Encode a definite length in DER short/long form. */
+export function encodeLength(n) { ... }        // n<128 → [n]; else [0x80|k, ...k bytes]
 
-Edit `package.json` and the root `packages[""].engines` entry in `package-lock.json`
-(`package-lock.json:17-18`, the `packages[""]` block — **not** the transitive `>=20`/`>=8`
-floors) to:
+/** tag byte + encodeLength(value) + value */
+export function tlv(tag, value) { ... }        // value: Buffer
 
-```json
-{ "engines": { "node": ">=24 <25" } }
+export function der(tagName, ...) // convenience wrappers below:
+export function seq(...parts) { ... }          // 0x30, concat(parts)
+export function set(...parts) { ... }          // 0x31
+export function int(bufOrNumber) { ... }       // 0x02, minimal two's-complement, leading 0x00 if MSB set
+export function bitString(buf, unusedBits = 0) // 0x03, [unusedBits, ...buf]
+export function octetString(buf) { ... }       // 0x04
+export function oid(dotted) { ... }            // 0x06, base-128 varint arcs (first = 40*a+b)
+export function utf8String(str) { ... }        // 0x0C
+export function ia5String(str) { ... }         // 0x16
+export function boolean(v) { ... }             // 0x01, 0xFF/0x00
+export function nullValue() { ... }            // 0x05 0x00
+export function utcTime(date) { ... }          // 0x17, "YYMMDDHHMMSSZ" (years <2050)
+export function explicit(tagNumber, inner) {}  // 0xA0|tagNumber, inner (already TLV)
+export function implicit(tagNumber, buf) {}     // context-primitive [tagNumber] over raw bytes
+export function raw(buf) { return buf; }         // passthrough for pre-encoded DER (e.g. SPKI)
 ```
 
 **Acceptance criteria**
+- `encodeLength(127)`=`[7f]`; `encodeLength(128)`=`[81 80]`; `encodeLength(256)`=`[82 01 00]`.
+- `oid('1.2.840.113549.1.1.11')` matches the known `sha256WithRSAEncryption` DER bytes
+  (`06 09 2a 86 48 86 f7 0d 01 01 0b`).
+- `int(255)` = `02 02 00 ff` (leading zero because MSB set); `int(127)` = `02 01 7f`.
+- `utcTime(new Date('2026-01-02T03:04:05Z'))` = `17 0d 32 36 30 31 30 32 30 33 30 34 30 35 5a`.
+- Every helper returns a `Buffer` whose first byte is the correct tag and whose length field
+  round-trips (a `readTlvLength` test helper re-reads it).
 
-- Both version files contain exactly `24.20.0` and a trailing newline.
-- `package.json` and lockfile root engine metadata both read `">=24 <25"`.
-- No dependency versions or integrity hashes change (verify with `git diff` — only the two
-  engine lines and the root package differ).
-- Validate the hand-edited lockfile with `npm ci` (not `npm install`, which may rewrite
-  unrelated metadata).
-
-### Phase 2: Node version guard ✅ COMPLETE
-
-Create `scripts/check-node-version.mjs`:
+### Phase 2: Self-signed certificate (`scripts/lib/dev-cert.mjs`)
 
 ```js
+// scripts/lib/dev-cert.mjs
+import { generateKeyPairSync, sign, X509Certificate, randomBytes } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import * as der from './der.mjs';
+
+export const CERT_VALIDITY_DAYS = 820;        // < Apple's 825-day TLS ceiling
+
+/** Build the SAN extension GeneralNames from host strings.
+ *  IPv4-looking hosts → iPAddress [7] (4 raw bytes); everything else → dNSName [2] IA5String. */
+export function buildSanExtension(hosts) { ... }
+
+/** Assemble the TBSCertificate DER for a v3 self-signed cert:
+ *  version [0] INTEGER 2, random 16-byte serial, sig alg sha256WithRSAEncryption,
+ *  issuer==subject (CN), validity (now-1h .. now+820d, UTCTime), SPKI (raw DER from Node),
+ *  extensions [3]: basicConstraints(CA:FALSE, critical), keyUsage(digitalSignature|
+ *  keyEncipherment, critical), extKeyUsage(serverAuth), subjectAltName(hosts). */
+export function buildTbsCertificate({ subjectCN, spkiDer, hosts, notBefore, notAfter, serial }) { ... }
+
+/** Generate an RSA-2048 self-signed cert.
+ *  @returns {{ keyPem: string, certPem: string }} */
+export function generateSelfSignedCert({ hosts = ['localhost', '127.0.0.1'],
+                                         subjectCN = 'CheckIn007 Offline Kiosk',
+                                         validityDays = CERT_VALIDITY_DAYS } = {}) {
+  // 1. const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  // 2. const spkiDer = publicKey.export({ type: 'spki', format: 'der' });
+  // 3. const tbs = buildTbsCertificate({ ... });
+  // 4. const signature = sign('sha256', tbs, privateKey);            // PKCS#1 v1.5
+  // 5. const cert = der.seq(der.raw(tbs), sigAlgId, der.bitString(signature));
+  // 6. wrap DER → PEM (base64, 64-col, BEGIN/END CERTIFICATE); key via privateKey.export pkcs8 PEM
+  ...
+}
+
+/** Return cached {keyPem, certPem} from `dir`, regenerating when absent or expired. */
+export function ensureCert({ dir, hosts } = {}) {
+  // if key.pem & cert.pem exist and new X509Certificate(certPem).validTo is in the future → reuse
+  // else generateSelfSignedCert({hosts}) and write both (dir created 0700 if needed)
+  ...
+}
+```
+
+**Acceptance criteria** (all via `node:crypto.X509Certificate`)
+- `new X509Certificate(certPem)` parses without throwing.
+- `.subject` contains `CN=CheckIn007 Offline Kiosk`; `.issuer` equals `.subject` (self-signed).
+- `.subjectAltName` contains `DNS:localhost`, `IP Address:127.0.0.1`, and any extra host passed.
+- `.keyUsage` includes `serverAuth` (EKU) [Node surfaces EKU here]; the cert has
+  basicConstraints CA:FALSE (assert via `.ca === false`).
+- `(new Date(cert.validTo) - new Date(cert.validFrom)) / 86400000 <= 825`.
+- `cert.verify(publicKeyObjectFromCert)` returns `true` (self-signature valid) — i.e.
+  `cert.checkPrivateKey` / `cert.publicKey` round-trip and `cert.verify(cert.publicKey)`.
+- `ensureCert` writes exactly `key.pem` + `cert.pem`; a second call with the same dir reuses
+  them (file mtimes unchanged / identical bytes).
+
+### Phase 3: Static handler (`scripts/lib/static-server.mjs`)
+
+```js
+// scripts/lib/static-server.mjs
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { normalize, join, extname, resolve, sep } from 'node:path';
+
+export const MIME = {
+  '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2',
+  '.woff': 'font/woff', '.ttf': 'font/ttf', '.map': 'application/json; charset=utf-8',
+  '.pem': 'application/x-pem-file',
+};
+
+/** Resolve a URL path to an absolute file path strictly under `root`.
+ *  Returns null on any traversal escape (decoded `..`, absolute, NUL). */
+export function safeResolve(root, urlPath) { ... }
+
+export function contentTypeFor(path) { ... }   // MIME[ext] || 'application/octet-stream'
+
+/** Build a (req,res) handler serving files under `root`.
+ *  Options: { root, certPath, certRoute='/checkin007-cert.pem' }.
+ *  - Only GET/HEAD (else 405, Allow: GET, HEAD).
+ *  - certRoute streams certPath as application/x-pem-file (Content-Disposition attachment).
+ *  - '/' → '/index.html'.
+ *  - traversal / missing file → 404 (no directory listing, no path echoed).
+ *  - HEAD → headers only, no body. */
+export function createStaticHandler({ root, certPath, certRoute } = {}) { ... }
+```
+
+**Acceptance criteria**
+- `contentTypeFor('a.mjs')` = `text/javascript; charset=utf-8`; unknown ext →
+  `application/octet-stream`.
+- `safeResolve('/srv', '/../etc/passwd')`, `'/%2e%2e/x'`, `'/a/../../b'` → `null`;
+  `safeResolve('/srv', '/index.html')` → `/srv/index.html`.
+- `GET /` → 200 `text/html`; `GET /missing` → 404; `POST /` → 405 with `Allow: GET, HEAD`.
+- `GET <certRoute>` → 200 `application/x-pem-file` with the exact cert bytes.
+- `HEAD /` → 200, `Content-Type` set, empty body.
+
+### Phase 4: HTTPS CLI (`scripts/serve-https.mjs`)
+
+```js
+// scripts/serve-https.mjs
+import { createServer } from 'node:https';
+import { networkInterfaces } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { ensureCert } from './lib/dev-cert.mjs';
+import { createStaticHandler } from './lib/static-server.mjs';
 
-export const SUPPORTED_NODE_MAJOR = 24;
+export function parseArgs(argv) { ... }  // --host (repeatable), --port=8443, --root=., --cert-dir=.certs
+export function lanUrls(port) { ... }    // https://<non-internal IPv4>:<port> for each iface
 
-export function parseNodeMajor(version = process.versions.node) {
-  /** Return the numeric major from "24.20.0" or "v24.20.0".
-   *  Return null for empty, non-string, or non-numeric input. */
+/** Start the server. Returns { server, port, url, certPath, close() }.
+ *  Does NOT print (so tests stay quiet); the CLI tail prints. */
+export function startServer({ host = '0.0.0.0', port = 8443, root = process.cwd(),
+                             certDir = '.certs', hosts = [] } = {}) {
+  // const { keyPem, certPem } = ensureCert({ dir: certDir, hosts: dedupe(['localhost','127.0.0.1', ...hosts]) });
+  // const handler = createStaticHandler({ root, certPath: <written cert.pem>, certRoute });
+  // const server = createServer({ key: keyPem, cert: certPem }, handler);
+  // listen on port/host; resolve when 'listening'
   ...
 }
 
-export function isSupportedNodeVersion(version = process.versions.node) {
-  /** True only when parseNodeMajor(version) === SUPPORTED_NODE_MAJOR. */
-  ...
-}
-
-export function formatUnsupportedNodeMessage(version = process.versions.node) {
-  /** One-line stderr message naming the detected version and the required
-   *  "Node 24 LTS" target, including "nvm install && nvm use" as the recovery hint. */
-  ...
-}
-
-export function main({ version = process.versions.node, stderr = process.stderr } = {}) {
-  /** Return 0 when supported. Otherwise write the formatted message to stderr and
-   *  return 1. Never throw for malformed versions. */
-  ...
-}
-
-// Version-agnostic executable-tail guard: runs on unsupported majors too, so the CLI
-// fails CLOSED (exit 1) on Node 20/22-pre-22.18/23 where import.meta.main is undefined.
+// Guarded executable tail (same idiom as scripts/check-node-version.mjs):
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exitCode = main();
+  const opts = parseArgs(process.argv.slice(2));
+  const { port, close } = await startServer(opts);
+  // print: LAN URLs, cert-download URL, and the 3-step iPad trust instructions
+  // handle SIGINT/SIGTERM → close()
 }
 ```
 
 **Acceptance criteria**
+- `parseArgs(['--port=9000','--host=cabinet.local'])` → `{ port:9000, hosts:['cabinet.local'], … }`;
+  bad `--port` (non-numeric / out of 1–65535) throws a clear error.
+- `startServer` on an ephemeral port (`port:0`) resolves with a usable `url` and a working
+  `close()`; SAN includes any `hosts` passed.
+- Running directly on this Node-26 machine starts and serves (helper is unguarded); Ctrl-C
+  shuts down cleanly.
 
-- `node 24.x.y` → exit `0`, no output.
-- `22.x`, `23.x`, `25.x`, `26.x`, empty, and malformed → exit `1`, one-line stderr naming
-  the detected version + `Node 24 LTS` + `nvm install && nvm use`.
-- Imported by the unit test without exiting the test process (tail is guarded).
-- `node scripts/check-node-version.mjs` reaches `main()` when executed directly on Node
-  20/22/23/24/25/26 (fails closed on non-24).
+### Phase 5: Tests, wiring, and docs
 
-### Phase 3: Script wiring and docs ✅ COMPLETE
-
-Edit `package.json` scripts (leave `serve`, `serve:https`, `test:unit`, `test:e2e`,
-`fonts:subset` unchanged so dev servers still start for diagnosis):
-
+`package.json`:
 ```json
-{
-  "scripts": {
-    "check:node": "node scripts/check-node-version.mjs",
-    "build": "node scripts/check-node-version.mjs && node scripts/build.mjs",
-    "lint": "node scripts/check-node-version.mjs && prettier --check .",
-    "test": "node scripts/check-node-version.mjs && npm run test:unit && npm run test:e2e"
-  }
-}
+{ "scripts": { "serve:https": "node scripts/serve-https.mjs" } }
 ```
+(`serve`, `check:node`, `build`, `lint`, `test`, `test:unit`, `test:e2e`, `fonts:subset`
+unchanged; `http-server` dependency retained for `serve`.)
 
-Edit `README.md` (keep Prettier-formatted — it is checked by `prettier --check .`):
+`.gitignore`: add a line `\.certs/` (the generated `key.pem`/`cert.pem` are already matched
+by the existing `*.pem`).
 
-- Add "Node 24 LTS" as a prerequisite before `npm ci`, with `nvm install && nvm use` as the
-  default setup path (and `.node-version` for asdf/mise).
-- State that `npm run lint`, `npm test`, and `npm run build` fail fast outside Node 24.
-- Add a short "Continuous Integration" note pointing at `.github/workflows/ci.yml` (and,
-  optionally, a status badge — see Phase 4).
-- Preserve existing iPad-HTTPS, privacy, merge, audio, and native-app wording verbatim.
+`README.md`: replace the current `mkcert` block under "Open `http://localhost:8080`…" with:
+- A "Live camera on an offline iPad" subsection: `npm run serve:https` (optionally
+  `-- --host <lan-ip-or-name>`), connect the iPad to the host's ad-hoc Wi-Fi / Personal
+  Hotspot / a travel router (no internet needed), open `https://<host-lan-ip>:8443/`.
+- The **iPad trust walkthrough** (download `checkin007-cert.pem` → install profile → enable
+  full trust under Certificate Trust Settings → reload → camera prompt appears).
+- An honest **secure-context matrix** table: `https://` (trusted) ✓ · `http://localhost`
+  ✓ (needs an on-device server) · `http://<lan-ip>` ✗ · `file://` ✗ (covert) · native app ✓
+  (no HTTPS needed) — with a one-line note that a single iPad with no companion should use
+  the native app.
+- Preserve all other README wording verbatim; keep Prettier-clean.
 
 **Acceptance criteria**
+- `npm run test:unit` runs all suites (existing 63 + the 4 new files) green.
+- `npm run test:e2e` unchanged and green (helper does not touch the HTTP `serve` path).
+- `prettier --check .` clean including the new scripts and README.
+- `npm run build` still emits `dist/index.html` within budget (unchanged; sanity only).
 
-- Fresh-clone README setup is deterministic for Node 24 users; command names stay familiar.
-- No user-facing kiosk copy changes; `prettier --check .` stays clean.
-
-### Phase 4: GitHub Actions CI workflow ✅ COMPLETE
-
-Create `.github/workflows/ci.yml`:
-
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  web:
-    name: Web gate (Node 24 LTS)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node 24 (pinned via .nvmrc)
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies (reproducible)
-        run: npm ci
-
-      - name: Lint (guarded, Node 24)
-        run: npm run lint
-
-      - name: Unit tests
-        run: npm run test:unit
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-playwright-
-
-      - name: Install Playwright chromium (+ system deps)
-        run: npx playwright install --with-deps chromium
-
-      - name: E2E tests
-        run: npm run test:e2e
-
-      - name: Build self-contained artifact (guarded, Node 24)
-        run: npm run build
-
-      - name: Upload built kiosk
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-index-html
-          path: dist/index.html
-          if-no-files-found: error
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          if-no-files-found: ignore
-```
-
-**Acceptance criteria**
-
-- Workflow is valid YAML and parses (`node -e "…YAML.parse…"` is unavailable without a dep;
-  validate structurally — see §10 — and by GitHub's own parse on push).
-- `setup-node` resolves Node `24.20.0` from `.nvmrc`; every subsequent step runs on Node 24,
-  so the guard-prefixed `lint`/`build` pass rather than fail closed.
-- `npm ci` uses the committed lockfile; npm cache keyed on `package-lock.json`.
-- Playwright chromium is cached across runs and installed with system deps; `test:e2e` runs
-  headless against the auto-started `npm run serve` webServer (config already sets
-  `reuseExistingServer: true`).
-- `dist/index.html` is uploaded as an artifact on every run; the Playwright HTML report is
-  uploaded only on failure.
-- The workflow never invokes `xcodebuild` or touches `native/` (web-only, per §2).
-
-### Phase 5: Verification ✅ COMPLETE
-
-Add `tests/unit/node-version.test.mjs`:
-
-```js
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import {
-  SUPPORTED_NODE_MAJOR,
-  formatUnsupportedNodeMessage,
-  isSupportedNodeVersion,
-  main,
-  parseNodeMajor,
-} from '../../scripts/check-node-version.mjs';
-
-test('parseNodeMajor accepts plain and v-prefixed versions', () => { ... });
-test('parseNodeMajor returns null for empty/non-numeric/null', () => { ... });
-test('isSupportedNodeVersion accepts only Node 24', () => { ... });
-test('main returns 1 and writes a recovery hint for unsupported versions', () => { ... });
-test('main returns 0 and stays silent for Node 24', () => { ... });
-test('CLI executable tail runs main for the current process major', () => { ... });
-```
-
-Then, under **Node 24.20.0** (the accepted validation path):
-
-```bash
-nvm install && nvm use     # or asdf/mise/nodejs.org → node --version prints v24.x.y
-node --version
-npm ci
-npm run lint
-npm run test:unit
-npm run test:e2e
-npm run build
-```
-
-**Verifying on this non-24 shell (Node v26.3.0).** After Phase 3 the guarded commands
-intentionally fail on Node 26. If Node 24 cannot be selected during implementation/audit,
-verify the underlying tools directly and record that the guard's Node-26 rejection is
-*expected, not a regression*:
-
-```bash
-node scripts/check-node-version.mjs        # expected: exit 1 on Node 26 (fails closed)
-npx prettier --check .                      # must be clean (incl. new .yml, README, script)
-node --test tests/unit/*.test.mjs           # all unit suites incl. node-version.test.mjs green
-npx playwright test                         # e2e green
-node scripts/build.mjs                       # dist/index.html within size budget
-```
-
-The direct-tool bypass is a diagnostic escape hatch only; the accepted validation path is
-the guarded npm scripts under Node 24, and CI runs exactly that on Node 24.
-
-**Acceptance criteria**
-
-- New guard unit tests pass; all existing unit + e2e suites stay green (no privacy/camera
-  assertions weakened).
-- The child-process smoke test `spawnSync(process.execPath, [<abs path to
-  check-node-version.mjs>])` asserts exit status ===
-  `isSupportedNodeVersion(process.versions.node) ? 0 : 1`, proving the tail calls `main()`.
-- `prettier --check .` is clean including the new `.github/workflows/ci.yml`, README, and
-  guard script (`.github/` is **not** in `.prettierignore`, so the YAML is checked).
-- `dist/index.html` builds within the ≤750 KB gzip / ≤1.2 MB raw budget.
+> **Verification runtime note (same §5 policy as cycles 5–7).** This machine is Node
+> v26.3.0, so the guarded `npm test`/`npm run lint`/`npm run build` fail closed by design.
+> Verify the new work directly: `node --test tests/unit/*.test.mjs`, `npx prettier --check .`,
+> `npx playwright test`, and `node scripts/serve-https.mjs` (manual start/stop). The new
+> unit + integration tests are pure Node (no browser, no device), so they run fully on Node
+> 26 here and on Node 24 in CI.
 
 ## 7. Integration Points
 
-1. **npm engines**
-   - Contract: `package.json` and lockfile root both say `">=24 <25"`.
-   - Failure mode: mismatch → npm warnings / discriminator finding.
-   - Migration: edit both in the same commit; validate via `npm ci`.
+1. **`package.json` `serve:https` ↔ operators**
+   - Contract: `npm run serve:https` starts an HTTPS static host with a cached self-signed cert.
+   - Failure mode: port in use → `EADDRINUSE` message with the port; cert dir unwritable →
+     clear error naming the dir.
+   - Migration: no consumer besides operators; the removed `http-server -S`/mkcert path is
+     documented in the README rewrite.
 
-2. **Developer validation scripts**
-   - Contract: `lint`/`test`/`build` invoke the guard first; `check:node` is the standalone
-     diagnostic.
-   - Failure mode: unsupported Node exits before Prettier/node:test/Playwright/build.
-   - Migration: `nvm install && nvm use`, then rerun the same command.
+2. **Playwright `webServer` ↔ `serve`**
+   - Contract: the e2e suite starts `npm run serve` (plain HTTP, port 8080) — **unchanged**.
+   - Failure mode: none introduced (this cycle does not touch `serve`).
+   - Migration: n/a.
 
-3. **Test runner**
-   - Contract: `node-version.test.mjs` imports pure functions and spawns the CLI tail.
-   - Failure mode: an unguarded `process.exit()` would abort the unit suite.
-   - Migration: keep the tail behind `import.meta.url === pathToFileURL(process.argv[1]).href`;
-     the smoke test proves direct execution reaches `main()`.
+3. **`static-server.mjs` ↔ the kiosk artifact**
+   - Contract: serving repo root (or `dist/` via `--root dist`) returns the same bytes the
+     browser expects; MIME for `.mjs`/`.css`/`.woff2`/`.svg`/`.json` is correct so ES modules
+     and fonts load.
+   - Failure mode: a wrong MIME for `.mjs` would break module loading → covered by a unit test.
+   - Migration: n/a.
 
-4. **GitHub Actions ↔ version files**
-   - Contract: `setup-node` reads `.nvmrc`; all steps then run on Node 24, so guarded
-     scripts pass.
-   - Failure mode: if `.nvmrc` and `package.json` engines disagree, `npm ci` warns and a
-     guarded step could fail. They are edited together in Phase 1/3.
-   - Migration: a version bump updates `.nvmrc`, `.node-version`, `engines`, and the pinned
-     patch in one commit (§8).
+4. **`dev-cert.mjs` ↔ iOS Safari trust**
+   - Contract: the cert satisfies iOS 13+ TLS trust (SAN, serverAuth EKU, ≤825 days,
+     RSA-2048/SHA-256), so once installed+trusted, the origin is a secure context.
+   - Failure mode: a missing SAN/EKU/over-long validity → Safari refuses the secure context;
+     each is asserted in `dev-cert.test.mjs` against `X509Certificate`.
+   - Migration: on iOS trust-model changes, adjust the extension set and re-assert.
 
-5. **GitHub Actions ↔ Playwright**
-   - Contract: the browser cache (`~/.cache/ms-playwright`, keyed on the lockfile) plus
-     `npx playwright install --with-deps chromium` provide chromium + apt deps; the e2e
-     `webServer` auto-starts `npm run serve` on port 8080.
-   - Failure mode: cache miss → slower (re-download) but still correct; missing system deps →
-     `--with-deps` installs them every run regardless of cache.
-   - Migration: bumping `@playwright/test` changes the lockfile hash → cache key rotates
-     automatically.
-
-6. **Static artifact build**
-   - Contract: `scripts/build.mjs` output is unchanged except being invoked under Node 24
-     (locally and in CI); artifact stays self-contained and within budget.
-   - Failure mode: an Acorn/Node API difference under Node 24 breaks the build.
-   - Migration: fix the specific incompatibility while preserving the artifact contract and
-     size budget; do not widen the engine range to hide it.
-
-7. **Operator documentation**
-   - Contract: README names the required Node line before `npm ci` and points at CI.
-   - Failure mode: stale docs leave developers on Node 22/26 and validation fails.
-   - Migration: docs and the guard message share the same recovery command.
+5. **`.gitignore` ↔ secret hygiene**
+   - Contract: `key.pem`/`cert.pem`/`.certs/` never enter version control.
+   - Failure mode: an accidentally-committed key → `git status` shows nothing under `.certs/`
+     (verified in Phase 5).
+   - Migration: n/a.
 
 ## 8. Error Handling & Edge Cases
 
-- **Unsupported Node major (local):** `parseNodeMajor` detects it; `main()` writes one line
-  and returns `1` before any slow tool runs.
-- **Malformed / empty version string:** `parseNodeMajor` returns `null`; same unsupported
-  path, message echoes the raw detected value; never throws.
-- **`import.meta.main` unavailability:** the tail uses `pathToFileURL(process.argv[1]).href`,
-  so the CLI still runs (and fails closed) on Node 20 / Node 22 < 22.18 / Node 23 — the exact
-  Cycle-5 fails-open bug this avoids.
-- **Running from Node 26 Current (this machine):** the guard rejects it by design; §5 gives
-  the direct-tool diagnostic path so implementation/audit can proceed on Node 26 while
-  treating the guard's rejection as expected.
-- **Patch-release drift:** `.nvmrc`/`.node-version` pin `24.20.0`; if the official Node 24
-  LTS patch advances, bump all version references *together* in one commit. `setup-node`
-  resolves the pinned patch from its index; if a future patch is briefly unavailable there,
-  relax `.nvmrc` to a fuzzy `24` (not needed now).
-- **CI cache miss (npm or Playwright):** degrades to a full install/download — slower, still
-  correct; never a false green.
-- **CI on a fork PR:** `permissions: contents: read` + no secrets used, so forked PRs run
-  safely with read-only tokens; no secret is exposed.
-- **Concurrent pushes:** `concurrency` with `cancel-in-progress` supersedes stale runs on the
-  same ref, bounding runner usage.
-- **npm without `engine-strict`:** npm may only warn on `engines`; the guarded scripts
-  provide the hard local failure that `engines` alone does not.
-- **`.github/` not in `.prettierignore`:** the new `ci.yml` **is** Prettier-checked (YAML
-  parser). It must be authored Prettier-clean; Phase 5 verifies `prettier --check .`.
+- **Port already in use:** `server.on('error', …)` maps `EADDRINUSE` to a one-line message
+  ("port 8443 is in use; pass `-- --port <n>`") and a non-zero exit; never a silent bind.
+- **Cert directory unwritable:** `ensureCert` catches the write error, reports the target
+  dir, and aborts (no insecure HTTP fallback — failing to serve HTTPS must not silently
+  degrade security).
+- **Expired cached cert:** `ensureCert` detects `validTo` in the past and regenerates before
+  listening.
+- **Malformed/partial cached cert:** `new X509Certificate(certPem)` throws → treated as
+  missing → regenerated.
+- **Path traversal (`..`, encoded `%2e%2e`, absolute paths, NUL byte):** `safeResolve`
+  returns `null` → 404 with no path echoed (no information leak).
+- **Non-GET/HEAD method:** 405 with `Allow: GET, HEAD`.
+- **Directory request / missing index:** `/` → `/index.html`; a directory without index → 404
+  (no listing).
+- **Symlink escape:** `safeResolve` compares the `resolve()`d path against `root + sep`; a
+  file whose real path escapes root is rejected (defense in depth alongside the string check).
+- **iPad connects before trusting the cert:** the download route still works over the
+  untrusted origin (Safari blocks secure-context *APIs*, not the file download), so the
+  operator can fetch and install the cert, then reload — documented in README.
+- **Large/streamed files:** served via `createReadStream` (bounded memory); a client
+  disconnect (`res` error) closes the stream without crashing the process.
+- **SIGINT/SIGTERM:** `close()` stops accepting connections and exits cleanly.
+- **`process.argv[1]` undefined (REPL import):** the guarded tail simply does not run
+  (`pathToFileURL(undefined)` guarded by the equality check failing) — the module is import-safe.
 
 ## 9. Stability & Performance
 
-- **Guard:** O(1) — parses one short string, no I/O. Added cost to each guarded command is
-  <50 ms because the script is invoked directly (`node scripts/check-node-version.mjs && …`),
-  avoiding a nested `npm run` startup. Constant, negligible memory (a few strings + one
-  stderr write on failure).
-- **Browser bundle:** unchanged — the guard and CI files are never included in
-  `dist/index.html`; the ≤750 KB gzip / ≤1.2 MB raw budget is unaffected (current artifact
-  ≈26,315 gzip bytes).
-- **CI wall-clock (steady state, warm caches):** npm cache hit + Playwright cache hit make
-  `npm ci` and browser install the fast paths; expected job time is a few minutes, dominated
-  by the e2e run. `cancel-in-progress` bounds concurrent runner minutes.
-- **CI cold cache:** first run (or after a lockfile change) re-downloads chromium (~100+ MB)
-  and re-installs deps — a one-time cost amortized by the cache on subsequent runs.
-- **Stability:** the guard prevents accidental validation on unsupported/unreviewed Node
-  majors; CI makes the previously-manual gate reproducible, catching regressions per push
-  without weakening any privacy/camera assertion. `--with-deps` every run guarantees apt
-  libraries are present regardless of cache state, avoiding flaky browser launches.
+- **Cert generation:** one-time RSA-2048 keygen (~30–150 ms) + DER assembly (µs) on first
+  run only; cached thereafter, so steady-state startup is a file read + `https.createServer`
+  (single-digit ms). Memory: a few KB of DER buffers, released after startup.
+- **Per request:** O(path length) for the traversal check, then a streamed file copy
+  (`createReadStream`) — memory bounded by the pipe buffer regardless of file size. A kiosk
+  serves one device and a handful of small assets (~26 KB built artifact), so throughput and
+  latency are trivially adequate.
+- **DER encoder:** all operations are linear in output size; no recursion beyond the fixed
+  cert nesting depth; no I/O.
+- **Stability:** per-request errors are isolated (4xx, stream error handlers) and never crash
+  the listener; the server refuses to start rather than serve insecurely; `0.0.0.0` bind is
+  the only network exposure and it serves read-only static files with a locally-trusted cert.
+- **Browser bundle:** unaffected — none of these files are included in `dist/index.html`; the
+  ≤750 KB gzip / ≤1.2 MB raw budget is untouched (artifact remains ≈26,315 gzip bytes).
 
 ## 10. Testing Strategy
 
-**Unit tests** (`tests/unit/node-version.test.mjs`):
+**`tests/unit/der.test.mjs`** — encoder correctness: `encodeLength` short/long form; `int`
+minimal encoding + leading-zero rule; `oid` for `sha256WithRSAEncryption`, `commonName`
+(`2.5.4.3`), `serverAuth` (`1.3.6.1.5.5.7.3.1`), `subjectAltName` (`2.5.29.17`); `utcTime`
+byte layout; `bitString` unused-bits prefix; a `readTlvLength` helper round-trips each
+primitive.
 
-- `parseNodeMajor('24.20.0') === 24`, `parseNodeMajor('v24.20.0') === 24`.
-- `parseNodeMajor('')`, `parseNodeMajor('abc')`, `parseNodeMajor(null)` all `=== null`.
-- `isSupportedNodeVersion('24.0.0')` and `('24.20.0')` are `true`;
-  `('22.99.0')`, `('23.0.0')`, `('25.0.0')`, `('26.3.0')` are `false`.
-- `main({ version: '26.3.0', stderr })` returns `1` and writes a message containing
-  `Node 24 LTS`, `26.3.0`, and `nvm install && nvm use`.
-- `main({ version: '24.20.0', stderr })` returns `0` and writes nothing.
-- Child-process smoke test: `spawnSync(process.execPath, [<abs path to
-  check-node-version.mjs>])` (path resolved via `fileURLToPath(new URL(...))` so cwd does not
-  matter) and assert `status === (isSupportedNodeVersion(process.versions.node) ? 0 : 1)` —
-  proves the executable tail calls `main()`.
+**`tests/unit/dev-cert.test.mjs`** — `generateSelfSignedCert({ hosts:['localhost',
+'127.0.0.1','cabinet.local'] })` then, via `crypto.X509Certificate`: parses; subject/issuer
+equal and contain the CN; SAN contains all three hosts (DNS + IP); EKU includes `serverAuth`;
+`ca === false`; validity span ≤ 825 days and `validFrom` ≤ now ≤ `validTo`; self-signature
+verifies (`cert.verify(cert.publicKey)` === true). `buildSanExtension` maps IPv4 → iPAddress
+(4 bytes) and names → dNSName. `ensureCert` in a temp dir: first call writes `key.pem` +
+`cert.pem`; second call reuses (identical bytes); a hand-expired cert triggers regeneration.
 
-**Workflow validation** (no new dependency): the YAML is validated three ways —
-(1) `prettier --check .` parses it (Prettier has a YAML parser) as part of `npm run lint`;
-(2) a structural read in Phase 5 confirms required keys (`on`, `jobs.web.runs-on`,
-`steps[].uses` pins, `node-version-file: '.nvmrc'`); (3) GitHub itself parses and runs it on
-the first push, which is the definitive check.
+**`tests/unit/static-server.test.mjs`** — mount `createStaticHandler` on a plain
+`node:http` server (ephemeral port) and `fetch` it: `GET /` 200 text/html; `GET /src/app.mjs`
+200 `text/javascript`; `GET /nope` 404; `POST /` 405 + `Allow`; `GET <certRoute>` 200
+`application/x-pem-file`; `HEAD /` 200 empty body; traversal (`/..%2f..%2fpackage.json`,
+`/../../etc/hosts`) → 404. Pure-unit `safeResolve`/`contentTypeFor` assertions too.
 
-**Regression tests:**
+**`tests/unit/serve-https.test.mjs`** — TLS integration: `startServer({ port:0,
+root:process.cwd(), certDir:<temp> })`; read the generated `cert.pem`; `fetch(url, {
+dispatcher/agent trusting that CA })` — using `https.request` with `ca: certPem` (Node
+client, no browser) — asserts a successful TLS handshake, `GET /` 200 text/html, and a
+traversal request 404 over TLS. `parseArgs` unit cases (port/host/root parsing + invalid
+port throwing). Always `close()` in `after`/`finally`.
 
-- `npm run lint` stays Prettier-clean (now including `.github/workflows/ci.yml`, README, and
-  the guard script).
-- `npm run test:unit` passes all existing suites plus `node-version.test.mjs`.
-- `npm run test:e2e` stays green; no camera/audio privacy assertion is weakened.
-- `npm run build` emits `dist/index.html` within the existing size budget.
+**Regression:** `node --test tests/unit/*.test.mjs` keeps the existing suites green;
+`npx playwright test` unchanged; `npx prettier --check .` clean incl. new files + README;
+`node scripts/build.mjs` still within budget.
 
-**Manual negative check:** `node scripts/check-node-version.mjs` under a non-24 runtime must
-fail with the recovery hint and mutate no files.
+**Manual device check (documented, not automated — same precedent as the native app):** on a
+real offline iPad, install+trust the served cert, load `https://<host>:8443/`, confirm the
+camera permission prompt appears and the front feed shows (secure context achieved).
 
 ## 11. Environment & Toolchain
 
-**Fresh-clone setup (accepted path, Node 24):**
-
-```bash
-nvm install        # reads .nvmrc → 24.20.0  (or: asdf/mise via .node-version, or nodejs.org)
-nvm use
-node --version     # v24.20.0 (or a newer v24.x.y LTS patch, updated together per §8)
-npm ci
-npm run lint
-npm test
-npm run build
-```
-
-**This workspace reports `node --version` = `v26.3.0`.** After Phase 3 that is an
-intentionally unsupported runtime for the guarded commands. Select Node 24 first, or use the
-§5 direct-tool diagnostic set and treat the Node-26 guard failure as expected.
-
-**CI toolchain:** `ubuntu-latest`, `actions/setup-node@v4` resolving Node `24.20.0` from
-`.nvmrc`, npm bundled with that Node, Playwright chromium `1.62.1` (from the lockfile) cached
-in `~/.cache/ms-playwright`. Dev dependencies stay pinned in `package-lock.json`; no new npm
-dependency is added by this cycle.
+- **Runtime:** Node 24 LTS is the pinned/target line; the helper uses only long-stable core
+  modules (`node:https`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`) and
+  runs on this Node-26 machine too (it is unguarded). No new npm dependency; `package-lock.json`
+  unchanged.
+- **No external tools:** unlike the removed path, there is **no `mkcert`, no `openssl`, and no
+  network** requirement — the point of the cycle.
+- **CI:** unaffected — `.github/workflows/ci.yml` runs `test:unit` (which now includes the new
+  suites, all pure Node) on Node 24; it does not run `serve:https`.
+- **iPad:** iPadOS Safari; a one-time cert trust install (Settings ▸ General ▸ VPN & Device
+  Management, then Certificate Trust Settings). No developer account or provisioning needed.
 
 ## 12. Deployment & Distribution
 
-Deployment is unchanged:
-
-- `npm run build` produces the self-contained `dist/index.html` (also openable from
-  `file://`); `serve`/`serve:https` keep the same ports and flags.
-- CI additionally uploads `dist/index.html` as a build artifact per run; this is a
-  convenience, not a release channel — distribution still happens via the committed/served
-  artifact.
-
-**Rollback:**
-
-1. Revert this cycle's implementation commit(s).
-2. Rerun `npm ci`, `npm run lint`, `npm test`, `npm run build` under the previous accepted
-   runtime.
-3. Delete `.github/workflows/ci.yml` if CI itself must be withdrawn; the app is unaffected.
-4. Restore the two backlog items from `[/]` to `[ ]` only if the discriminator asks for the
-   cycle to be abandoned.
+- The kiosk artifact and its distribution are unchanged. `npm run serve:https` is an operator
+  convenience for the offline live-camera scenario; it serves the repo root by default or
+  `dist/` via `--root dist`.
+- **Rollback:** (1) revert this cycle's commit; (2) `serve:https` returns to the prior
+  `http-server -S` + mkcert line; (3) delete `.certs/` if present. The app and all other
+  scripts are unaffected. Restore the backlog item `[/]` → `[ ]` only if the discriminator
+  asks for the cycle to be abandoned.
 
 ## 13. Open Questions
 
-1. **SHA-pin the `actions/*` steps instead of major tags?**
-   - Proposed resolution: not this cycle — all four actions are first-party GitHub-maintained
-     and major-tag pinning is the documented default that still receives security patches. SHA
-     pinning is a reasonable future hardening (and would pair well with Dependabot for actions).
-   - Needed to confirm: maintainer supply-chain policy.
+1. **A single offline iPad with no companion device — web kiosk live camera?**
+   - Proposed resolution: use the **native SwiftUI app** (Cycle 6), which provides the live
+     camera via AVFoundation with no HTTPS/host needed. Making the *web* kiosk do this on a
+     lone iPad would require an on-iOS web server (native code) and duplicate the native app's
+     capability, so it is intentionally out of scope. This helper closes the item for the
+     realistic offline event setup (iPad + a small host on an offline link).
+   - Needed to confirm: whether any operator truly has *only* one iPad and *cannot* use the
+     native app.
 
-2. **Add a macOS lane that builds/tests the native SwiftUI target?**
-   - Proposed resolution: no this cycle. It requires a multi-GB `xcodebuild -downloadPlatform
-     iOS` simulator-runtime step and a much longer job; native correctness is source-verified
-     per Cycle 6. A dedicated native-CI cycle can add it later.
-   - Needed to confirm: maintainer appetite for macOS runner minutes.
+2. **SubjectAltName should include the operator's LAN IP for a warning-free first load?**
+   - Proposed resolution: the CLI already accepts `--host <lan-ip>`; the README instructs
+     operators to pass their host IP so the SAN matches the URL the iPad opens. A DHCP-changed
+     IP means re-running with the new `--host` (regenerates the cert). Documented in §5/README.
+   - Needed to confirm: whether to auto-add all discovered LAN IPv4s to the SAN by default
+     (convenience vs. a broader-scoped cert). Deferred to a future polish item if requested.
 
-3. **Should Node 26 "Current" be an additional validation target?**
-   - Proposed resolution: no. The backlog item names Node 24 LTS; the guard deliberately
-     rejects non-24. Evaluate Node 26 in a future toolchain cycle.
-   - Needed to confirm: a future audit or maintainer request for Current-release testing.
+3. **EC P-256 instead of RSA-2048 for a smaller cert/faster handshake?**
+   - Proposed resolution: RSA-2048 this cycle for the broadest Safari compatibility and the
+     simplest DER (SPKI reused from Node, single-call signature). EC is a reasonable future
+     optimization once the RSA path is proven on-device.
+   - Needed to confirm: measured need; not a current constraint for a LAN kiosk.
