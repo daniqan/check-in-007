@@ -1,10 +1,183 @@
-# Check-In 007 — Implementation Plan Critique (Cycle 4: Scan Blip Audio)
+# Check-In 007 — Implementation Plan Critique (Cycle 5: Node 24 LTS Toolchain)
 
-**Plan Score:** **99/100**
-**Implementation Score:** **98/100**
-**Status:** **VERIFIED** (implementation ≥95 gate cleared — State 4, cycle complete)
+**Plan Score:** **94/100**
+**Implementation Score:** _n/a — Cycle 5 plan is below the ≥95 gate; not yet implemented_
+**Status:** **NOT APPROVED** (Rev 1 — one gate-relevant feasibility/verification gap below)
+
+> Cycle 4 (scan blip audio) is complete and **VERIFIED** (Implementation Verification v5 =
+> 98/100; see the archived critique further down this file). Cycle 5 opens a new, unrelated
+> plan: `IMPLEMENTATION_PLAN.md` v12, the optional Node 24 LTS toolchain bump. This is its
+> first review (Rev 1). Loop state: **State 1 — revise plan** (plan < 95).
 
 ---
+
+## Plan Critique — Cycle 5, Revision 1
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `2c1ea09`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v12
+**Score:** **94 / 100** (first review of the cycle-5 plan)
+**Status:** NOT APPROVED — one gate-relevant feasibility/verification gap; otherwise a strong, well-scoped plan.
+
+Plan v12 is a clean, tightly-scoped toolchain plan: pin Node 24 LTS via `.nvmrc`/`.node-version`,
+tighten `engines` from `>=22` to `>=24 <25`, add a dependency-free major-version guard
+(`scripts/check-node-version.mjs`), wire it into `lint`/`test`/`build`, document it, and unit-test
+the parsing/range logic. It correctly keeps the browser kiosk, storage keys, and scan-audio code
+out of scope, keeps runtime dependencies at zero, considers and rejects the obvious alternatives
+(`>=24` range, `check-node-version` package, single version file, adding CI), and gives every phase
+concrete acceptance criteria. It falls just short of the ≥95 gate on a single feasibility/verification
+gap that is unusually load-bearing *for this plan specifically*, because this is a toolchain plan and
+the machine it will be implemented on is on the very Node line the guard blocks.
+
+Every factual claim about the current code was verified against source:
+- `package.json` engines is `">=22"` (`package.json:6-8`) — the plan's "from `>=22`" baseline is correct.
+- `package-lock.json` root `packages[""].engines.node` is `">=22"` at `package-lock.json:17-18` — the
+  plan's "root `packages[""].engines`" target exists exactly where claimed; the transitive-dep engines
+  below it (`>=20` for `@playwright/test`, etc.) are separate and must not be touched. Verified.
+- Dependency engine floors are Node-24-compatible: `@playwright/test`/`playwright` `>=20`
+  (`package-lock.json:34`); others `>=12`/`>=14`/`>=0.4` — all satisfied by Node 24. The §4.3 claim holds.
+- Scripts are `serve`/`serve:https`/`build`/`lint`/`test`/`test:unit`/`test:e2e`/`fonts:subset`
+  (`package.json:9-18`); the plan's Phase-3 rewrite of `build`/`lint`/`test` + new `check:node`
+  matches, and leaving `test:unit`/`test:e2e`/`serve*`/`fonts:subset` unchanged is correct.
+- No `.github/` exists — the "don't add CI this cycle" decision is grounded (verified: no workflow dir).
+- `README.md` is **not** in `.prettierignore` (only BACKLOG/AUDIT/PLAN/CRITIQUE + build dirs are), so it
+  is markdown-linted by `prettier --check .`; `npx prettier --check .` is currently clean on this tree.
+
+## Remaining issues
+
+1. **The plan does not address verifying its own acceptance criteria on a machine that is not already
+   on Node 24 — and this machine is on Node 26.3.0 (gate-relevant feasibility/verification gap).**
+   The whole deliverable is "the guarded suites pass under Node 24" (Phase 4, §10, §11). But the
+   current dev environment runs **Node v26.3.0** (confirmed: `node --version` → `v26.3.0`) — the exact
+   `26.3.0` the plan uses as its canonical *rejected* version (§10 line 339-341). The moment the
+   implementer wires `check:node` into `lint`/`test`/`build` (Phase 3), **every** one of `npm run lint`,
+   `npm test`, and `npm run build` fails fast on this machine until Node 24 is installed and selected —
+   including the generator's own Phase-4 verification run and the discriminator's later implementation
+   audit. The plan assumes Node 24.20.0 is simply active (§11 `nvm install && nvm use`) but never (a)
+   confirms nvm + a Node 24 build are actually available in this environment, nor (b) specifies the
+   audit-time fallback for verifying the work when the shell is still on Node 26. This is exactly the
+   "implicit assumption that might not hold" + "how will you know it works" gap the rubric weights, and
+   for a *toolchain* plan it is not cosmetic — as written, the plan risks being unverifiable on the box
+   it ships from.
+   *Fix (one of):* Add a short "Verifying on a non-24 shell" subsection to Phase 4 / §11 that (i) states
+   the implementer must `nvm install 24 && nvm use` (or install Node 24.20.0 from nodejs.org / asdf /
+   mise) **before** running the guarded commands, explicitly noting the current shell is Node 26 so the
+   guarded commands will fail until then; and (ii) documents that the underlying tools can be invoked
+   directly to verify the change without the guard — `node scripts/check-node-version.mjs`,
+   `npx prettier --check .`, `node --test tests/unit/*.test.mjs`, `npx playwright test`, and
+   `node scripts/build.mjs` (§8 already notes direct `node scripts/build.mjs` bypasses the guard; make
+   the full bypass set explicit as the auditor's escape hatch). This closes the gate.
+
+## Scope Check
+
+- **Audit findings in scope but not addressed:** None. `CONSOLIDATED_AUDIT.md` reports all Required
+  Actions #1–#8 DONE and **zero open defects**. Nothing is left for this plan to pick up.
+- **Backlog items in scope but not addressed:** None mis-scoped. The plan addresses the in-progress
+  item ("Optional toolchain bump to Node 24 LTS", `BACKLOG.md:16`, `[/]`). The two remaining `- [ ]`
+  items — native SwiftUI iPad build and the on-device static-HTTPS helper — are independent subsystems
+  correctly deferred (§2 Out of scope). No related toolchain backlog items are ignored.
+- **Integration points analyzed:** Yes — §7 enumerates five contracts (npm engines, dev validation
+  scripts, test runner, static build, operator docs) each with a failure mode and migration path.
+- **Alternatives considered:** Yes — §4 justifies `>=24 <25` over `>=24`, a local guard over the
+  `check-node-version` package, keeping deps pinned, keeping both version files, and deferring CI.
+- **Score cap applied:** None. Scope is adequate; the score reflects the one verification gap plus
+  polish, not scope.
+
+## Flaws of Commission
+
+No gate-blocking flaws of commission. The engine range `>=24 <25` is valid semver and is internally
+consistent with the guard's major-only logic (`isSupportedNodeVersion` true iff major === 24; both
+express "Node 24 only"). The lockfile edit target is correct and, edited in place alongside
+`package.json`, changes no dependency versions or integrity hashes. Two minor commission-adjacent nits
+(both Path-to-100, non-blocking):
+
+1. **Fragile main-module idiom.** The Phase-2 executable guard is
+   `if (import.meta.url === \`file://${process.argv[1]}\`) { … }` (plan lines 187-189). This idiom is
+   known-fragile: it breaks when the script path contains spaces or non-ASCII (percent-encoded in
+   `import.meta.url` but raw in `process.argv[1]`), on symlinked invocations, and on Windows drive
+   paths. It happens to work for this repo (`/Users/cyrax/daniqan/check-in-007/...`, no spaces), so it
+   is not a functional blocker here — but since the plan *targets Node 24*, the robust and simpler
+   `if (import.meta.main) { … }` (available on Node 24) or `import.meta.url ===
+   (await import('node:url')).pathToFileURL(process.argv[1]).href` is the better choice. State one.
+2. **§9 performance claim understates real cost.** §9 says the added cost is "below 50 ms … because it
+   starts a single Node process." But Phase 3 invokes the guard as `npm run check:node && …`, so each
+   guarded command spawns an **`npm run` indirection** (npm startup, typically ~150-400 ms) *plus* the
+   node process — not a single node process. The guard script itself is <50 ms, but the wall-clock
+   addition per `npm run lint|test|build` is several hundred ms. Either correct the claim to describe
+   the npm-spawn overhead, or invoke the guard directly (`node scripts/check-node-version.mjs && …`) to
+   match the 50 ms claim (at the cost of not reusing the named `check:node` script).
+
+## Flaws of Omission
+
+1. The verification-on-non-24-shell gap (Remaining issue #1) is the one gate-relevant omission.
+2. **README prettier-clean not called out.** `README.md` is markdown-linted by `prettier --check .`
+   (not in `.prettierignore`). Phase 3 rewrites README prose; the plan commits to lint staying clean
+   (§10) but does not flag that README edits themselves must be Prettier-formatted (≤100 col, etc.) or
+   `npm run lint` fails. Trivial, but worth a line so the implementer doesn't trip the very gate they add.
+3. **No guard against a future `npm install` re-normalizing the hand-edited lockfile.** The plan says to
+   edit `package-lock.json` root engines by hand and verify with `npm ci` (which does not rewrite the
+   lock). That is correct, but a stray `npm install` (not `ci`) after the edit could re-derive/re-order
+   the root block. A one-line note ("verify only via `npm ci`; do not run `npm install` in this cycle")
+   would remove the ambiguity. Minor.
+
+## Regressions
+
+No regressions identified. No `src/` file, data fixture, style, screen, build output, or storage key
+changes (§5 explicitly: "No `src/` files … change"). The added `tests/unit/node-version.test.mjs`
+imports only pure functions from the guard (execution guarded behind the main-module check), so the
+existing 52 unit / 12 e2e suites are unaffected and the suite only grows. The self-contained
+`dist/index.html` artifact and its ≤750 KB gzip / ≤1.2 MB budget are untouched (the guard is never
+bundled). The one *intended* behavior change — guarded commands now fail on Node ≠ 24 — is the feature,
+not a regression, and is reversible by the documented rollback (§12).
+
+## Why 94 and not 95
+
+A single issue holds it below the gate: for a plan whose entire purpose is toolchain validation, the
+plan does not say how its acceptance criteria get verified on the machine it will be built on, and that
+machine is on Node 26.3.0 — so wiring in the guard makes `lint`/`test`/`build` all fail there until
+Node 24 is installed, with no stated escape hatch for the implementation audit (Remaining issue #1).
+That is a concrete feasibility/verification gap, not a judgment call, which is what keeps it out of the
+≥95 band. Everything else is genuinely strong or cosmetic.
+
+## Path to ≥95
+
+Address the following in one revision pass:
+
+1. **Close the verification gap (Remaining issue #1).** Add a "Verifying on a non-24 shell" note to
+   Phase 4 / §11: state the current environment is Node 26.3.0, require `nvm install 24 && nvm use`
+   (or asdf/mise/nodejs.org) before the guarded commands, and enumerate the direct-tool bypass set
+   (`node scripts/check-node-version.mjs`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`,
+   `npx playwright test`, `node scripts/build.mjs`) as the auditor's way to verify without the guard.
+
+Doing #1 clears the gate (expected ~96). Folding in the three Path-to-100 items below would land 98-99.
+
+## Path to 100
+
+- Replace the fragile `import.meta.url === \`file://${process.argv[1]}\`` main-module check with
+  `import.meta.main` (Node 24) or a `pathToFileURL(process.argv[1]).href` comparison (Commission #1).
+- Correct the §9 "<50 ms / single Node process" claim to account for the `npm run check:node` npm-spawn
+  overhead, or invoke the guard directly to make the claim true (Commission #2).
+- Note that README edits must stay Prettier-formatted, and that the lockfile edit should be verified
+  only via `npm ci` (not `npm install`) this cycle (Omissions #2, #3).
+
+## Summary
+
+A strong, correctly-scoped, dependency-free toolchain plan with concrete phases, acceptance criteria,
+an alternatives analysis, and a five-contract integration map — one mechanically-fixable revision from
+approval. The single gate-blocker is that a *toolchain* plan omits how it is verified on the current
+Node 26.3.0 shell (where the new guard makes every guarded command fail until Node 24 is installed) and
+gives no audit-time bypass. Add the "verifying on a non-24 shell" note and the direct-tool escape hatch;
+that alone should clear ≥95. Three cosmetic nits (fragile main-module idiom, understated §9 perf claim,
+README/lockfile-edit hygiene) separate it from 100. **State 1 — revise plan.**
+
+---
+
+## Archived — Cycle 4 (Scan Blip Audio) — VERIFIED at 98/100
+
+> The sections below are the cycle-4 record: Plan Critique Revs 1-4 (final 99/100, APPROVED) and
+> Implementation Verification v5 (98/100, VERIFIED). Retained for history; superseded by the Cycle 5
+> critique above.
+
+## Implementation Verification — v5
 
 ## Implementation Verification — v5
 

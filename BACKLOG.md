@@ -55,6 +55,15 @@ privacy preserved and test-enforced. The last Path-to-100 nit (repeated-unlock i
 assertion) was folded into `tests/unit/audio.test.mjs` as recommended. No regressions. Code landed →
 inactivity decay resets to 0.
 
-Two items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build, on-device static-HTTPS
-helper — plus the optional Node 24 toolchain bump, for a backlog deduction of −1 (3 unchecked, 1 pt
-per 2, round down). Each is a separate subsystem and a candidate for a future planning cycle.
+**Cycle 5 is open** (State 1 — revise plan): the "Optional toolchain bump to Node 24 LTS" item is now
+in progress (`[/]`). `IMPLEMENTATION_PLAN.md` v12 (Node 24 LTS toolchain) was critiqued at
+**94/100 — NOT APPROVED** (Plan Critique Cycle 5 Rev 1): one mechanically-fixable gate-relevant gap —
+for a toolchain plan it does not state how its acceptance criteria are verified on the current
+**Node 26.3.0** shell (where the new guard makes `lint`/`test`/`build` fail until Node 24 is
+installed) and gives no direct-tool bypass for the audit. Three Path-to-100 nits (fragile
+`import.meta.url` main-check; understated §9 perf claim; README/lockfile-edit hygiene). See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` and `CONSOLIDATED_AUDIT.md` v21.
+
+With Node 24 now `[/]`, two items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build and
+the on-device static-HTTPS helper — for a backlog deduction of −1 (2 unchecked, 1 pt per 2, round
+down). Each is a separate subsystem and a candidate for a future planning cycle.

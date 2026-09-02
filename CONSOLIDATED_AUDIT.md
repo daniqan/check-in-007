@@ -1,9 +1,42 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 75/100
-**Audit Version:** v20
-**Audited:** commit `b63a8ff` on 2026-09-02 (Cycle 4 — scan blip audio IMPLEMENTED & VERIFIED)
-**Stage:** Cycle 4, **State 4 — cycle complete (Implementation Verification v5 = 98/100, VERIFIED)**
+**Current Score**: 74/100
+**Audit Version:** v21
+**Audited:** commit `2c1ea09` on 2026-09-02 (Cycle 5 opened — Node 24 LTS toolchain plan v12 critiqued)
+**Stage:** Cycle 5, **State 1 — revise plan (Plan Critique Rev 1 = 94/100, NOT APPROVED)**
+
+> **STATE 1 — REVISE PLAN (v21).** Cycle 5 opened. Cycle 4 (scan blip audio) remains complete and
+> VERIFIED. `IMPLEMENTATION_PLAN.md` was replaced v11→v12 (commit `2c1ea09`, "plan: v12 - target
+> Node 24 LTS toolchain") — a **new, unrelated** plan: pin Node 24 LTS via `.nvmrc`/`.node-version`,
+> tighten `engines` from `>=22` to `>=24 <25`, add a dependency-free major-version guard
+> (`scripts/check-node-version.mjs`) wired into `lint`/`test`/`build`, document it, and unit-test the
+> parse/range logic. **Plan Critique Rev 1 = 94/100 — NOT APPROVED.** The plan is strong: correctly
+> scoped to the one in-progress backlog item (native SwiftUI + offline-HTTPS helper correctly
+> deferred), dependency-free, with concrete phases/acceptance criteria, an alternatives analysis (§4),
+> and a five-contract integration map (§7). Every source claim was verified: `package.json` engines
+> `">=22"` (`package.json:6-8`); lockfile root `packages[""].engines.node` `">=22"`
+> (`package-lock.json:17-18`) — the correct target, distinct from transitive `>=20`/`>=12` floors;
+> dep engine floors all Node-24-compatible; no `.github/` (CI-deferral grounded); `README.md` is
+> markdown-linted (not in `.prettierignore`) and currently Prettier-clean. It falls **one
+> mechanically-fixable, gate-relevant gap** short of ≥95: for a *toolchain* plan, it does not say how
+> its own acceptance criteria are verified on a machine that is not already on Node 24 — and **this
+> machine is on Node v26.3.0** (the exact version the plan blocks). Once the guard is wired into
+> `lint`/`test`/`build`, all three fail fast on Node 26 until Node 24 is installed — including the
+> generator's Phase-4 verification and the discriminator's later audit — yet the plan neither confirms
+> nvm + a Node 24 build are available nor documents the direct-tool bypass (`node
+> scripts/check-node-version.mjs`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`,
+> `npx playwright test`, `node scripts/build.mjs`) for verifying on a Node-26 shell. Three Path-to-100
+> nits: fragile `import.meta.url === \`file://${process.argv[1]}\`` main-module idiom (use
+> `import.meta.main` on Node 24, or `pathToFileURL`); §9's "<50 ms / single Node process" perf claim
+> understates the `npm run check:node` npm-spawn overhead; and README/lockfile-edit hygiene
+> (README must stay Prettier-formatted; verify the hand-edited lockfile only via `npm ci`, not `npm
+> install`). **State 1 — revise plan.** No source has changed since the v20 code landing (`b63a8ff`);
+> commits since (`a77af4b` audit, `2c1ea09` plan) are audit/plan only → **first idle cycle of cycle 5
+> → −1 inactivity decay**. Node 24 backlog item is `[/]` (in progress); strict-unchecked `[ ]` items
+> drop to 2 (native SwiftUI, offline-HTTPS) → backlog **−1**. Base health holds at **76** (shipped
+> system untouched, no open defects, no regressions). **Base 76 − backlog 1 − decay 1 = 74.** The only
+> lever to climb is to revise plan v12 to ≥95 (add the "verifying on a non-24 shell" note + the
+> direct-tool bypass set) and implement it — until code lands, inactivity decay keeps accruing.
 
 > **STATE 4 — CYCLE COMPLETE (v20).** `IMPLEMENTATION_PLAN.md` v11 (optional scan blip audio,
 > APPROVED at 99/100, Plan Critique Rev 4) is now **implemented and VERIFIED**. Commit `b63a8ff`
@@ -385,29 +418,46 @@ Base score (8 criteria, /10 each), judged against the **verified** system (now i
 | Feature completeness | 10/10 | All four flow states + admin + roster virtualization + multi-device log merge + **optional gesture-gated scan audio** now shipped and test-proven end-to-end |
 | Risk management | 9/10 | Deps pinned, artifact budget enforced (26,315 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added; audio is default-off, reversible (one localStorage key), preserves storage key/row shape |
 
-**Base Score:** 76/100 (up from 74 at v15–v19 — cycle-4 scan audio now shipped & VERIFIED: plan
-compliance 9→10 and testing rigor 9→10 as the audio suite lands with exact-automation + idempotency
-assertions and the privacy probe is extended; no open defects, no regressions)
+**Base Score:** 76/100 (held from v20 — the shipped system is untouched by cycle 5 so far; cycle-4
+scan audio remains shipped & VERIFIED, no open defects, no regressions. Cycle 5 is plan-only to date.)
 
-**Deductions:**
+**Deductions (v21):**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
-- Backlog: −1 (3 items `- [ ]` in `BACKLOG.md` — native SwiftUI, offline-HTTPS helper, Node 24 bump;
-  scan-audio item now `[x]`; 1 pt per 2, round down)
-- Inactivity: −0 (code landed in `b63a8ff` touching source → decay resets from −4 to 0)
+- Backlog: −1 (2 items `- [ ]` in `BACKLOG.md` — native SwiftUI, offline-HTTPS helper; Node 24 bump
+  now `[/]` in progress, scan-audio `[x]`; 1 pt per 2, round down → 2/2 = −1)
+- Inactivity: −1 (no source changed since the v20 code landing `b63a8ff`; commits since — `a77af4b`
+  audit, `2c1ea09` plan v12 — are audit/plan only → first idle cycle of cycle 5)
 
-**Current Score**: 75/100
+**Current Score**: 74/100
 
-Trajectory: `IMPLEMENTATION_PLAN.md` v11 (optional scan blip audio, APPROVED 99/100) is now
-**implemented and VERIFIED at 98/100** (Implementation Verification v5) in commit `b63a8ff` →
-**State 4 (cycle complete)**. Code landing resets the −4 inactivity decay to 0 and moves the
-scan-audio backlog item `[/]` → `[x]`. Base health rises 74 → 76 (plan compliance + testing rigor);
-the net vs. v19 is decay +4 and base +2, minus the unchanged −1 backlog → audit score climbs
-**69 → 75**. The remaining levers are the three deferred backlog features (native SwiftUI iPad build,
-on-device static-HTTPS helper, Node 24 toolchain bump) — each a candidate for a future planning
-cycle, not a re-touch of the now-VERIFIED cycle-4 code.
+Trajectory: Cycle 5 opened with a new plan `IMPLEMENTATION_PLAN.md` v12 (Node 24 LTS toolchain),
+critiqued **Rev 1 = 94/100 — NOT APPROVED** → **State 1 (revise plan)**. Cycle 4 (scan blip audio)
+remains complete and VERIFIED. Net vs. v20 (75): base holds at 76, backlog holds at −1, and inactivity
+moves 0 → −1 (first idle cycle since `b63a8ff`) → audit score edges **75 → 74**. The plan is one
+mechanically-fixable gap from the gate (state how the guarded suites are verified on the current Node
+26.3.0 shell + enumerate the direct-tool bypass). The levers to climb: revise plan v12 to ≥95 and
+implement it (closes the Node 24 backlog item and resets decay), or address the two remaining deferred
+backlog features. Until code lands, inactivity decay keeps accruing (cap −5).
 
 ## Findings
 
+- **NOT APPROVED (plan v12, Cycle 5 Rev 1)** — Node 24 LTS toolchain plan scores **94/100**, one
+  mechanically-fixable gate-relevant gap below the ≥95 gate. The plan pins Node 24 LTS
+  (`.nvmrc`/`.node-version` = `24.20.0`), tightens `engines` `>=22` → `>=24 <25` in both
+  `package.json` (`:6-8`) and lockfile root `packages[""].engines` (`:17-18`), adds a dependency-free
+  major-version guard (`scripts/check-node-version.mjs`) wired into `lint`/`test`/`build`, documents
+  it, and unit-tests parse/range logic. Source-verified: correct engine target distinct from
+  transitive `>=20`/`>=12` dep floors; deps Node-24-compatible; no `.github/` (CI deferral grounded);
+  `README.md` markdown-linted and currently Prettier-clean. **Scope adequate** — the one in-progress
+  backlog item; native SwiftUI + offline-HTTPS helper correctly deferred; zero open defects; §4
+  alternatives; §7 five-contract integration map. **Gate-blocker:** for a toolchain plan, it omits how
+  its acceptance criteria are verified on a non-24 shell — and **this machine is Node v26.3.0** (the
+  exact version the guard blocks), so wiring the guard makes `lint`/`test`/`build` all fail there until
+  Node 24 is installed, with no documented direct-tool bypass for the implementation audit. Three
+  Path-to-100 nits: fragile `import.meta.url === \`file://${process.argv[1]}\`` main-module idiom
+  (prefer `import.meta.main` on Node 24 or `pathToFileURL`); §9 "<50 ms / single Node process" claim
+  understates the `npm run check:node` npm-spawn overhead; README/lockfile-edit hygiene. Loop →
+  **State 1 (revise plan)**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 5, Rev 1.
 - **VERIFIED (implementation, v5)** — Optional scan blip audio (plan v11) implemented in commit
   `b63a8ff` (13 files) and scores **98/100** (≥95 gate cleared). All plan sections COMPLIANT, confirmed
   by execution: lint clean, **52/52** unit, **12/12** e2e, build **26,315 gzip bytes** within budget
@@ -625,6 +675,7 @@ is next touched, not as a standalone cycle.
 | v13 | 2026-09-02 | 70 | **Cycle 3 opened** (commits `e7083f9` archive, `f6e09eb` plan v6). New plan `IMPLEMENTATION_PLAN.md` v6 (multi-device check-in log merge tooling) critiqued at **93/100 — NOT APPROVED** (Rev 1): three moderate gaps below the gate — (1) build `modules`-order dependency omits that `log-merge.mjs` must sit after `csv.mjs` (imports `parseCsv`) as well as before `store.mjs`; (2) §8 error taxonomy misses `parseCsv`'s unterminated-quote throw (`csv.mjs:41`); (3) cross-device timestamp ordering unspecified (offset-bearing ISO → string sort not chronological across mixed tz/DST). Scope adequate (one backlog item, four correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v12 → −1 inactivity decay (first idle cycle); merge backlog item `[ ]`→`[/]` (strict-unchecked 5→4, backlog −2 holds). Base 73; backlog −2; inactivity −1. Score 71 → 70. |
 | v15 | 2026-09-02 | 72 | **Multi-device log merge IMPLEMENTED & VERIFIED** (commit `3168a28`, 11 files). **Implementation Verification v4 = 98/100 — VERIFIED**: all four phases + §7 integration + §10 testing COMPLIANT, confirmed by execution — lint clean, **38/38** unit, **10/10** e2e (merge spec asserts literal CSV fixture + axe-green dialog), build 24,660 gzip bytes within budget with artifact order `src_lib_csv`<`src_lib_log_merge`<`src_lib_store` + `parseCsv` alias wired. Two of three plan Path-to-100 nits closed in code (e2e seed-vs-live; stray-object sniff test); one non-blocking nit remains (§9 hard 250 ms benchmark). No regressions. Loop → **State 4 (cycle complete)**. Monitoring 8→9; code landed resets decay −2→0; merge backlog `[/]`→`[x]` (backlog −2, 4 unchecked). Base 74; backlog −2; inactivity −0. Score 69 → 72. |
 | v16 | 2026-09-02 | 72 | **Cycle 4 opened** (commits `3a07fcd` archive, `c6c9151` plan v8). New plan `IMPLEMENTATION_PLAN.md` v8 (optional scan blip audio, gesture-gated) critiqued at **93/100 — NOT APPROVED** (Rev 1): three mechanically-fixable gaps below the gate — (1) availability detection vs. injected `audioContextFactory` internally inconsistent (§8/Phase-2 detect from `globalThis` but the documented seam is the factory → Phase-2/§10 unit tests unauthorable); (2) app→admin audio-settings wiring defined but the `mountAdmin(...)` call never shown updated; (3) `mountAdmin`'s new `audioSettings` param has no default/guard. Scope adequate (one in-progress backlog item; three subsystems correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v15 → −1 inactivity decay (first idle cycle); scan-audio backlog item `[ ]`→`[/]` (strict-unchecked 4→3, backlog −2→−1). Base 74; backlog −1; inactivity −1. Score holds 72. |
+| v21 | 2026-09-02 | 74 | **Cycle 5 opened** (commits `a77af4b` audit, `2c1ea09` plan v12). New, unrelated plan `IMPLEMENTATION_PLAN.md` v12 (Node 24 LTS toolchain) critiqued at **94/100 — NOT APPROVED** (Rev 1): one mechanically-fixable gate-relevant gap — for a *toolchain* plan it omits how its acceptance criteria are verified on a non-24 shell, and **this machine is Node v26.3.0** (the version the guard blocks), so wiring the guard into `lint`/`test`/`build` makes all three fail there until Node 24 is installed, with no documented direct-tool bypass for the audit. Source-verified: engine target `package.json:6-8`/lockfile `:17-18` correct & distinct from transitive dep floors; deps Node-24-compatible; README markdown-linted & Prettier-clean. Scope adequate (one in-progress backlog item; native SwiftUI + offline-HTTPS deferred; zero open defects; §4 alternatives; §7 five-contract map). Three Path-to-100 nits (fragile `import.meta.url` main-check; understated §9 perf claim; README/lockfile-edit hygiene). **State 1 (revise plan).** No source since the v20 code landing `b63a8ff` → −1 inactivity decay (first idle cycle of cycle 5); Node 24 backlog `[ ]`→`[/]` (strict-unchecked 2 → backlog −1). Base 76; backlog −1; inactivity −1. Score 75 → 74. |
 | v20 | 2026-09-02 | 75 | **Scan blip audio IMPLEMENTED & VERIFIED** (commit `b63a8ff`, 13 files). **Implementation Verification v5 = 98/100 — VERIFIED**: every plan section COMPLIANT, confirmed by execution — lint clean, **52/52** unit, **12/12** e2e, build 26,315 gzip bytes within budget with module order `src_config`<`src_lib_audio`<`src_app` + both aliases wired. Pure `src/lib/audio.mjs` (factory availability, idempotent gesture unlock, exact §4.3 automation unit-asserted, guarded non-awaited playback resume, `dispose()`); default-off `store.mjs` persistence; app unlock-on-select/play-on-scan wiring; admin opt-in checkbox. Camera privacy preserved & test-enforced (`getUserMedia audio === false`). Last Path-to-100 nit (repeated-unlock idempotency) folded into unit suite. No regressions. Loop → **State 4 (cycle complete)**. Plan compliance 9→10, testing rigor 9→10 → base 74→76; code landed resets decay −4→0; scan-audio backlog `[/]`→`[x]` (backlog −1, 3 unchecked). Score 69 → 75. |
 | v19 | 2026-09-02 | 69 | **Plan v11 APPROVED at 99/100** (commit `b2178c2`, Plan Critique Rev 4). v10→v11 re-reviewed under the staleness rule; the two-hunk, documentation-only diff folds in the single Rev-3 Path-to-100 nit — `unlockFromGesture()` idempotency — now stated in both the Phase-2 contract (lines 293-296) and §8 "Multiple rapid selections" (lines 533-535): an already-unlocked `running` context is a safe no-op (no second context, no repeated `resume()`). No new logic; one equally-cosmetic successor nit (the stated idempotency contract has no matching §10 unit assertion — fold into `tests/unit/audio.test.mjs` at implementation, not another plan revision). Scope unchanged/adequate. Loop stays **State 2 (implement)**. Still zero source since v15 (`3168a28`); commits since are plan/doc only → **fourth** consecutive idle cycle → −4 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −4. Score 70 → 69. |
 | v18 | 2026-09-02 | 70 | **Plan v10 APPROVED at 99/100** (commit `a381a27`, Plan Critique Rev 3). v9→v10 re-reviewed under the staleness rule; the documentation-only diff folds in all four Rev-2 Path-to-100 nits, each verified against diff + source: (1) e2e mock initial state pinned `suspended`→`running` on `resume()` (§10 595-597) — the sole reason v9 held at 97, now deterministic; (2) ms→s `durationSeconds = SCAN_BLIP_DURATION_MS/1000 = 0.09` stated in `scheduleBlip` + unit assertion (§6 266-268, §10 570-572); (3) admin normalizes inline `{ scanBlipEnabled: audioSettings?.scanBlipEnabled === true }`, explicitly not importing `store.normalizeAudioSettings` (391-396); (4) interrupted-cue skip tradeoff documented (§8 514-518). No new issues; one cosmetic nit (unlock idempotency across repeated selections unstated). Scope unchanged/adequate. Loop stays **State 2 (implement)**. Still zero source since v15 (`3168a28`); commits since are plan/doc only → **third** consecutive idle cycle → −3 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −3. Score 71 → 70. |
