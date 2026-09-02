@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v8
+# Check-In 007 — Implementation Plan v9
 
 > Cycle 4 backlog plan. Source item: `BACKLOG.md` Deferred Features item
 > "Optional subtle scan \"blip\" audio on identification, gated on a user-gesture unlock
@@ -62,8 +62,8 @@ Admin Controls
   -> localStorage checkin007.audio.v1
 
 Roster guest button trusted click/tap
-  -> audio.unlockFromGesture()
   -> create visit id
+  -> audio.unlockFromGesture()
   -> mountScan()
   -> scan timer completes
   -> audio.playScanBlip()
@@ -116,7 +116,10 @@ Failure domains:
    gesture (https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices).
    The roster guest button click/tap is already the operator's intentional check-in
    action, so the app will call `unlockFromGesture()` there before changing state.
-   Page-load unlock and timer-driven resume are explicitly rejected.
+   Page-load unlock is explicitly rejected. A later playback-path `resume()` is allowed
+   only after the controller has already been unlocked by a trusted roster-selection
+   gesture; it is non-awaited and failure-suppressed so it cannot become autoplay on boot
+   or block navigation.
 
 3. **Schedule a short envelope with oscillator and gain nodes.** MDN documents
    `createGain()` for controlling gain
@@ -126,7 +129,12 @@ Failure domains:
    `setTargetAtTime()` for gradual changes
    (https://developer.mozilla.org/en-US/docs/Web/API/AudioParam/setTargetAtTime). The
    cue will use one oscillator at 880 Hz, ramp to 1320 Hz halfway through, peak at gain
-   `0.045`, and release to silence over 90 ms. This is audible enough for feedback but
+   `0.045`, and release to silence over 90 ms. The exact automation contract is:
+   oscillator frequency `setValueAtTime(880, now)` then
+   `linearRampToValueAtTime(1320, now + durationSeconds / 2)`, gain
+   `setValueAtTime(0.045, now)`, gain release
+   `setTargetAtTime(0, now, SCAN_BLIP_RELEASE_SECONDS)`, oscillator `start(now)`, and
+   oscillator `stop(now + durationSeconds)`. This is audible enough for feedback but
    less intrusive than a long chime.
 
 4. **Persist only a boolean preference.** The existing store already handles
@@ -232,8 +240,16 @@ Create `src/lib/audio.mjs`:
 ```js
 import { AUDIO } from '../config.mjs';
 
+function defaultAudioContextFactory() {
+  const AudioContextConstructor = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (typeof AudioContextConstructor !== 'function') {
+    throw new Error('Web Audio unavailable');
+  }
+  return new AudioContextConstructor();
+}
+
 export function createScanAudioController({
-  audioContextFactory = () => new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
+  audioContextFactory = defaultAudioContextFactory,
   config = AUDIO,
 } = {}) {
   /**
@@ -248,10 +264,12 @@ export function createScanAudioController({
 function scheduleBlip(context, config) {
   /**
    * Create a fresh OscillatorNode and GainNode for each cue.
-   * Set oscillator frequency from config.SCAN_BLIP_START_HZ to
-   * config.SCAN_BLIP_END_HZ, connect oscillator -> gain -> destination, schedule
-   * attack/release gain automation, start at context.currentTime, and stop at
-   * currentTime + duration.
+   * Connect oscillator -> gain -> destination. At context.currentTime, call
+   * oscillator.frequency.setValueAtTime(config.SCAN_BLIP_START_HZ, now), then
+   * oscillator.frequency.linearRampToValueAtTime(config.SCAN_BLIP_END_HZ,
+   * now + durationSeconds / 2). Call gain.gain.setValueAtTime(config.SCAN_BLIP_GAIN,
+   * now), then gain.gain.setTargetAtTime(0, now, config.SCAN_BLIP_RELEASE_SECONDS).
+   * Start at now and stop at now + durationSeconds.
    * Disconnect nodes on oscillator ended when supported.
    */
   ...
@@ -261,12 +279,21 @@ function scheduleBlip(context, config) {
 Controller contract:
 
 - `setEnabled(false)` prevents future context creation and playback.
-- `unlockFromGesture()` returns `false` without side effects when disabled or when Web
-  Audio constructors are unavailable.
+- Availability is factory-based: the controller is potentially available when
+  `audioContextFactory` is a function. The default factory resolves
+  `globalThis.AudioContext || globalThis.webkitAudioContext` and throws when neither
+  constructor exists; injected mock factories are fully testable without also stubbing
+  `globalThis`.
+- `unlockFromGesture()` returns `false` without side effects when disabled or when
+  `audioContextFactory` is not a function.
 - `unlockFromGesture()` creates/resumes the context only when enabled. If context state is
   `suspended`, it awaits `context.resume()`. If state is `running`, it marks unlocked.
-- `playScanBlip()` returns `false` when disabled, unavailable, not unlocked, suspended,
-  interrupted, closed, or disposed.
+- Constructor failure marks the controller unavailable for the session and returns
+  `false` from future unlock/play calls.
+- `playScanBlip()` returns `false` when disabled, unavailable, not unlocked, closed, or
+  disposed. When an already-unlocked context is `suspended` or `interrupted`, it starts a
+  guarded non-awaited `context.resume()` attempt, skips the current cue, and allows a
+  later scan-complete call to play if the browser resumes the context.
 - `playScanBlip()` creates new oscillator/gain nodes for each successful cue because
   scheduled source nodes are one-shot.
 - `dispose()` disconnects known nodes, closes the context when it was created by this
@@ -279,7 +306,10 @@ Acceptance criteria:
 - A mocked running AudioContext records exactly one oscillator start/stop pair per
   successful scan-complete call.
 - A mocked suspended context receives `resume()` during unlock.
-- Disabled, unavailable, closed, and not-unlocked states schedule no nodes.
+- Disabled, unavailable, closed, not-unlocked, suspended, and interrupted states schedule
+  no nodes.
+- A mocked suspended/interrupted context after prior unlock records one non-awaited
+  resume attempt during `playScanBlip()` and schedules no cue for that call.
 - Repeated successful scan completions create separate oscillator instances and do not
   reuse a stopped source node.
 
@@ -307,13 +337,30 @@ export function start(root = document.getElementById('app')) {
   onSelect: (guestId) => {
     /**
      * Preserve visit-id creation and state transition semantics.
-     * Call audio.unlockFromGesture() synchronously from this trusted click path before
-     * setState('SCAN'). Do not await it before navigation because mountRoster does not
-     * await onSelect; the audio helper handles any resume promise internally.
+     * Create the visit id first as today, then call audio.unlockFromGesture()
+     * synchronously from this trusted click path before setState('SCAN'). Do not await it
+     * before navigation because mountRoster does not await onSelect; the audio helper
+     * handles any resume promise internally.
      * Unlock failure must not block scan.
      */
     ...
   }
+  ...
+  onAdminHold: () => {
+    if (state !== 'ROSTER' || adminCleanup) return;
+    adminCleanup = mountAdmin(root, {
+      store,
+      audioSettings: store.loadAudioSettings(),
+      onAudioSettingsChanged: updateAudioSettings,
+      onRosterChanged: (nextGuests) => {
+        guests = buildSearchIndex(nextGuests);
+      },
+      onClose: () => {
+        adminCleanup = null;
+        setState('ROSTER');
+      },
+    });
+  },
   ...
   if (state === 'SCAN') {
     cleanup = mountScan(root, {
@@ -333,14 +380,16 @@ Modify `src/screens/admin.mjs`:
 ```js
 export function mountAdmin(root, {
   store,
-  audioSettings,
-  onAudioSettingsChanged,
+  audioSettings = { scanBlipEnabled: false },
+  onAudioSettingsChanged = (settings) => settings,
   onRosterChanged,
   onClose,
 }) {
   /**
    * Render a checkbox labeled "Scan blip audio".
-   * Initialize checked from audioSettings.scanBlipEnabled.
+   * Normalize the received audioSettings to `{ scanBlipEnabled: boolean }` before any
+   * dereference so direct mounts or omitted params default off instead of throwing.
+   * Initialize checked from normalizedAudioSettings.scanBlipEnabled.
    * On change, call onAudioSettingsChanged({ scanBlipEnabled: checked }) and announce
    * "Scan blip audio enabled." or "Scan blip audio disabled." in the existing status
    * live region.
@@ -353,8 +402,9 @@ Admin UI contract:
 
 - Add one checkbox, not a button-only toggle, because this is a persistent binary
   setting.
-- The checkbox appears in the existing admin panel near operational controls, not in the
-  roster screen.
+- The checkbox appears in the existing admin panel after the existing `.merge-panel` and
+  before the `.admin-grid` action buttons, keeping it near operational controls without
+  moving roster import/export/reset actions.
 - No visible instructional paragraph is added; the label is enough for the control.
 - Closing admin preserves focus restoration and does not alter the audio setting.
 - Existing roster import, log merge, export/copy, reset, and clear-log actions are
@@ -418,9 +468,9 @@ not request microphone access.
 
 3. **Roster selection -> audio unlock**
    - Contract: `mountRoster` invokes `onSelect` directly from a trusted button event; app
-     calls `audio.unlockFromGesture()` synchronously in that call stack before moving to
-     scan. The helper may continue an internal resume promise without blocking
-     navigation.
+     creates the visit id as it does today, then calls `audio.unlockFromGesture()`
+     synchronously in that same call stack before moving to scan. The helper may continue
+     an internal resume promise without blocking navigation.
    - Failure mode: unlock returns false or throws internally; app still enters scan.
    - Migration path: existing selection behavior and visit-id generation are preserved.
 
@@ -445,15 +495,20 @@ not request microphone access.
 
 ## 8. Error Handling & Edge Cases
 
-- **Web Audio unavailable:** `createScanAudioController()` detects no `AudioContext` or
-  `webkitAudioContext`, marks unavailable, and returns false from unlock/play.
+- **Web Audio unavailable:** the default `audioContextFactory` throws on first
+  construction when neither `AudioContext` nor `webkitAudioContext` exists. Injected
+  factories are treated as the availability source for tests. Constructor failure marks
+  the controller unavailable for the session and returns false from unlock/play.
 - **Audio disabled:** controller does not create a context, unlock, or schedule nodes.
 - **AudioContext constructor throws:** unlock catches the error, marks unavailable for the
   session, and scan continues.
 - **Suspended context:** unlock awaits `resume()`; if resume rejects, unlocked remains
-  false and later playback is skipped.
-- **Interrupted context:** playback checks `context.state`; if it is neither `running`
-  nor undefined in a mock, skip scheduling.
+  false and later playback is skipped. If a previously unlocked context becomes suspended
+  before playback, `playScanBlip()` starts a guarded non-awaited `resume()` and skips that
+  cue instead of blocking result navigation.
+- **Interrupted context:** playback checks `context.state`; if it is `interrupted`, it
+  starts the same guarded non-awaited `resume()` attempt when available, skips scheduling,
+  and lets a future scan play after recovery.
 - **Closed context:** playback skips, and repeated calls do not try to use closed nodes.
 - **Repeated scans:** each successful playback creates new oscillator/gain nodes and
   disconnects them on end when possible.
@@ -499,10 +554,14 @@ Unit tests:
   - default controller is disabled and does not construct AudioContext.
   - enabled controller unlocks a running context from `unlockFromGesture()`.
   - suspended context calls and awaits `resume()`.
-  - unavailable constructor returns false and schedules no nodes.
+  - unavailable constructor/default factory returns false and schedules no nodes; injected
+    mock factories work without stubbing `globalThis.AudioContext`.
   - `playScanBlip()` before unlock returns false.
   - successful playback creates oscillator/gain, connects oscillator -> gain ->
-    destination, sets configured frequencies/gain, and schedules start/stop exactly once.
+    destination, calls the exact frequency/gain automation sequence from §4.3, and
+    schedules start/stop exactly once.
+  - suspended/interrupted state after unlock starts one non-awaited resume attempt during
+    playback and schedules no oscillator for that skipped cue.
   - repeated successful playback creates two oscillator instances.
   - disabled-after-unlock suppresses playback.
   - thrown constructor/resume/scheduling errors are caught.
@@ -521,12 +580,17 @@ End-to-end tests:
 - Existing boot/search/scan/result/privacy test additionally asserts `getUserMedia` was
   never called with `audio: true`.
 - New enabled-audio workflow:
-  - install an init-script mocked `AudioContext` with counters for constructor, resume,
-    oscillator creation, gain creation, start, stop, and connection calls.
+  - install an init-script mocked `AudioContext` with counters for constructor,
+    unlock-phase resume, playback-phase resume, oscillator creation, gain creation,
+    start, stop, and connection calls.
   - open admin, enable "Scan blip audio", close admin.
   - select a guest and wait for result.
-  - assert one context construction/unlock attempt, one oscillator start, one oscillator
-    stop, and one stored check-in.
+  - assert one context construction, one unlock/resume-attempt counter increment from
+    `unlockFromGesture()` during the roster selection path, zero playback-path resume
+    attempts while the mock remains running, one oscillator start, one oscillator stop,
+    and one stored check-in. The test mock distinguishes unlock from playback by counting
+    `resume()` before the first oscillator creation as unlock-phase and counting
+    `resume()` after that point as playback-phase.
 - New disabled-audio workflow:
   - use the same mock with default settings.
   - select a guest and wait for result.
