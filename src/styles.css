@@ -1,0 +1,346 @@
+@font-face {
+  font-family: 'CheckIn Oswald';
+  src: url('../assets/fonts/oswald-600.woff2') format('woff2');
+  font-weight: 600 700;
+}
+
+:root {
+  --ink: #0a0a0a;
+  --ink-2: #050505;
+  --gold: #d4af37;
+  --gold-2: #b8860b;
+  --gold-hi: #f2d479;
+  --paper: #f5f5f0;
+  --paper-dim: #b9b9b2;
+  --line: rgba(212, 175, 55, 0.28);
+  --transition-ms: 500ms;
+  --admin-hitzone: 72px;
+  color-scheme: dark;
+  font-family: 'CheckIn Oswald', 'Avenir Next Condensed', 'Arial Narrow', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--ink-2);
+  color: var(--paper);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button,
+input {
+  min-height: 44px;
+  border-radius: 4px;
+  font: inherit;
+  touch-action: manipulation;
+}
+
+input {
+  font-size: 16px;
+}
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: max(26px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background:
+    radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.12), transparent 34%),
+    linear-gradient(135deg, var(--ink), var(--ink-2));
+  opacity: 0;
+  transform: scale(0.985);
+  transition:
+    opacity var(--transition-ms) ease,
+    transform var(--transition-ms) ease;
+}
+
+#app.is-ready .screen {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.topbar p,
+.boot-copy p,
+.result-screen p,
+.scan-copy p,
+.status,
+.storage-note {
+  margin: 0;
+  color: var(--gold-hi);
+  font-size: clamp(0.8rem, 1.6vw, 1rem);
+  letter-spacing: 0;
+}
+
+h1,
+h2 {
+  margin: 0;
+  color: var(--paper);
+  letter-spacing: 0;
+}
+
+.logo-hit {
+  width: var(--admin-hitzone);
+  height: var(--admin-hitzone);
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gold-hi);
+  font-weight: 700;
+}
+
+.loading-screen,
+.result-screen,
+.scan-screen {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.gunbarrel {
+  width: min(70vw, 360px);
+  aspect-ratio: 1;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle,
+    transparent 0 12px,
+    rgba(212, 175, 55, 0.16) 13px 16px
+  );
+  animation: barrel-spin 2.6s linear both;
+}
+
+.gunbarrel span {
+  display: block;
+  width: 38%;
+  aspect-ratio: 1;
+  margin: 31%;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+}
+
+.boot-copy h1,
+.result-screen h1 {
+  font-size: clamp(3rem, 9vw, 7rem);
+}
+
+.roster-screen {
+  position: fixed;
+}
+
+.search-label {
+  color: var(--paper-dim);
+}
+
+.search {
+  width: min(100%, 760px);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--paper);
+  padding: 0 16px;
+}
+
+.roster-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  margin: 0;
+  padding-right: 4px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.guest-row {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--paper);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.guest-row span,
+.guest-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guest-row span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 1.1rem;
+}
+
+.guest-row small {
+  color: var(--gold-hi);
+  white-space: nowrap;
+}
+
+.empty {
+  color: var(--paper-dim);
+}
+
+.camera,
+.covert {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.62;
+}
+
+.covert {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(245, 245, 240, 0.2), transparent 10%),
+    linear-gradient(90deg, transparent 42%, rgba(212, 175, 55, 0.16) 43% 57%, transparent 58%);
+}
+
+.hud {
+  position: absolute;
+  inset: 8%;
+  border: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.reticle {
+  position: absolute;
+  inset: 18%;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+}
+
+.sweep {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gold-hi);
+  animation: scan-sweep 1.25s ease-in-out infinite alternate;
+}
+
+.scan-copy,
+.result-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.assignment {
+  max-width: min(980px, 92vw);
+  color: var(--gold-hi);
+  font-size: clamp(2rem, 6vw, 5rem);
+  overflow-wrap: anywhere;
+}
+
+.admin-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.admin-panel {
+  width: min(760px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border: 1px solid var(--gold);
+  background: var(--ink);
+  padding: 18px;
+}
+
+.admin-panel header,
+.admin-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-panel header {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.admin-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.admin-grid button,
+.file-label {
+  border: 1px solid var(--line);
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--paper);
+  padding: 12px;
+}
+
+.file-label input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.icon-button {
+  width: 44px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--paper);
+}
+
+@keyframes barrel-spin {
+  from {
+    transform: rotate(-18deg) scale(0.92);
+  }
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+
+@keyframes scan-sweep {
+  from {
+    top: 18%;
+  }
+  to {
+    top: 82%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 150ms !important;
+  }
+}

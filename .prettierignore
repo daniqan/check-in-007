@@ -1,0 +1,8 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+BACKLOG.md
+CONSOLIDATED_AUDIT.md
+IMPLEMENTATION_PLAN.md
+IMPLEMENTATION_PLAN_CRITIQUE.md
