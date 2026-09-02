@@ -1,7 +1,152 @@
 # Check-In 007 — Implementation Plan Critique
 
-**Plan Score:** 88/100
-**Implementation Score:** N/A (no implementation this cycle yet)
+**Plan Score:** 97/100 — **APPROVED** (Rev 2, plan v5)
+**Implementation Score:** N/A (approved; not yet implemented → loop State 2)
+
+---
+
+# Plan Critique — Revision 2 (Cycle 2: roster virtualization)
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `855c436`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v5
+**Score:** **97 / 100** (previous: 88, Rev 1)
+**Status:** **APPROVED** (gate is ≥95)
+
+v5 closes all four Rev-1 blockers and all five Rev-1 Path-to-100 items with concrete,
+source-accurate fixes: the build-script module-ordering constraint is now explicit (§3, §5,
+§7.4, new §Phase 2b); `role="listbox"` is deliberately rejected in favour of native
+button semantics with `aria-setsize`/`aria-posinset` + an axe-green acceptance; virtualized
+names clamp to a single ellipsized line so the fixed 58 px visible row (66 px pitch) cannot
+clip or desync; and the row-height/gap wording is reconciled by two named constants. Verified
+against ground truth (`build.mjs:7-19`, `roster.mjs`, `styles.css:22-208`, `app.mjs:40-58`).
+Approved; the two remaining items below are non-blocking polish.
+
+## Issues resolved in revision 2
+
+1. **Build-script correctness (Rev-1 #1) — RESOLVED.** §5 File Manifest now includes
+   `scripts/build.mjs (MOD)`. §3 Architecture, §7.4, and the new **§Phase 2b** state the hard
+   ordering constraint: `src/lib/virtual-list.mjs` must precede `src/screens/roster.mjs` in the
+   hardcoded `modules` array (verified: `scripts/build.mjs:7-19` has no auto-discovery; the
+   transform at `:105-109` emits an eager
+   `const shouldVirtualize = window.__CHECKIN007.modules.src_lib_virtual_list.…` alias at
+   module-init, so a missing/mis-ordered entry throws at load — a silent break the residual-syntax
+   check never catches). The namespace `src_lib_virtual_list` matches `namespaceFor()`
+   (`build.mjs:21-23`). §Phase 2b acceptance requires `npm run build` + a browser load of the
+   built `dist/index.html` reaching the roster screen. Correct and complete.
+
+2. **`role="listbox"` a11y regression (Rev-1 #2) — RESOLVED.** §2 item 4, §4 decision 6, and
+   §Phase 3 now explicitly refuse `role="listbox"`/any composite-widget role and keep the native
+   `<ul>` + `<button class="guest-row">` model, adding only `aria-setsize`/`aria-posinset`. This
+   avoids the axe `aria-required-children` (serious) regression against the green a11y e2e. §Phase 4
+   and §10 add "run the existing axe smoke check after virtualization is active." Correct.
+
+3. **Fixed row height vs. 2-line names (Rev-1 #3) — RESOLVED.** §Phase 3 CSS adds
+   `.roster-list.is-virtualized .guest-row span { display:block; white-space:nowrap;
+   -webkit-line-clamp:unset }` which — combined with the inherited `overflow:hidden;
+   text-overflow:ellipsis` (`styles.css:192-196`) — yields single-line ellipsis in virtual mode
+   while the small-list path keeps the two-line clamp (`styles.css:198-203`). §8 and the §Phase 4
+   e2e add a deliberately long imported name asserted single-line without overflow. Correct.
+
+4. **Row-height/gap inconsistency (Rev-1 #4) — RESOLVED.** Config adds
+   `VIRTUAL_ROW_HEIGHT_PX: 66` (math pitch) and `VIRTUAL_VISIBLE_ROW_HEIGHT_PX: 58`
+   (`--roster-virtual-row-height`); §Phase 3 acceptance states the 8 px difference is the
+   reintroduced inter-row gap once `.is-virtualized` switches grid→block (removing
+   `styles.css:171 gap:8px`). `box-sizing:border-box` is global (`styles.css:22-24`), so a 58 px
+   `.roster-virtual-row` fully contains the `min-height:58px` button + padding + border. Correct.
+
+Rev-1 Path-to-100 items also closed: the unexplained `+2` render term is replaced by
+`ceil(viewport/rowHeight) + 2*overscan` **plus at most one** transient boundary row, justified by
+fractional-scroll rounding (§Phase 2, §9); `viewportHeight` source named as `list.clientHeight`
+with `<= 0` zero-detection (§3, §Phase 2); `.roster-virtual-row { right: 0 }` (not `4px`) avoids
+double-counting the container's `padding-right:4px` (§Phase 3, `styles.css:173`); search
+`scrollTop = 0` reset is deterministic on the reused list element (§Phase 2, §8); and the
+last-window spacer invariant is a named unit assertion (§Phase 1, §Phase 4, §10).
+
+## Remaining issues
+
+None blocking. Two non-blocking polish items (see Path to 100):
+
+1. **Virtual→small down-transition class toggle is implicit (minor).** §Phase 2 says `render()`
+   chooses `renderSmallList` vs `renderVirtualList`, and §8 says the empty path "clears virtual
+   state," but the plan never explicitly states that a filtered result crossing back to ≤ threshold
+   must remove `.is-virtualized` from the reused `.roster-list` (restoring `display:grid`/`gap:8px`).
+   Intent is covered by §10's "small bundled roster still renders with the existing markup," and a
+   competent dev reusing the element would toggle the class, but stating it removes ambiguity.
+
+2. **`topPadding`/`bottomPadding` are computed but the DOM contract lays out via
+   `spacer + translateY` (minor).** `computeVirtualWindow` returns padding values used only by the
+   invariant unit test; actual positioning uses a full-height spacer plus per-row
+   `translateY(absoluteIndex * 66)`. Not contradictory, but the plan could note that padding fields
+   are a math/test invariant, not the layout mechanism, so an implementer doesn't wire both.
+
+## Scope Check
+
+- **Audit Required Actions:** none open — actions #1–#8 are all DONE (`CONSOLIDATED_AUDIT.md`).
+  No P0/P1 in scope. No cap.
+- **Backlog items in scope:** targets exactly the one in-progress item (`[/]` roster
+  windowing/virtualization >500 rows). The other five items (multi-device merge, scan audio, native
+  SwiftUI, offline-HTTPS, Node 24 bump) are separate subsystems. No cap.
+- **Integration analysis:** present and accurate — §7 matches `app.mjs:40-58` (re-mount with
+  `buildSearchIndex(guests)` on every ROSTER entry and `onRosterChanged`), the `setState('ROSTER')`
+  hook exists (`app.mjs:98`), admin CSV import is already exercised in e2e. No cap.
+- **Alternatives considered:** §4 justifies native fixed-row math over `react-window`, rAF over
+  per-event render, manual math over IntersectionObserver, and native semantics over listbox — each
+  cited. No cap.
+
+No scope cap applied. Correctly-scoped single-backlog-item plan.
+
+## Flaws of Commission
+
+No flaws of commission identified. The former §7.4 falsehood and the invalid `role="listbox"`
+composition are both removed; all config/CSS/build claims check out against source.
+
+## Flaws of Omission
+
+1. Virtual→small class-toggle on the reused element is implicit, not stated (Remaining #1) — minor.
+2. No other omissions: error paths (empty filter, zero viewport, rapid scroll, unmount-during-rAF,
+   late-list selection, duplicate names, reduced motion) are all enumerated in §8; cleanup of
+   scroll/resize listeners + rAF is added to the returned teardown (§Phase 2, §9).
+
+## Regressions
+
+No regressions identified. The small-list markup, empty-state message, event delegation on
+`data-guest-id` (`roster.mjs:59-64`), the 20-cycle leak test, and the reduced-motion path are all
+explicitly preserved (§10), and the native list/button model keeps the axe e2e green.
+
+## Why 97 and not 98
+
+The two non-blocking polish items are genuine, if small, specificity gaps: the down-transition
+class toggle is only implied, and the computed padding fields overlap the translateY layout
+mechanism without a note on which is authoritative. Either could cause a momentary implementer
+misstep (a small list rendered in block layout without gaps, or double-applied offsets). Neither
+threatens the artifact or the acceptance gates, so they hold the score one point below 98 rather
+than blocking approval.
+
+## Path to ≥95
+
+Met — plan is APPROVED at 97. No blocking work remains.
+
+## Path to 100
+
+1. State that `renderSmallList` (and the empty path) removes `.is-virtualized` from the reused
+   `.roster-list` so grid layout and the 8 px gap are restored when a filter drops the count back to
+   ≤ threshold.
+2. Note that `topPadding`/`bottomPadding` from `computeVirtualWindow` are a math/test invariant, and
+   that DOM layout is driven by the full-height spacer + per-row `translateY`, so both mechanisms are
+   not wired simultaneously.
+3. Specify `measureVirtualViewport` behavior if `list.clientHeight` is still `<= 0` after the single
+   scheduled rAF re-read (it keeps the `VIRTUAL_MIN_VIEWPORT_PX` fallback and does not re-loop) so
+   the "schedule one rAF" wording is unambiguous about the no-progress case.
+
+## Summary
+
+Approval-grade. v5 resolves every Rev-1 blocker and Path-to-100 item with fixes verified against
+the actual `build.mjs`, `roster.mjs`, `styles.css`, and `app.mjs`, and introduces no new defects.
+Two minor polish items remain (implicit down-transition class toggle; padding-vs-translateY note),
+which is why it lands at 97 rather than 98–100. The loop advances to **State 2 — implement the
+approved plan** (do not revise further; the plan is now the contract for the implementation audit).
+
+**Plan Score:** 97/100
 
 ---
 
@@ -161,4 +306,9 @@ followed literally; a `role="listbox"` composition risks regressing the green ax
 fixed row height is unreconciled with today's 2-line names. All four are concrete and closable in
 one revision — expect a 96–98 next pass if they are fully addressed.
 
-**Plan Score:** 88/100
+**Plan Score (Rev 1, superseded by Rev 2 = 97):** 88/100
+
+---
+
+<!-- Authoritative current score (last occurrence wins) -->
+**Plan Score:** 97/100

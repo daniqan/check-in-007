@@ -1,35 +1,52 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 68/100
-**Audit Version:** v10
-**Audited:** commit `107eea6` on 2026-09-02 (Cycle 2 opened — plan v4 for roster virtualization; plan-only, no source change)
-**Stage:** Cycle 2, **State 1 — plan NOT APPROVED (v4 = 88/100)**; awaiting plan revision before any code
+**Current Score**: 67/100
+**Audit Version:** v11
+**Audited:** commit `855c436` on 2026-09-02 (Cycle 2 — plan v5 for roster virtualization APPROVED; plan-only, no source change)
+**Stage:** Cycle 2, **State 2 — plan APPROVED (v5 = 97/100); implement the approved plan**
 
-> **STATE 1 — REVISE THE PLAN.** Cycle 1 is archived (`archive/cycle-1/`) and verified complete
-> (Implementation Verification v2 = 96/100). Cycle 2 opened with `IMPLEMENTATION_PLAN.md` v4
-> (roster windowing/virtualization for lists >500 rows). Plan Critique Rev 1 scores it **88/100 —
-> NOT APPROVED** (gate ≥95). Four blocking issues: (1) §7.4 falsely claims `virtual-list.mjs` needs
-> no build-script change, but `scripts/build.mjs:7-19` hardcodes the module list — the new module
-> must be added **before** `src/screens/roster.mjs` or the artifact throws at load; §5 manifest also
-> omits `build.mjs`; (2) §Phase 3 `role="listbox"` without `role="option"` children risks an axe
-> `aria-required-children` regression against the green a11y e2e; (3) fixed virtual row height is
-> unreconciled with today's 2-line clamped names (clip/desync); (4) §Phase 3 "66 px row height
-> including 8 px gap" is self-contradictory. **Revise the plan to ≥95 before writing any code.** No
-> source code has changed since v9 (commits `6aa1131`, `107eea6` are docs/archive only) → first
-> idle cycle since the v9 code landing, −1 inactivity decay.
+> **STATE 2 — IMPLEMENT THE APPROVED PLAN.** `IMPLEMENTATION_PLAN.md` v5 (roster
+> windowing/virtualization for lists >500 rows) is now **APPROVED at 97/100** (Plan Critique Rev 2).
+> v5 closed all four Rev-1 blockers with source-accurate fixes: (1) §5 manifest + new §Phase 2b now
+> require `src/lib/virtual-list.mjs` **before** `src/screens/roster.mjs` in the hardcoded
+> `scripts/build.mjs:7-19` module array (the false "no build-script change" claim is gone); (2)
+> `role="listbox"` is deliberately rejected for native button semantics + `aria-setsize`/
+> `aria-posinset` + an axe-green acceptance; (3) virtualized names clamp to one ellipsized line
+> (66 px pitch / 58 px visible row), small-list keeps 2-line clamp; (4) row-height/gap reconciled by
+> two named config constants. **Write the code now — do NOT revise the plan further; it is the
+> contract for the implementation audit.** No source code has changed since v9 (commits `6aa1131`,
+> `107eea6`, `855c436` are docs/archive/plan only) → **second** consecutive idle cycle since the v9
+> code landing, −2 inactivity decay.
 
-## Summary (v10)
+## Summary (v11)
 
-Cycle 2 has opened. Cycle 1's plan and implementation are archived to `archive/cycle-1/` and remain
-VERIFIED (Implementation Verification v2 = 96/100). The new `IMPLEMENTATION_PLAN.md` v4 proposes
-roster windowing/virtualization for lists >500 rows and was critiqued this pass at **88/100 (NOT
-APPROVED)** — see `IMPLEMENTATION_PLAN_CRITIQUE.md` Rev 1. The plan is architecturally sound and
-correctly scoped to the one in-progress backlog item, but has four blocking issues (build-script
-claim vs. the hardcoded module list, a `role="listbox"` a11y regression risk, fixed row height vs.
-2-line names, and a row-height/gap inconsistency). The loop is in **State 1: revise the plan** — no
-code should be written yet. Because cycle 2 has produced only docs (no source change since commit
-`75c8279`), a −1 inactivity decay applies and the audit score edges **69 → 68**. The underlying
-shipped system is unchanged and defect-free; the base health score holds at 72.
+Plan v5 landed (commit `855c436`) and is **APPROVED at 97/100** (Plan Critique Rev 2). All four
+Rev-1 blockers are resolved with fixes verified against ground truth (`scripts/build.mjs:7-19`,
+`src/screens/roster.mjs`, `src/styles.css:22-208`, `src/app.mjs:40-58`): the build module-ordering
+constraint is now explicit (§3/§5/§7.4/§Phase 2b), `role="listbox"` is rejected in favour of native
+button semantics + axe-green acceptance, virtualized names clamp to a single ellipsized line with a
+66 px pitch / 58 px visible-row split, and the row-height/gap wording is reconciled by two named
+config constants. All five Rev-1 Path-to-100 items are also closed. Two non-blocking polish nits
+remain (implicit virtual→small `.is-virtualized` class toggle; `topPadding`/`bottomPadding` vs.
+spacer+translateY note) → Path-to-100 only.
+
+The loop advances to **State 2 — implement the approved plan**. No code has been written yet: cycle
+2 has produced only plan/doc commits, so this is the **second** consecutive idle cycle since the v9
+code landing → **−2 inactivity decay** (was −1 at v10). Base system health holds at 72 (shipped
+system unchanged, no open defects); backlog holds at −3 (6 unchecked). The audit score edges
+**68 → 67**. The only lever now is to implement plan v5 and pass implementation verification (≥95),
+which closes the in-progress roster-windowing backlog item and resets the decay.
+
+---
+
+## Summary (v10, retained)
+
+Cycle 2 opened. Cycle 1's plan and implementation are archived to `archive/cycle-1/` and remain
+VERIFIED (Implementation Verification v2 = 96/100). `IMPLEMENTATION_PLAN.md` v4 (roster
+virtualization) was critiqued at **88/100 (NOT APPROVED)** — Rev 1 — with four blocking issues
+(build-script claim vs. the hardcoded module list, a `role="listbox"` a11y regression risk, fixed
+row height vs. 2-line names, and a row-height/gap inconsistency). State 1 (revise plan); −1
+inactivity decay (first idle cycle since v9); score **69 → 68**.
 
 ---
 
@@ -73,25 +90,29 @@ Base score (8 criteria, /10 each), judged against the **verified** system:
 **Deductions:**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
 - Backlog: −3 (6 items not `[x]` in `BACKLOG.md` — 5 `- [ ]` + 1 `[/]` in-progress; 1 pt per 2)
-- Inactivity: −1 (first idle cycle since v9 — no source change since commit `75c8279`)
+- Inactivity: −2 (second consecutive idle cycle since v9 — no source change since commit `75c8279`; capped rule not yet reached)
 
-**Current Score**: 68/100
+**Current Score**: 67/100
 
 Trajectory: Cycle 1's implementation remains healthy and VERIFIED (system-health base holds at 72).
-The audit score now edges 69 → 68 purely on inactivity decay: cycle 2 has produced a plan but no
-code. The lever to raise the score is to get plan v4 to ≥95 and then implement it — closing the
-in-progress roster-windowing backlog item — or to close other backlog items. No open defects in the
-shipped system.
+Plan v5 is now APPROVED (97/100), so the plan-quality gate is cleared. The score edges 68 → 67 on
+the second idle-cycle decay: cycle 2 has produced an approved plan but still zero code. The single
+lever to raise the score is to **implement plan v5** and pass implementation verification (≥95) —
+which closes the in-progress roster-windowing backlog item (`[/]` → `[x]`) and resets the decay to 0
+— or to close other backlog items. No open defects in the shipped system.
 
 ## Findings
 
-- **NOT APPROVED (plan v4, Rev 1)** — Roster-virtualization plan scores 88/100. Blocking: (1)
-  §7.4's "requires no build-script change" is false — `scripts/build.mjs:7-19` hardcodes the module
-  list; `virtual-list.mjs` must be added **before** `src/screens/roster.mjs` or the bundle throws at
-  load, and §5's manifest omits `build.mjs`; (2) §Phase 3 `role="listbox"` without `role="option"`
-  children risks an axe `aria-required-children` regression against the green a11y e2e; (3) fixed
-  virtual row height unreconciled with today's 2-line clamped names; (4) §Phase 3 "66 px row height
-  including 8 px gap" is self-contradictory. All fixable in one revision pass.
+- **APPROVED (plan v5, Rev 2)** — Roster-virtualization plan scores **97/100** (≥95 gate cleared).
+  All four Rev-1 blockers resolved, verified against source: (1) §5 manifest adds
+  `scripts/build.mjs (MOD)` and §3/§7.4/new §Phase 2b require `virtual-list.mjs` **before**
+  `src/screens/roster.mjs` in the hardcoded `build.mjs:7-19` array (namespace `src_lib_virtual_list`
+  matches `namespaceFor()`); (2) `role="listbox"` deliberately rejected for native button semantics
+  + `aria-setsize`/`aria-posinset` + axe-green acceptance; (3) virtualized names clamp to one
+  ellipsized line (66 px pitch / 58 px visible row; `box-sizing:border-box` global at
+  `styles.css:22`); (4) row-height/gap reconciled via `VIRTUAL_ROW_HEIGHT_PX`/
+  `VIRTUAL_VISIBLE_ROW_HEIGHT_PX`. Two non-blocking Path-to-100 nits remain (implicit down-transition
+  class toggle; padding-vs-translateY note). Loop → State 2 (implement).
 - **VERIFIED (implementation, v2)** — All plan modules exist and function; build transform (§4.4)
   fully compliant and tested; **privacy requirement now test-enforced** (e2e spy proves no
   frame-grab APIs are called and tracks end after SCAN). Unit 16/16, e2e 8/8, lint clean, artifact
@@ -128,12 +149,15 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 2 is in **State 1: revise the plan.** `IMPLEMENTATION_PLAN.md` v4 scores **88/100 (NOT
-APPROVED)** — see Plan Critique Rev 1 for the four blocking issues and the exhaustive Path-to-≥95.
-**Do not begin implementation.** Revise the plan to close all four issues (build-script manifest +
-module ordering, the `role="listbox"` a11y decision, fixed-height vs. 2-line names, and the row-
-height/gap wording), then resubmit for re-critique. The score cannot reach ≥95 while any blocking
-issue remains.
+Cycle 2 is in **State 2: implement the approved plan.** `IMPLEMENTATION_PLAN.md` v5 scores **97/100
+(APPROVED)** — see Plan Critique Rev 2. **Do NOT revise the plan further** — it is now the contract
+against which the implementation will be audited. Write the code per the plan: create
+`src/lib/virtual-list.mjs` (pure window math), integrate virtual rendering in
+`src/screens/roster.mjs`, add the config constants, the CSS geometry, the `scripts/build.mjs`
+module-array ordering (before `src/screens/roster.mjs`), and the unit + e2e tests. Run the full
+verification suite (`npm run lint`, `npm run test:unit`, `npm run test:e2e`, `npm run build`). Then
+resubmit for implementation verification (≥95 gate). Landing the code resets the −2 inactivity decay
+and moves the `[/]` roster-windowing backlog item toward `[x]`.
 
 ## Revision History
 
@@ -149,3 +173,4 @@ issue remains.
 | v8 | 2026-09-02 | 62 | **Implementation landed** (commit `07ef178`, 34 files). Verified by execution: 16/16 unit + 4/4 e2e pass, build 20,683 gzip bytes within budget, lint clean, zero frame-grab APIs in `src/`. **Implementation Verification v1 = 91/100 — NOT VERIFIED**: 5 enumerated e2e acceptance assertions missing (D1 privacy spy, D2 orientation, D3 export-equals-log, D4 20-cycle leak, D5 reduced-motion) + §4.1 magic-number regression (D6). Base 65; backlog −3 (6 unchecked, 4 polish items marked done); inactivity decay reset to −0 (code landed). Loop → State 3 (fix code). |
 | v9 | 2026-09-02 | 69 | **Defect-fix cycle landed** (commit `75c8279`: `config.mjs`, `roster.mjs`, +172 e2e lines). All D1–D6 resolved, confirmed by execution: 16/16 unit + **8/8** e2e pass, build 20,858 gzip bytes within budget, lint clean, §4.1 grep invariant restored, privacy now test-enforced. **Implementation Verification v2 = 96/100 — VERIFIED** (≥95 gate cleared). Required actions #5–#8 → DONE (−0). Base 72; backlog −3 (6 unchecked, unchanged); inactivity −0 (code landed). Loop → **State 4 (cycle complete)**. |
 | v10 | 2026-09-02 | 68 | **Cycle 2 opened** (commits `6aa1131` archive, `107eea6` plan v4). Cycle 1 archived to `archive/cycle-1/`. New plan `IMPLEMENTATION_PLAN.md` v4 (roster virtualization) critiqued at **88/100 — NOT APPROVED** (Rev 1): false §7.4 build-script claim vs. hardcoded `build.mjs:7-19` module list, `role="listbox"` axe-regression risk, fixed-height vs. 2-line-name gap, row-height/gap inconsistency. **State 1 (revise plan).** No source change since v9 → −1 inactivity decay (first idle cycle). Base 72; backlog −3 (6 not-done); inactivity −1. Score 69 → 68. |
+| v11 | 2026-09-02 | 67 | **Plan v5 landed and APPROVED at 97/100** (commit `855c436`, Plan Critique Rev 2). All four Rev-1 blockers resolved with source-verified fixes (build module-ordering §Phase 2b + manifest, `role="listbox"` rejected for native semantics + axe-green, single-line clamp with 66/58 px split, row-height/gap via two config constants); all five Rev-1 Path-to-100 items closed; two non-blocking nits remain. Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v9 → −2 inactivity decay. Base 72; backlog −3 (6 not-done); inactivity −2. Score 68 → 67. |
