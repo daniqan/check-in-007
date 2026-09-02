@@ -234,6 +234,100 @@ test('admin copied CSV exactly matches the stored log export', async ({ page, co
   expect(copied).toBe(expectedCsv);
 });
 
+test('admin merges overlapping device logs and exports the consolidated CSV', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const expectedCsv =
+    'visitId,guestId,name,table,timestamp\n' +
+    'visit-local-1,alpha,Ada Lovelace,7,2026-09-02T09:00:00-04:00\n' +
+    'visit-remote-2,bravo,Grace Hopper,12,2026-09-02T14:00:00+01:00\n' +
+    'visit-remote-3,charlie,Katherine Johnson,4,2026-09-02T09:30:00-04:00';
+  const expectedRows = [
+    {
+      visitId: 'visit-local-1',
+      guestId: 'alpha',
+      name: 'Ada Lovelace',
+      table: '7',
+      timestamp: '2026-09-02T09:00:00-04:00',
+    },
+    {
+      visitId: 'visit-remote-2',
+      guestId: 'bravo',
+      name: 'Grace Hopper',
+      table: '12',
+      timestamp: '2026-09-02T14:00:00+01:00',
+    },
+    {
+      visitId: 'visit-remote-3',
+      guestId: 'charlie',
+      name: 'Katherine Johnson',
+      table: '4',
+      timestamp: '2026-09-02T09:30:00-04:00',
+    },
+  ];
+
+  await page.addInitScript((rows) => {
+    localStorage.setItem('checkin007.log.v1', JSON.stringify([rows[0]]));
+  }, expectedRows);
+  await page.goto('/');
+  await waitForRoster(page);
+  await page.evaluate(() => {
+    const nativeWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = async (text) => {
+      window.__copiedText = text;
+      return nativeWriteText(text);
+    };
+  });
+
+  await page.locator('.logo-hit').dispatchEvent('pointerdown');
+  await page.waitForTimeout(2100);
+  await expect(page.getByRole('dialog', { name: 'ADMIN CONTROLS' })).toBeVisible();
+  await page.setInputFiles('.log-merge-input', [
+    {
+      name: 'device-a.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify([expectedRows[0], expectedRows[1]])),
+    },
+    {
+      name: 'device-b.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        [
+          'visitId,guestId,name,table,timestamp',
+          'visit-remote-2,bravo,Grace Hopper,12,2026-09-02T14:00:00+01:00',
+          'visit-remote-3,charlie,Katherine Johnson,4,2026-09-02T09:30:00-04:00',
+          'visit-bad,,No Id,4,2026-09-02T09:45:00-04:00',
+        ].join('\n'),
+      ),
+    },
+  ]);
+  await expect(page.getByText('Accepted new rows')).toBeVisible();
+  await expect(page.getByText('2').first()).toBeVisible();
+  await expect(page.getByText('device-b.csv: skipped 1 invalid rows.')).toBeVisible();
+  await page.getByRole('button', { name: 'Apply Merge' }).click();
+  await expect(page.getByText('Merge applied. Stored 3 rows.')).toBeVisible();
+
+  const storedRows = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('checkin007.log.v1')),
+  );
+  expect(storedRows).toEqual(expectedRows);
+  await page.getByRole('button', { name: 'Copy CSV' }).click();
+  await expect(page.getByText(/^Copied visitId,guestId,name,table,timestamp/)).toBeVisible();
+  expect(await page.evaluate(() => window.__copiedText)).toBe(expectedCsv);
+
+  await page.addScriptTag({ content: axeSource.source });
+  const result = await page.evaluate(() =>
+    axe.run(document.querySelector('.admin-backdrop'), {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+    }),
+  );
+  expect(
+    result.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact)),
+  ).toEqual([]);
+});
+
 test('twenty scan exits do not leak app timers or listeners', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'mediaDevices', {

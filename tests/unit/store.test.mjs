@@ -44,3 +44,63 @@ test('falls back to memory when storage throws', () => {
   assert.equal(store.isVolatile(), true);
   assert.equal(store.loadLog().length, 1);
 });
+
+test('previews log merges without persisting', () => {
+  const store = createStore(memoryStorage(), []);
+  const row = {
+    visitId: 'visit-1',
+    guestId: 'ava',
+    name: 'Ava',
+    table: 'One',
+    timestamp: '2026-09-02T09:00:00-04:00',
+  };
+  const preview = store.previewLogMerge([row]);
+  assert.equal(preview.summary.acceptedCount, 1);
+  assert.equal(store.loadLog().length, 0);
+});
+
+test('persists accepted merge rows and remains idempotent', () => {
+  const store = createStore(memoryStorage(), []);
+  const row = {
+    visitId: 'visit-1',
+    guestId: 'ava',
+    name: 'Ava',
+    table: 'One',
+    timestamp: '2026-09-02T09:00:00-04:00',
+  };
+  assert.equal(store.mergeLogEntries([row]).summary.acceptedCount, 1);
+  assert.equal(store.mergeLogEntries([row]).summary.duplicateCount, 1);
+  assert.equal(store.loadLog().length, 1);
+});
+
+test('volatile storage fallback still merges entries', () => {
+  const store = createStore(memoryStorage(true), []);
+  store.mergeLogEntries([
+    {
+      visitId: 'visit-1',
+      guestId: 'ava',
+      name: 'Ava',
+      table: 'One',
+      timestamp: '2026-09-02T09:00:00-04:00',
+    },
+  ]);
+  assert.equal(store.isVolatile(), true);
+  assert.equal(store.loadLog().length, 1);
+});
+
+test('merged log CSV keeps the existing export column order', () => {
+  const store = createStore(memoryStorage(), []);
+  store.mergeLogEntries([
+    {
+      visitId: 'visit-1',
+      guestId: 'ava',
+      name: 'Ava',
+      table: 'One',
+      timestamp: '2026-09-02T09:00:00-04:00',
+    },
+  ]);
+  assert.equal(
+    store.exportLogCsv(),
+    'visitId,guestId,name,table,timestamp\nvisit-1,ava,Ava,One,2026-09-02T09:00:00-04:00',
+  );
+});

@@ -153,7 +153,7 @@ No production dependency or storage-key changes are planned.
 
 ## 6. Implementation Phases
 
-### Phase 1: Pure Merge Library
+### Phase 1: Pure Merge Library ✅
 
 Create `src/lib/log-merge.mjs`.
 
@@ -229,7 +229,7 @@ Acceptance criteria:
   timestamp strings compare differently.
 - Final merged output is deterministic for identical inputs.
 
-### Phase 2: Store Integration
+### Phase 2: Store Integration ✅
 
 Modify `src/lib/store.mjs`:
 
@@ -270,7 +270,7 @@ Acceptance criteria:
 - In volatile mode, merge uses memory storage just like direct check-ins.
 - `exportLogCsv()` after a merge serializes the exact same column order as before.
 
-### Phase 3: Admin UI
+### Phase 3: Admin UI ✅
 
 Modify `src/screens/admin.mjs` to add a merge section inside the existing dialog.
 
@@ -330,7 +330,7 @@ UI contract:
 - After applying, the preview must show final stored count and leave existing export/copy
   buttons available for the consolidated log.
 
-### Phase 4: Styling, Build, Docs
+### Phase 4: Styling, Build, Docs ✅
 
 Modify `src/styles.css` with compact admin-specific rules:
 

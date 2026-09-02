@@ -10,6 +10,7 @@ const modules = [
   'src/lib/roster.mjs',
   'src/lib/virtual-list.mjs',
   'src/lib/csv.mjs',
+  'src/lib/log-merge.mjs',
   'src/lib/store.mjs',
   'src/screens/loading.mjs',
   'src/screens/roster.mjs',

@@ -327,17 +327,79 @@ h2 {
 }
 
 .admin-grid button,
-.file-label {
+.file-label,
+.merge-panel button {
   border: 1px solid var(--line);
   background: rgba(212, 175, 55, 0.1);
   color: var(--paper);
   padding: 12px;
 }
 
+.merge-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .file-label input {
   display: block;
   width: 100%;
   margin-top: 8px;
+}
+
+.merge-panel {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+}
+
+.merge-panel h3 {
+  margin: 0;
+  color: var(--gold-hi);
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.merge-preview:empty {
+  display: none;
+}
+
+.merge-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  margin: 0;
+  color: var(--paper);
+  font-size: 0.95rem;
+}
+
+.merge-summary dt,
+.merge-summary dd {
+  margin: 0;
+}
+
+.merge-summary dt {
+  color: var(--paper-dim);
+}
+
+.merge-errors {
+  max-height: 120px;
+  overflow: auto;
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--gold-hi);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 520px) {
+  .merge-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .merge-summary dd {
+    margin-bottom: 4px;
+  }
 }
 
 .icon-button {

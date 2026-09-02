@@ -29,6 +29,14 @@ npm run build
 `dist/index.html` is self-contained and also opens from `file://`; that mode uses covert
 scan fallback because camera access requires a secure context.
 
+## Multi-Device Log Merge
+
+1. Export JSON or CSV from each event device.
+2. On the consolidation device, open Admin Controls and select those files under Merge Logs.
+3. Review accepted, duplicate, invalid, and file-error counts.
+4. Apply Merge.
+5. Export the consolidated CSV or JSON from Admin Controls.
+
 ## iPad Checklist
 
 Camera permission prompt appears on HTTPS; front camera feed is visible; portrait and

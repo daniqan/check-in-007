@@ -2,6 +2,7 @@ import { formatLocalIso } from './format.mjs';
 import { normalizeGuests } from './roster.mjs';
 import { STORAGE } from '../config.mjs';
 import { toCsv } from './csv.mjs';
+import { mergeLogEntries as mergeLogEntrySets } from './log-merge.mjs';
 
 export function createStore(
   storage = globalThis.localStorage,
@@ -55,6 +56,10 @@ export function createStore(
     write(STORAGE.LOG_KEY, JSON.stringify(entries));
   }
 
+  function replaceLog(entries) {
+    saveLog(entries);
+  }
+
   function loadRoster() {
     const override = read(STORAGE.ROSTER_KEY);
     if (override) {
@@ -96,6 +101,14 @@ export function createStore(
       return entries;
     },
     loadLog,
+    previewLogMerge(importedEntries) {
+      return mergeLogEntrySets(loadLog(), importedEntries);
+    },
+    mergeLogEntries(importedEntries) {
+      const result = mergeLogEntrySets(loadLog(), importedEntries);
+      replaceLog(result.entries);
+      return result;
+    },
     clearLog() {
       saveLog([]);
     },

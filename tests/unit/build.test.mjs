@@ -36,4 +36,17 @@ test('build emits a self-contained classic artifact', async () => {
   assert.match(html, /window\.CheckIn007\.start/);
   assert.equal((html.match(/<script/g) || []).length, 1);
   assert.doesNotMatch(html, /<script[^>]+type="module"/);
+  assert.doesNotMatch(html, /\bimport\s*\{/);
+  assert.doesNotMatch(html, /\bexport\s+(function|const|let|var|class|\{)/);
+
+  const csvIndex = html.indexOf('window.__CHECKIN007.modules.src_lib_csv');
+  const mergeIndex = html.indexOf('window.__CHECKIN007.modules.src_lib_log_merge');
+  const storeIndex = html.indexOf('window.__CHECKIN007.modules.src_lib_store');
+  assert.ok(csvIndex !== -1);
+  assert.ok(mergeIndex > csvIndex);
+  assert.ok(storeIndex > mergeIndex);
+  assert.match(
+    html.slice(mergeIndex, storeIndex),
+    /const parseCsv = window\.__CHECKIN007\.modules\.src_lib_csv\.parseCsv;/,
+  );
 });
