@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v10
+# Check-In 007 — Implementation Plan v11
 
 > Cycle 4 backlog plan. Source item: `BACKLOG.md` Deferred Features item
 > "Optional subtle scan \"blip\" audio on identification, gated on a user-gesture unlock
@@ -290,6 +290,10 @@ Controller contract:
   `audioContextFactory` is not a function.
 - `unlockFromGesture()` creates/resumes the context only when enabled. If context state is
   `suspended`, it awaits `context.resume()`. If state is `running`, it marks unlocked.
+- `unlockFromGesture()` is idempotent across repeated roster selections: after the
+  controller is already unlocked and the context is `running`, a later call re-marks the
+  controller unlocked and returns `true` without creating another context or calling
+  `resume()` again.
 - Constructor failure marks the controller unavailable for the session and returns
   `false` from future unlock/play calls.
 - `playScanBlip()` returns `false` when disabled, unavailable, not unlocked, closed, or
@@ -526,6 +530,9 @@ not request microphone access.
   unchanged because it is already 90 ms and not a visual animation.
 - **Multiple rapid selections:** existing state gating prevents roster interaction while
   in scan; audio controller also avoids parallel cue reuse by creating per-cue nodes.
+  Repeated eligible selections across a normal session may call `unlockFromGesture()`
+  again, but an already-unlocked running context is treated as a safe no-op and does not
+  create a second context or churn `resume()` calls.
 - **Storage malformed:** settings normalize to default off and overwrite only when admin
   explicitly changes the checkbox.
 - **File URL build:** Web Audio may be available from `file://`; camera may not be. The
