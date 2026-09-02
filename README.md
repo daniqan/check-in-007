@@ -51,3 +51,67 @@ bar; controls do not trigger double-tap zoom; inputs are at least 16 px; callout
 are suppressed where Safari allows; VoiceOver announces roster rows, scan status, result
 assignment, and admin actions; export the check-in log at the end of the event from the
 admin panel.
+
+## Native iPad App (SwiftUI)
+
+A native SwiftUI iPad build lives under `native/` as a maximum-fidelity alternative to the
+web kiosk. It mirrors the same roster, theatrical scan, admin controls, export/merge
+formats, audio privacy posture, and event-log semantics, but uses AVFoundation for the
+live preview and local device storage instead of Safari and `localStorage`. The web app is
+unchanged and remains the default client.
+
+### Prerequisites
+
+- macOS with **Xcode 26** (stable) and the **iPadOS 26 SDK**. Minimum deployment target:
+  iPadOS 26.0.
+- **At least one installed iPadOS simulator runtime.** This is a multi-gigabyte download
+  that is _not_ installed with Xcode by default. Install it once:
+
+```bash
+xcodebuild -downloadPlatform iOS        # or: Xcode → Settings → Components → iOS/iPadOS 26
+xcrun simctl list runtimes              # confirm an iOS/iPadOS 26 runtime now appears
+xcrun simctl list devices available | grep -i 'iPad Pro 13-inch (M4)'   # confirm the device
+```
+
+If `iPad Pro 13-inch (M4)` is not present, pick the newest available iPad from
+`xcrun simctl list devices available` and pass its name to `-destination`.
+
+### Roster parity
+
+The native default roster is generated from the web roster (`data/guests.default.js`) so the
+two clients stay in lockstep. The generator reuses the web app's own `normalizeGuests`, so
+IDs, duplicate dropping, and search text are byte-identical:
+
+```bash
+node scripts/export-native-guests.mjs   # writes native/CheckIn007/Resources/default-guests.json
+```
+
+`tests/unit/native-guests-export.test.mjs` byte-compares a fresh regeneration against the
+committed JSON and fails if they drift.
+
+### Open, run, and test
+
+```bash
+open native/CheckIn007.xcodeproj
+# Ensure a runtime is installed (see Prerequisites) before the test command:
+xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 \
+  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4)' test
+```
+
+To run interactively, open the project, select the `CheckIn007` scheme and an iPad
+simulator or connected iPad, and Run.
+
+### Privacy boundary
+
+The scan screen adds a video input and preview layer only — no photo/movie/video-data
+outputs, no microphone input, and no frame-processing delegate. The app never captures,
+stores, transmits, or processes frames. On camera denial or unavailability it falls back to
+covert mode and the check-in flow continues. Scan-blip audio is off by default and never
+requests microphone permission.
+
+### Lint note
+
+`native/` is excluded from `npm run lint` (`.prettierignore`) because Prettier has no
+`.swift`/`.plist`/`.pbxproj` parser; the one lint-relevant artifact, the generated
+`default-guests.json`, is emitted Prettier-conformant regardless, and its parity is enforced
+by the unit test above.

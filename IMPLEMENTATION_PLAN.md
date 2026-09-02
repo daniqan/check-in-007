@@ -1,5 +1,34 @@
 # Check-In 007 — Implementation Plan v16
 
+> **Implementation status (v16 landed):** all five phases COMPLETE.
+>
+> - [x] **Phase 1 — Native project & roster parity:** Xcode project (3 targets, file-system-synchronized
+>   groups, `xcodebuild -list` verified), `scripts/export-native-guests.mjs` (acorn-parsed, reuses the web
+>   `normalizeGuests`), generated `default-guests.json` (40 rows, Prettier-conformant), `SearchNormalizer`/
+>   `GuestCatalog` ports.
+> - [x] **Phase 2 — Domain persistence/import/export/merge:** `CheckInStore`, `CSVCodec`, `LogMerger`,
+>   models; storage keys mirror web; append idempotent by `visitId`; CSV columns
+>   `visitId,guestId,name,table,timestamp`.
+> - [x] **Phase 3 — SwiftUI kiosk flow:** `AppModel` state machine, `LoadingView`/`RosterView`/`ScanView`/
+>   `ResultView`/`AdminSheet`/`Theme`; `Timing` enum byte-matches `src/config.mjs`.
+> - [x] **Phase 4 — Camera & audio privacy:** `CameraPreviewModel` (preview-only, no audio input/outputs),
+>   `ScanAudioPlayer` (default-off; `Cue` constants match `src/config.mjs` `AUDIO`), `Info.plist`
+>   `NSCameraUsageDescription`.
+> - [x] **Phase 5 — Verification & docs:** native unit + UI tests; web gates green (`prettier --check .`
+>   clean with `native/` ignored, `npm run test:unit` 57/57 incl. the parity test, `npm run build` 26315
+>   gzip bytes). Core Swift (models/services/viewmodel + non-UIKit views) type-checks against the macOS
+>   toolchain; README documents both tracks.
+>
+> **Verification note (per §11):** `xcodebuild … test` was NOT run in the implementation environment —
+> the iOS/iPadOS 26 platform + simulator runtime are not installed (`xcrun simctl list runtimes` empty,
+> and the iOS build SDK reports "iOS 26.4 is not installed"), the exact multi-GB-download state §11
+> documents. Install a runtime per §11/README to run the native test gate.
+>
+> **Deviation (§4.2 production path):** the `.pbxproj` was authored directly (modern
+> `objectVersion = 77` file-system-synchronized-group format, the shape Xcode 26 generates) because this
+> automated session has no interactive Xcode GUI. It is validated with `xcodebuild -list` (all 3 targets +
+> the `CheckIn007` scheme resolve). A shared scheme was added so `xcodebuild -scheme CheckIn007` works.
+
 > Cycle 6 backlog plan. Source item: `BACKLOG.md` Deferred Features item
 > "Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)", now marked in
 > progress as `- [/]`. This plan intentionally does not include the separate

@@ -2,6 +2,7 @@ node_modules/
 dist/
 test-results/
 playwright-report/
+native/
 BACKLOG.md
 CONSOLIDATED_AUDIT.md
 IMPLEMENTATION_PLAN.md
