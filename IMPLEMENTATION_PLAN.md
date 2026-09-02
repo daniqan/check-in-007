@@ -1,614 +1,428 @@
-# Check-In 007 — Implementation Plan v3
+# Check-In 007 — Implementation Plan v4
 
-> Event check-in kiosk for a black-tie gala, styled as an MI6 "agent identification"
-> terminal. Runs on an Apple iPad in Safari (served) or as a self-contained file.
-> This document is the contract reviewed by `project-discriminator`; it is written to be
-> implementable without follow-up questions.
-
----
+> Cycle 2 backlog plan. Source item: `BACKLOG.md` Deferred Features item
+> "Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold)",
+> now marked in progress as `- [/]`.
 
 ## 1. Overview
 
-Guests arriving at a 007-themed ball check themselves in on an iPad kiosk. The app boots
-with a cinematic gun-barrel loading animation, presents a searchable roster of ticketed
-attendees, and — when a guest taps their name — plays a **spoof** biometric "face scan"
-over the live front-camera feed for a fixed duration. It then reveals the guest's table
-assignment ("AGENT IDENTIFIED — PROCEED TO YOUR ASSIGNMENT: <TABLE>") and, after a few
-seconds, returns to the roster for the next guest.
-
-The problem it solves: replace a paper guest list / harried door staff with a fast,
-self-service, on-brand experience that also produces a check-in log (who arrived, when)
-for the event organizer.
-
-**Explicit privacy stance:** the "face scan" is theater. No camera frame is ever read,
-captured, encoded, transmitted, or stored. The camera stream is used only as a live
-backdrop for an overlay animation and is stopped the instant the scan screen is left.
-This is a stated product requirement, not an implementation detail, and is enforced and
-tested (§6 items 1–4, §7).
+This cycle adds roster windowing for large attendee lists while preserving the current
+007 kiosk flow, offline file build, privacy stance, and no-framework architecture. The
+existing roster renders every filtered guest as a DOM node, which is acceptable for the
+bundled small list but does not scale to the deferred >500-row target. The new behavior
+will render only the visible rows plus overscan, keep the scrollable geometry equivalent
+to a full list, and maintain accessible search and selection semantics.
 
 ## 2. Scope
 
 ### In scope
 
-1. Four-state guest flow: **Loading → Roster → Scan → Result**, auto-looping back to
-   Roster.
-2. 007 visual identity: black / gold / off-white palette, gun-barrel loading sequence,
-   dossier/terminal typography, animated biometric HUD overlay. Crisp, modern, 60 fps
-   target with smooth cross-screen transitions.
-3. Roster: bundled default attendee data **plus** optional CSV override loaded on the
-   iPad at runtime; instant search/filter; momentum scrolling.
-4. Spoof face-scan over the live front camera, fixed duration, with a mandatory graceful
-   fallback ("covert mode") when the camera is denied or unavailable.
-5. Table-assignment mapping and result screen.
-6. Background check-in log persisted to `localStorage`, with a hidden admin panel to
-   import a CSV roster, export the log (CSV/JSON), reset the roster, and clear the log.
-7. Accessibility (reduced-motion, large tap targets, VoiceOver labels) and iPad kiosk
-   packaging (full-screen "Add to Home Screen" standalone, zoom/selection disabled).
-8. A zero-runtime-dependency build that inlines everything into one portable
-   `dist/index.html`, plus a dev/test toolchain (unit + end-to-end tests).
+1. Virtualized roster rendering activates for filtered result sets larger than
+   `ROSTER.VIRTUALIZE_THRESHOLD` (default: 500).
+2. Non-virtual rendering remains in place for small result sets and zero-result states.
+3. Search, count text, guest selection, admin import/reset, and cleanup behavior continue
+   to work without API changes to `mountRoster`.
+4. Accessibility is preserved with `role="listbox"`, stable button labels, `aria-setsize`,
+   `aria-posinset`, and a live result count.
+5. Unit tests cover the virtual window calculations, boundary clamping, overscan, and
+   small-list bypass behavior.
+6. End-to-end tests import a large CSV, verify bounded DOM rows, scroll to/select a late
+   guest, and confirm search narrows to the expected guest.
 
-### Out of scope (v1)
+### Out of scope
 
-- Any real biometric capture, recognition, liveness detection, or storage. Permanently
-  out of scope by design.
-- Server/back end, networked sync, multi-device consolidation of check-in logs, or
-  authentication of staff beyond the local admin gesture.
-- Ticket purchasing, payments, seating optimization, or editing table assignments in-app.
-- Roster windowing/virtualization for very large lists (see §5 Phase 2 note; threshold
-  documented, implementation deferred).
-- Printing badges, QR codes, or email confirmations.
-- Android/Chromebook or non-Safari certification (dev-tested on Chromium/Firefox, but the
-  supported target is Safari on iPadOS — §4).
+- Multi-device check-in log consolidation.
+- Optional scan audio.
+- Native SwiftUI iPad build.
+- Offline static-HTTPS helper.
+- Node 24 LTS toolchain bump.
+- Variable-height row measurement. Rows are treated as fixed-height for this cycle.
 
 ## 3. Architecture
 
-Single-page application driven by an explicit finite state machine. No framework. The app
-is a small set of ES modules during development; the build step (§9) inlines them into one
-classic-script HTML file so the distributed artifact has no module/network dependency.
+The app remains a zero-runtime-dependency single-page application. Virtualization is
+implemented with a pure windowing helper in `src/lib/virtual-list.mjs` and thin DOM
+integration inside `src/screens/roster.mjs`.
 
-### 3.1 State machine
+Data flow:
 
-```
-   boot ──▶ [LOADING] ──auto(2600ms)──▶ [ROSTER] ──select guest──▶ [SCAN]
-                                           │  ▲                       │
-                                           │  │                       │ scan complete
-                              admin gesture│  │dismiss                │ (fixed 4500ms)
-                                           ▼  │                       ▼
-                                        [ADMIN]                   [RESULT]
-                                                                       │
-                                                                       │ auto(5000ms)
-                                                                       ▼
-                                                                    [ROSTER]
+```text
+guests -> filterGuests(query) -> filteredGuests
+  -> shouldVirtualize(filteredGuests.length, threshold)
+  -> computeVirtualWindow(scrollTop, viewportHeight, rowHeight, overscan, total)
+  -> render only [startIndex, endIndex) as absolute-positioned rows
+  -> delegated click emits selected guest id to existing FSM
 ```
 
-States: `LOADING`, `ROSTER`, `SCAN`, `RESULT`, `ADMIN`. Exactly one is active. Each
-transition is a cross-fade+scale (`TRANSITION_MS`, §4.1; built in §5 Phase 1). ADMIN is a
-modal overlay reachable only from ROSTER and dismissible only back to ROSTER; it never
-interrupts SCAN or RESULT.
+Ownership boundaries:
 
-### 3.2 Modules (development sources, in `src/`)
+- `src/lib/virtual-list.mjs` owns deterministic math only. It has no DOM dependency.
+- `src/screens/roster.mjs` owns DOM measurement, scroll/resize listeners, rAF throttling,
+  and list rendering.
+- `src/config.mjs` owns all tunable constants, keeping the prior no-magic-number rule.
+- `src/styles.css` owns fixed virtual row geometry and scroll container layout.
 
-| Module | Responsibility |
-|--------|----------------|
-| `src/app.mjs` | Controller: owns the FSM, screen mounting/unmounting, central timer registry, and cleanup-on-exit. Entry point. |
-| `src/screens/loading.mjs` | Renders + animates the gun-barrel boot sequence; signals completion. |
-| `src/screens/roster.mjs` | Renders the searchable attendee list; emits `select(guestId)`. |
-| `src/screens/scan.mjs` | Owns camera lifecycle + overlay animation + fallback; emits `done()`. |
-| `src/screens/result.mjs` | Renders the assignment message; emits `done()`. |
-| `src/screens/admin.mjs` | Admin overlay: CSV import, exports, roster reset, log clear. |
-| `src/lib/csv.mjs` | Pure CSV parse + guest-CSV interpretation. No DOM. |
-| `src/lib/roster.mjs` | Guest normalization, id/slug generation, dedupe, search index. No DOM. |
-| `src/lib/store.mjs` | `localStorage`-backed check-in log + roster override, with in-memory fallback. |
-| `scripts/font-subset.sh` | Reproducible pinned `fonttools` wrapper for subset WOFF2 generation. |
-| `src/lib/format.mjs` | Timestamp (ISO-8601 local), name/table display formatting. |
-| `src/config.mjs` | All tunable constants (durations, keys, palette echoes, gesture params). |
-| `data/guests.default.js` | Classic script assigning `window.CHECKIN007_DEFAULT_GUESTS`. |
+Failure domains:
 
-Rationale for splitting pure logic (`src/lib/*`) from screens: the CSV parser, roster
-normalization, and store logic carry the real correctness risk and are unit-tested in
-Node without a DOM (§7). Screens are covered by end-to-end tests.
+- If measurement is unavailable or reports a zero viewport during first paint, the roster
+  falls back to a conservative viewport height and schedules one rAF render.
+- If a filtered set is at or below threshold, the existing full render path is used.
+- If a scroll event fires after unmount, cleanup cancels pending rAF work and removes
+  listeners so state transitions remain leak-free.
 
-### 3.3 Data flow
+## 4. Technical Decisions & Rationale
 
-`data/guests.default.js` seeds the roster on boot. If the admin has loaded a CSV override
-(persisted under a `localStorage` key), that supersedes the default. Selecting a guest
-passes its `id` to SCAN; RESULT looks up the guest by `id`, renders `table`, and appends a
-check-in event to the log via `store.mjs`. Nothing leaves the device.
+1. **Native fixed-row virtualization instead of adding `react-window` or another UI
+   dependency.** The project has no framework and packages to one self-contained HTML
+   file. A small fixed-row helper fits the existing architecture better than adding React
+   solely for list windowing. The accepted tradeoff is no variable-height rows in this
+   cycle.
 
-### 3.4 File manifest
+2. **Scroll events throttled through `requestAnimationFrame`.** MDN documents
+   `requestAnimationFrame()` as scheduling work before the next repaint, which matches
+   the need to coalesce high-frequency scroll events. Direct rendering in every scroll
+   handler is rejected because it can produce redundant DOM work.
+   Reference: https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame
 
-Ground-truth files produced by this plan:
+3. **Manual math instead of IntersectionObserver sentinels.** MDN describes
+   IntersectionObserver as asynchronous visibility observation, useful for threshold
+   crossing. For a fixed-height list, direct `scrollTop / rowHeight` math is simpler,
+   deterministic, and easier to unit-test. IntersectionObserver remains unnecessary
+   because this plan is not lazy-loading remote resources.
+   Reference: https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
 
-```
-.
-  index.html                 (NEW) — Dev HTML shell that loads ES modules and default data.
-  package.json               (NEW) — Pinned scripts and dev dependencies.
-  package-lock.json          (NEW) — Exact npm dependency lockfile.
-  .gitignore                 (NEW) — Ignore build output, deps, test output, local certs.
-  .prettierrc.json           (NEW) — Formatting config used by npm run lint.
-  README.md                  (NEW) — Run/build/deploy instructions and iPad checklist.
-  data/
-    guests.default.js        (NEW) — Bundled default roster on window.
-  assets/
-    fonts/                   (NEW) — Subset WOFF2 font files and license notes.
-  scripts/
-    build.mjs                (NEW) — ES-module to classic-script build/inlining pipeline.
-    font-subset.sh           (NEW) — Pinned `fonttools` subset command wrapper.
-  src/
-    app.mjs                  (NEW) — FSM controller, timers, cleanup, log-on-transition.
-    config.mjs               (NEW) — Timings, storage keys, admin gesture config.
-    styles.css               (NEW) — Kiosk layout, palette tokens, responsive states.
-    lib/csv.mjs              (NEW) — CSV parser and guest CSV validation.
-    lib/format.mjs           (NEW) — Timestamp and display formatting helpers.
-    lib/roster.mjs           (NEW) — Guest normalization, dedupe, search indexing.
-    lib/store.mjs            (NEW) — localStorage/in-memory persistence and exports.
-    screens/loading.mjs      (NEW) — Gun-barrel boot screen.
-    screens/roster.mjs       (NEW) — Searchable roster screen.
-    screens/scan.mjs         (NEW) — Camera/covert scan screen and cleanup.
-    screens/result.mjs       (NEW) — Assignment result screen.
-    screens/admin.mjs        (NEW) — CSV import, export, reset, clear-log overlay.
-  tests/
-    unit/build.test.mjs      (NEW) — Build transform and emitted artifact checks.
-    unit/csv.test.mjs        (NEW) — CSV grammar/validation coverage.
-    unit/format.test.mjs     (NEW) — Timestamp/display helper coverage.
-    unit/roster.test.mjs     (NEW) — Slug, dedupe, search index coverage.
-    unit/store.test.mjs      (NEW) — Persistence, visit idempotence, export coverage.
-    e2e/checkin.spec.mjs     (NEW) — Kiosk flow, camera fallback, admin, a11y, file smoke.
+4. **Render visible rows plus overscan.** Established virtualization practice renders a
+   small moving window rather than every item; web.dev's large-list virtualization guide
+   describes keeping the DOM small for large lists. This plan applies the same pattern
+   without introducing React.
+   Reference: https://web.dev/articles/virtualize-long-lists-react-window
+
+5. **Threshold at `>500`, not `>=500`.** The backlog item states "lists >500 rows"; 500
+   rows stays on the existing full render path, and 501 rows activates virtualization.
+
+## 5. File Manifest
+
+```text
+BACKLOG.md                         (MOD) — Mark the selected roster virtualization item in progress.
+IMPLEMENTATION_PLAN.md             (MOD) — Replace completed cycle plan with this cycle-2 plan.
+src/config.mjs                     (MOD) — Add roster virtualization constants.
+src/lib/virtual-list.mjs           (NEW) — Pure fixed-row windowing math.
+src/screens/roster.mjs             (MOD) — Integrate virtual rendering into the roster screen.
+src/styles.css                     (MOD) — Add stable virtual list geometry and row positioning styles.
+tests/unit/virtual-list.test.mjs   (NEW) — Unit tests for window math and threshold behavior.
+tests/e2e/checkin.spec.mjs         (MOD) — Add large-roster virtualization workflow coverage.
 ```
 
-## 4. Technical Decisions
+No production dependencies are added. Existing toolchain remains Node `>=22`,
+Playwright `1.62.1`, Prettier `3.9.6`, and `node:test`.
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| App runtime | HTML5 + CSS3 + vanilla JavaScript (ES2020), **no framework** | Fixed kiosk flow needs no virtual DOM or reactivity layer; avoiding React/Vue keeps the artifact tiny, the animations directly controllable (transform/opacity on the compositor), and the code trivially auditable. |
-| Rendering of animations | CSS transitions/animations + Web Animations API; only `transform` and `opacity` animated | GPU-composited properties avoid layout/paint on every frame → smooth 60 fps on iPad. |
-| Camera API | `navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })` into a muted, `playsinline` `<video>` | Standard, permissioned, front-facing; `playsinline` prevents iOS full-screen takeover. |
-| Attendee data | Bundled default (`data/guests.default.js`) **+** optional runtime CSV override via `<input type="file">` + `FileReader` | Works offline and under `file://` (a classic `<script>` and `FileReader` both do; `fetch()` of local JSON is CORS-blocked under `file://`, so JSON-over-fetch is deliberately **not** used). |
-| Persistence | `localStorage` (JSON), keys `checkin007.log.v1` and `checkin007.roster.v1`, with `try/catch` in-memory fallback | No server; must survive reloads and offline; graceful under Safari Private mode where `localStorage` throws. |
-| Build | Custom Node script (`scripts/build.mjs`) using `acorn` 8.18.0 for AST-backed module syntax detection, the explicit module-to-classic transform in §4.4, then inlines CSS, JS, subset fonts (base64), and default data into `dist/index.html` | One portable self-contained file for the iPad; `acorn` avoids false positives from raw `import`/`export` token scans while staying much smaller than a full bundler; keeps `file://` working (no ES-module fetch). |
-| Fonts (self-hosted, OFL) | Display: **Oswald** (600/700); Accent serif: **Playfair Display** (700); HUD mono: **JetBrains Mono** (500). WOFF2 in `assets/fonts/`. System-stack fallbacks specified. | SIL Open Font License permits embedding/self-hosting; delivers the crisp modern + dossier feel with zero network calls. |
-| Language runtime for tooling | Node.js >=22 (local dev host verified: v26.3.0 on 2026-09-02; Node 22+ remains supported by the planned script APIs). | Dev/test/build only; **not present on and not required by the iPad** (§4.1a). |
-| Package manager | npm >=10 (local dev host verified: 11.16.0 on 2026-09-02) | Lockfile pins exact dev-dependency versions; scripts use stable npm commands available in npm 10+. |
-| Dev deps (exact pins) | `@playwright/test` 1.62.1; `http-server` 14.1.1; `prettier` 3.9.6; `axe-core` 4.13.0; `acorn` 8.18.0 | Versions verified against the npm registry on 2026-09-02; pinned exactly in `package.json` + committed `package-lock.json`. |
-| Font subset tool | `fonttools` 4.64.0 via `python3 -m pip install --user fonttools==4.64.0`, wrapped by `scripts/font-subset.sh` | This is a one-time asset-prep tool, not an npm build dependency and not required on the iPad. Pinning the exact version makes regenerated WOFF2 files reproducible. |
-| Local HTTPS for on-site camera testing | `mkcert` (external binary) to mint a localhost/LAN cert; served via `http-server -S` | `getUserMedia` requires a secure context; `http://localhost` qualifies, but a LAN IP for the iPad does not — HTTPS is required there. |
-| Supported target | Safari on iPadOS 16 or later (portrait or landscape) | Conservative baseline for current iPads; Safari supports `getUserMedia`, Web Animations API, ES2020, and `localStorage` on this range (§4.1a). Chromium latest is used only for automated dev tests. |
+## 6. Implementation Phases
 
-### 4.1 Tunable constants (`src/config.mjs`) — single source of truth
+### Phase 1: Configuration and Pure Window Math
+
+Add constants:
 
 ```js
-export const TIMING = {
-  LOADING_MS:    2600,   // boot animation, then auto-advance to ROSTER
-  SCAN_MS:       4500,   // spoof scan duration
-  RESULT_MS:     5000,   // assignment shown, then auto-return to ROSTER
-  TRANSITION_MS:  500,   // cross-screen fade+scale
-};
-export const STORAGE = {
-  LOG_KEY:    'checkin007.log.v1',
-  ROSTER_KEY: 'checkin007.roster.v1',
-};
-export const ADMIN = {
-  HOLD_MS:     2000,     // long-press duration on the logo to open ADMIN
-  HITZONE_PX:  72,       // logo hit target
-};
-export const REDUCED = {                 // used when prefers-reduced-motion: reduce
-  LOADING_MS: 900, SCAN_MS: 2500, RESULT_MS: 4000, TRANSITION_MS: 150,
+export const ROSTER = {
+  SEARCH_DEBOUNCE_MS: 120,
+  VIRTUALIZE_THRESHOLD: 500,
+  VIRTUAL_ROW_HEIGHT_PX: 66,
+  VIRTUAL_OVERSCAN_ROWS: 6,
+  VIRTUAL_MIN_VIEWPORT_PX: 360,
 };
 ```
 
-All screens read these; no magic numbers inline. The discriminator can grep for literal
-durations and find none outside `config.mjs`.
-
-### 4.1a Runtime vs. tooling — the Node/iPad question (verified 2026-09-02)
-
-A deliberate clarification, because it changes what "up to date" means here:
-
-- **The iPad runs Safari (JavaScriptCore), not Node.** Node.js does not ship on iOS/iPadOS
-  and is never installed on the kiosk device. There is therefore no "iOS Node version" to
-  match. What the iPad needs is a current Safari, which it has.
-- **Current iPad target is iPadOS 16 or later.** Its Safari supports `getUserMedia`, the
-  Web Animations API, ES2020, and `localStorage`. Our stated minimum is conservative for
-  the event hardware unless the organizer supplies an unusually old iPad. **No Node or
-  npm install is required on the iPad.**
-- **Node is our dev/build/test tool only** (Playwright, `node:test`, `scripts/build.mjs`).
-  The local dev host currently runs Node v26.3.0 and npm 11.16.0; `engines` in
-  `package.json` will declare `"node": ">=22"` so Node 22 LTS, Node 24 LTS, and newer
-  current releases are valid.
-
-Bottom line: nothing needs upgrading to start. If we want a longer tooling-support runway,
-bump dev machines to Node 24 LTS — but it is not a prerequisite.
-
-### 4.2 Palette tokens (CSS custom properties in `:root`)
-
-```css
---ink:      #0A0A0A;  /* primary background            */
---ink-2:    #050505;  /* vignette / deepest black      */
---gold:     #D4AF37;  /* primary accent (classic gold) */
---gold-2:   #B8860B;  /* deep gold, gradients/borders  */
---gold-hi:  #F2D479;  /* gold highlight / glow         */
---paper:    #F5F5F0;  /* off-white text                */
---paper-dim:#B9B9B2;  /* secondary text                */
---line:     rgba(212,175,55,0.28); /* hairline gold rules */
-```
-
-Strictly black/gold/white per the brief; the scan reticle and HUD are gold, not red, to
-stay on-palette.
-
-### 4.3 Data schema
-
-Guest object (canonical in memory):
+Create `src/lib/virtual-list.mjs`:
 
 ```js
-{ id: string,      // stable slug, e.g. "jane-quill" (collisions handled — §6 item 10)
-  name: string,    // display name, trimmed
-  table: string }  // e.g. "Table 7 — Casino Royale"; may be "" (§6 item 6)
-```
+export function shouldVirtualize(total, threshold) {
+  /** Return true only when total > threshold. Invalid totals are treated as zero. */
+  ...
+}
 
-Check-in log entry:
-
-```js
-{ visitId: string, guestId: string, name: string, table: string,
-  timestamp: string }   // ISO-8601 with local offset, e.g. 2026-09-02T20:14:33-04:00
-```
-
-CSV override format: UTF-8, header row required, columns `name` and `table` (case-
-insensitive, any order); optional `id` column overrides slug generation. Grammar and edge
-handling in §6 (items 7–10).
-
-### 4.4 Build transform contract (`scripts/build.mjs`)
-
-The dev source uses ES modules for testability; the distributed `dist/index.html` must use
-one classic `<script>` so it boots from `file://` without module fetches. The transform is
-intentionally small and deterministic:
-
-1. `scripts/build.mjs` declares the module order manually, matching the import graph:
-   `config.mjs`, `lib/format.mjs`, `lib/csv.mjs`, `lib/roster.mjs`, `lib/store.mjs`,
-   `screens/loading.mjs`, `screens/roster.mjs`, `screens/scan.mjs`,
-   `screens/result.mjs`, `screens/admin.mjs`, `app.mjs`.
-2. For each module, it parses with `acorn.parse(source, { ecmaVersion: 2020,
-   sourceType: 'module' })` and inspects only the top-level AST body. Imports must be
-   `ImportDeclaration` nodes of the form `import { name } from './relative.mjs'` or
-   `import { name as alias } ...`; default imports, namespace imports, dynamic
-   `ImportExpression`, re-exports, and side-effect imports are build-time errors.
-3. Each module body is wrapped in an IIFE namespace:
-
-   ```js
-   window.__CHECKIN007.modules.roster = (() => {
-     // import lines removed; referenced symbols are read from prior namespaces
-     function normalizeGuests(...) { ... }
-     return { normalizeGuests, buildSearchIndex, findGuestById };
-   })();
-   ```
-
-4. AST node ranges drive the textual edits: import declarations are removed by source
-   range; `ExportNamedDeclaration` wrappers around functions/classes/variables are
-   replaced with their declarations; `export { a, b as c }` declarations populate the IIFE
-   return object. Imported symbols are rewritten to
-   `window.__CHECKIN007.modules.<module>.<exportName>` aliases at the top of the IIFE,
-   preventing global identifier collisions.
-5. `data/guests.default.js` remains a classic script and is copied verbatim before the app
-   bundle. The generated bundle exposes only `window.CheckIn007.start()` as the public
-   entry point.
-6. The build fails closed by parsing the emitted app bundle with
-   `acorn.parse(source, { ecmaVersion: 2020, sourceType: 'script' })` and rejecting any
-   remaining `ImportDeclaration`, `ExportNamedDeclaration`, `ExportDefaultDeclaration`,
-   `ExportAllDeclaration`, or `ImportExpression` node. A separate line-level check rejects
-   `//# sourceMappingURL=` comments. String literals, template literals, and comments may
-   contain the words `import` or `export` without failing the build.
-
-Build smoke tests assert that `dist/index.html` contains exactly one app script, zero
-module syntax tokens, `window.CHECKIN007_DEFAULT_GUESTS`, and `window.CheckIn007.start`;
-the Playwright `file://` test then boots the artifact to ROSTER in covert mode.
-
-## 5. Implementation Phases
-
-Each phase ends with a commit and the listed acceptance criteria met. Phases are ordered
-by dependency.
-
-### Phase 0 — Scaffold & toolchain
-- Create `package.json` (pins from §4), `.gitignore` (`node_modules/`, `dist/`,
-  `test-results/`, `*.pem`), `README.md` skeleton, folder layout from §3.2.
-- Add self-hosted WOFF2 fonts under `assets/fonts/` with an `@font-face` block and the
-  system fallback stacks. Font files are subset to Latin/basic punctuation with
-  `fonttools==4.64.0`; `scripts/font-subset.sh` contains the exact `pyftsubset` commands,
-  including input font paths, Unicode ranges, weights, output names, and WOFF2 flavor.
-- Add `src/config.mjs` and the palette CSS tokens.
-- Add Prettier config and `npm run lint` (`prettier --check .`) as the formatting gate.
-- **Acceptance:** `npm ci` installs cleanly; `npm run lint` passes; `npm run serve` serves
-  the dev tree; `index.html` loads the module graph with no console errors on a blank
-  shell.
-
-### Phase 1 — FSM shell & transitions
-- Implement `src/app.mjs`: FSM, screen mount/unmount, central timer registry, and
-  guaranteed cleanup on state exit (clear timers, stop camera).
-- Placeholder screen bodies; wire LOADING→ROSTER→SCAN→RESULT→ROSTER with the cross-fade.
-- Honor `prefers-reduced-motion` by switching to `REDUCED` timings/animations.
-- **Acceptance:** full loop cycles on timers; no timer or listener leaks across 20 cycles
-  (verified in e2e); reduced-motion path uses `REDUCED` values.
-
-### Phase 2 — Roster
-- `src/lib/roster.mjs`: normalize/dedupe/slug + build a lowercase search index.
-- `src/lib/store.mjs`: load default vs. override roster.
-- `src/screens/roster.mjs`: render the list, debounced search (120 ms), momentum scroll
-  (`-webkit-overflow-scrolling: touch`), ≥44 px rows, empty-state, selection guard.
-- Ship ~40 themed sample guests in `data/guests.default.js`.
-- Note: lists ≤500 rows render directly; **>500 rows** would need windowing — documented,
-  deferred (§2 out of scope).
-- Complexity budget for the supported maximum: normalization/index rebuild is O(n * m)
-  for n≤500 guests and m≤80 normalized characters per guest, under ~40k character
-  operations; each debounced search is O(n) over precomputed strings and must complete
-  within 16 ms on the target iPad.
-- **Acceptance:** search filters correctly (case/diacritic-insensitive); tapping a row
-  once (double-tap guarded) advances to SCAN with the right `id`.
-
-### Phase 3 — Scan (camera + spoof overlay + fallback)
-- `src/screens/scan.mjs`: request camera; on success show live feed + animated gold
-  reticle, sweep line, and fake HUD readouts for `SCAN_MS`. On `getUserMedia` rejection or
-  insecure context, enter **covert mode**: animated silhouette + reticle, same duration,
-  same outcome.
-- Enforce privacy: never call `drawImage`/`toDataURL`/`captureStream`/`MediaRecorder`;
-  stop every track (`track.stop()`) and null the `srcObject` on exit or interruption.
-- **Acceptance:** happy path shows video and completes in `SCAN_MS`±150 ms; denied path
-  falls back without a dead-end; e2e asserts no frame-grab APIs are called and tracks are
-  stopped on exit.
-
-### Phase 4 — Result & check-in logging
-- `src/screens/result.mjs`: look up guest, render "AGENT IDENTIFIED — PROCEED TO YOUR
-  ASSIGNMENT: <TABLE>"; missing table → "PROCEED TO THE CHECK-IN DESK".
-- Append the log entry on the SCAN→RESULT transition, not on every RESULT render. The FSM
-  creates a per-visit `visitId` when a roster row is accepted; `app.mjs` stores
-  `loggedVisitIds` in memory and calls `store.appendCheckIn(guest, visitId)` exactly once.
-  `store.mjs` treats duplicate `visitId` appends as no-ops. A later roster selection for
-  the same guest creates a new `visitId`, so re-check-in is allowed and appended, with a
-  subtle "RE-VERIFYING" note.
-- Auto-return to ROSTER after `RESULT_MS`.
-- **Acceptance:** correct table for a known guest; log entry has all §4.3 fields with a
-  valid ISO-8601 local timestamp; one scan-result visit produces exactly one log entry
-  across orientation changes/re-renders; `localStorage`-disabled path degrades to
-  in-memory.
-
-### Phase 5 — Admin panel
-- Long-press (`HOLD_MS`) on the logo hitzone opens ADMIN (pointer + touch events).
-- Actions: **Load CSV roster** (via `csv.mjs`, validated), **Export log CSV**, **Export
-  log JSON**, **Reset to default roster**, **Clear log** (two-step confirm).
-- Exports use a `Blob` + `URL.createObjectURL` download; because iPad Safari download UX
-  is limited, also offer **Copy to clipboard** for both formats.
-- Clipboard code uses `navigator.clipboard.writeText` when available, then falls back to a
-  hidden `<textarea>` + `document.execCommand('copy')`; both paths return the exact string
-  generated by `store.exportLogCsv()` / `store.exportLogJson()` so tests can assert before
-  OS clipboard handoff.
-- **Acceptance:** valid CSV replaces the roster and persists across reload; malformed CSV
-  is rejected/repaired per §6 (items 7–10) with a visible summary; export contents match the stored
-  log exactly (verified in e2e).
-
-### Phase 6 — Visual polish & kiosk packaging
-- Gun-barrel loading sequence, typography scale, gold hairlines/vignette, inline-SVG HUD
-  and reticle, subtle grain.
-- Kiosk meta: `viewport` with `width=device-width, initial-scale=1, viewport-fit=cover`,
-  both `mobile-web-app-capable=yes` and `apple-mobile-web-app-capable=yes`,
-  `apple-mobile-web-app-status-bar-style=black`, disabled text selection/callout, both
-  orientations.
-- iOS Safari intentionally ignores `user-scalable=no` / `maximum-scale` for user zoom, so
-  the plan does **not** claim pinch-zoom can be disabled. The kiosk mitigation is:
-  Home-Screen standalone mode, `touch-action: manipulation` on controls, ≥16 px form input
-  fonts to avoid focus zoom, disabled callout/selection, and optional
-  `gesturestart`/`gesturechange` `preventDefault` handlers only when installed in
-  standalone kiosk mode.
-- Add VoiceOver/ARIA pass: roster is a labeled list of `<button>` rows, search has a
-  stable label and result-count status, scan progress/covert-mode state uses polite
-  `aria-live`, result assignment uses assertive `aria-live`, admin controls have labels,
-  focus returns to the roster after admin/result dismissal, and all interactive targets are
-  at least 44 px.
-- **Acceptance:** manual iPad checklist (below) passes; axe-core e2e has zero serious or
-  critical violations; manual VoiceOver checklist announces roster rows, scan status,
-  result assignment, and admin controls correctly; Lighthouse/devtools shows animated
-  frames staying on the compositor (no per-frame layout).
-
-### Phase 7 — Build, tests, docs
-- `scripts/build.mjs` implements the §4.4 transform and inlines everything into
-  `dist/index.html` (self-contained).
-- `tests/unit/build.test.mjs` exercises the transform on fixture modules and the real
-  source graph: dependency order is honored, module syntax is removed, namespaces expose
-  expected exports, unsupported module syntax fails closed, source strings/comments
-  containing the words `import` or `export` do not false-positive, sourcemap comments are
-  rejected, and default data stays classic.
-- Unit tests (`node:test`) for `csv.mjs`, `roster.mjs`, `store.mjs`, `format.mjs`.
-- Playwright e2e for the whole flow, camera-denied fallback, admin export, reduced-motion,
-  and a `file://` boot of `dist/index.html` (must reach ROSTER in covert mode).
-- Enforce artifact budget: `dist/index.html` target ≤750 KB gzip and hard cap ≤1.2 MB
-  uncompressed. If exceeded, fail the build and reduce/subset font weights before release.
-- README: run/dev/build/deploy/on-site + the manual iPad checklist.
-- **Acceptance:** `npm run lint` and `npm test` green; `npm run build` produces a single
-  `dist/index.html` with zero `import`/`export` tokens, within the artifact budget, that
-  boots from `file://` and, when served over HTTPS, runs the camera path.
-
-## 6. Error Handling & Edge Cases
-
-Each item states the trigger, where it is caught, and the recovery.
-
-1. **Camera permission denied / `NotAllowedError`** — caught in `scan.mjs` around
-   `getUserMedia`. Recovery: covert-mode animation for the same duration; a small HUD note
-   "OPTICAL SENSOR OFFLINE — COVERT MODE"; flow completes normally.
-2. **No camera / `NotFoundError` / `NotReadableError`** — same catch, same covert-mode
-   recovery.
-3. **Insecure context (`file://` or plain-HTTP LAN)** — detected via
-   `window.isSecureContext === false` **before** calling `getUserMedia`; skip the request
-   and go straight to covert mode (avoids a hanging prompt).
-4. **Camera privacy on exit/interruption** — `scan.mjs` exit handler and the central FSM
-   cleanup both call `stopCamera()` (stop all tracks, null `srcObject`). Covers back-
-   navigation, admin opening, and reload mid-scan. E2e asserts tracks are `ended`.
-5. **Empty roster** (no default and no override) — ROSTER shows an empty state pointing to
-   the admin gesture to load a CSV.
-6. **Guest missing a table** — RESULT shows "PROCEED TO THE CHECK-IN DESK" instead of a
-   blank; logged with `table: ""`.
-7. **CSV — missing required column** (`name` or `table`) — reject the whole file; keep the
-   current roster; ADMIN shows the reason.
-8. **CSV — quoting/commas/CRLF/BOM** — parser handles RFC-4180 quoted fields (embedded
-   commas, escaped `""`), strips a leading UTF-8 BOM, accepts `\n` and `\r\n`, and skips
-   fully blank lines. Unit-tested (§7).
-9. **CSV — duplicate names** — normalized-key dedupe (casefold + collapse whitespace);
-   keep first occurrence; report the count of dropped duplicates.
-10. **CSV — id/slug collision** — `roster.mjs` appends `-2`, `-3`, … to make ids unique;
-    unit-tested.
-11. **`localStorage` unavailable/full/Private mode** — every access wrapped in `try/catch`
-    in `store.mjs`; on failure, degrade to an in-memory log and set a flag ADMIN surfaces
-    as "LOG NOT PERSISTED (private mode?)".
-12. **Rapid double-tap on a name / re-entrancy** — selection guarded by an `isNavigating`
-    latch cleared on the next screen mount.
-13. **Interrupted scan** (navigate away before `SCAN_MS`) — central timer registry cancels
-    pending timers on state exit; camera stopped (item 4).
-14. **Long names / long table strings** — CSS clamps roster rows to two lines with ellipsis
-    and wraps the RESULT table string with a reduced font step; no overflow.
-15. **Orientation change mid-animation** — layout uses flexbox/grid with viewport units;
-    animations are transform-based so they survive reflow; verified on the manual checklist.
-16. **Search with no matches** — explicit "NO MATCHING AGENTS" empty state; no error.
-17. **`prefers-reduced-motion: reduce`** — `REDUCED` timings and simplified (fade-only)
-    transitions; the gun-barrel sweep becomes a quick fade.
-
-## 7. Testing Strategy
-
-### 7.1 Unit tests (`node:test`, Node 22.x) — `tests/unit/*.test.mjs`
-- **`csv.mjs`**: simple rows; quoted field with embedded comma; escaped `""`; CRLF vs LF;
-  leading BOM; blank-line skipping; header case/order variance; missing `name` column
-  (reject); missing `table` column (reject); Unicode names (e.g. "Renée Aubénas"); trailing
-  empty last line.
-- **`roster.mjs`**: slug generation from names with spaces/accents/punctuation; duplicate-
-  name dedupe (keep first, count dropped); id-collision suffixing; search index matches
-  case- and diacritic-insensitively.
-- **`store.mjs`**: append + read round-trip; override persistence; `localStorage`-throwing
-  stub → in-memory fallback path; duplicate `visitId` append is idempotent while a new
-  `visitId` for the same guest appends; export serialization (CSV escaping, JSON shape)
-  matches stored entries exactly.
-- **`format.mjs`**: ISO-8601-with-offset formatting for a fixed date; display truncation
-  helper.
-- **`build.mjs`**: real source graph emits no module syntax; fixture modules verify
-  namespace rewriting, alias imports, export-object conversion, unsupported syntax errors,
-  AST-based residual checks, string/comment `import`/`export` false-positive avoidance,
-  sourcemap-comment rejection, and classic default data placement.
-
-### 7.2 End-to-end (`@playwright/test` 1.62.1, Chromium) — `tests/e2e/*.spec.mjs`
-Launched with `--use-fake-device-for-media-stream` and camera permission pre-granted so
-the happy path runs headless.
-- Boot → LOADING auto-advances to ROSTER within `LOADING_MS` (+ tolerance).
-- Search filters the visible rows.
-- Select a known guest → SCAN shows the `<video>` → after `SCAN_MS`, RESULT shows the
-  expected table → after `RESULT_MS`, returns to ROSTER.
-- A check-in entry with all §4.3 fields is present in `localStorage`.
-- Re-render RESULT by changing viewport/orientation during the result state; assert the
-  log still contains exactly one entry for that `visitId`.
-- **Camera-denied path**: launch with permission denied → covert mode → flow still
-  completes; assert no `toDataURL`/`captureStream`/`MediaRecorder` call occurred (spy) and
-  video tracks are `ended` after leaving SCAN.
-- **Admin**: long-press logo → panel opens; import a fixture CSV → roster updates; export
-  CSV → downloaded/clipboard content equals the stored log. The clipboard path runs in a
-  browser context with `context.grantPermissions(['clipboard-read', 'clipboard-write'])`;
-  when the platform clipboard is unavailable, the test spies on `navigator.clipboard.writeText`
-  or the fallback copy helper and asserts the exact string argument.
-- **Accessibility**: inject `axe-core` into each screen and require zero serious/critical
-  violations; assert key landmarks/labels/live regions are present.
-- **Reduced-motion**: emulate `prefers-reduced-motion: reduce` → `REDUCED` timings used.
-- **`file://` build smoke**: open `dist/index.html` via `file://` → boots to ROSTER in
-  covert mode with no console errors; additionally assert the artifact has zero top-level
-  `import`/`export` tokens before opening it.
-
-### 7.3 Manual iPad checklist (in README)
-Camera permission prompt + live feed; front camera; both orientations; "Add to Home
-Screen" launches full-screen with black status bar; double-tap zoom does not trigger on
-controls, form focus does not auto-zoom, text-selection/callout are suppressed, pinch-zoom
-is not claimed blocked because Safari may allow it; VoiceOver announces roster rows, scan
-status, result assignment, and admin actions; 60 fps during transitions (Safari Web
-Inspector timeline); log export via Files / clipboard.
-
-### 7.4 CI-ready commands
-`npm test` runs unit + e2e; `npm run test:unit` and `npm run test:e2e` run each;
-`npm run lint` runs Prettier. All must be green before a phase is marked complete.
-
-## 8. Environment & Toolchain
-
-Reproducible from a fresh clone:
-
-```bash
-# Prerequisites (dev machine only — NOT the iPad, see §4.1a):
-#   Node.js >=22, npm >=10
-git clone <repo> && cd check-in-007
-npm ci                        # installs exact pinned npm dev deps from package-lock.json
-npx playwright install chromium   # one-time browser download for e2e
-python3 -m pip install --user fonttools==4.64.0   # only needed to regenerate fonts
-
-npm run serve                 # http://localhost:8080  (localhost = secure context; camera works)
-npm run lint                  # Prettier check
-npm test                      # unit + e2e
-npm run build                 # emits dist/index.html (self-contained)
-```
-
-`package.json` scripts:
-
-```json
-{
-  "engines": { "node": ">=22" },
-  "scripts": {
-    "serve":     "http-server . -p 8080 -c-1",
-    "serve:https":"http-server . -S -C localhost.pem -K localhost-key.pem -p 8443 -c-1",
-    "build":     "node scripts/build.mjs",
-    "lint":      "prettier --check .",
-    "test":      "npm run test:unit && npm run test:e2e",
-    "test:unit": "node --test tests/unit",
-    "test:e2e":  "playwright test",
-    "fonts:subset": "bash scripts/font-subset.sh"
-  }
+export function computeVirtualWindow({ total, scrollTop, viewportHeight, rowHeight, overscan }) {
+  /**
+   * Return { startIndex, endIndex, topPadding, bottomPadding, visibleCount }.
+   * Clamp negative scrollTop, zero viewportHeight, zero rowHeight, and overscan bounds.
+   * endIndex is exclusive. total=0 returns a fully empty window.
+   */
+  ...
 }
 ```
 
-On-site iPad camera testing over the LAN needs HTTPS:
+Acceptance criteria:
 
-```bash
-mkcert -install
-mkcert localhost 127.0.0.1 <laptop-LAN-IP>   # produces localhost*.pem
-npm run serve:https                          # iPad browses https://<laptop-LAN-IP>:8443
+- `total=0` returns `startIndex=0`, `endIndex=0`.
+- Negative `scrollTop` clamps to `0`.
+- Overscan never creates indexes below `0` or above `total`.
+- `topPadding + renderedHeight + bottomPadding` equals `total * rowHeight`.
+- `shouldVirtualize(500, 500)` is false and `shouldVirtualize(501, 500)` is true.
+
+### Phase 2: Roster DOM Integration
+
+Modify `mountRoster` so `render(items)` chooses between small-list rendering and
+virtualized rendering.
+
+Skeleton:
+
+```js
+function createGuestRow(guest, absoluteIndex = null, total = null) {
+  /** Build the existing guest button markup and add aria position metadata when virtualized. */
+  ...
+}
+
+function renderSmallList(items) {
+  /** Preserve current full-render behavior for <= threshold items and empty states. */
+  ...
+}
+
+function renderVirtualList(items) {
+  /**
+   * Render a spacer with total height and only the computed window rows.
+   * Rows are absolutely positioned with transform: translateY(topPadding + offset).
+   */
+  ...
+}
+
+function scheduleVirtualRender() {
+  /** Coalesce scroll/resize/search-triggered virtual renders through requestAnimationFrame. */
+  ...
+}
 ```
 
-Pinned npm versions live in `package.json` and the committed `package-lock.json`.
-`fonttools==4.64.0` is pinned in `scripts/font-subset.sh` and README instructions for
-regenerating checked-in font assets. No runtime dependencies are installed on the iPad.
+DOM contract:
 
-## 9. Deployment & Distribution
+- The roster `<ul>` remains the scroll container and keeps delegated click handling.
+- The virtualized list contains one `.roster-virtual-spacer` child with
+  `height: total * rowHeight`.
+- Rendered row `<li>` elements receive class `.roster-virtual-row` and an inline
+  transform based on the absolute row index.
+- Existing `.guest-row[data-guest-id]` click behavior is unchanged.
+- The result count continues to report the full filtered count, not only rendered rows.
 
-Two supported distribution modes, both producing the same UX (camera requires a secure
-context in either case):
+Acceptance criteria:
 
-1. **Served (recommended for the live camera).** `npm run build`, then host `dist/` on any
-   static HTTPS host (e.g. GitHub Pages, Netlify) or an on-site laptop via `serve:https`.
-   The iPad opens the URL in Safari and taps **Share → Add to Home Screen** for a full-
-   screen kiosk. `getUserMedia` works because the origin is HTTPS.
-2. **Local file.** Copy `dist/index.html` to the iPad and open it from Files. The app boots
-   fully and runs the entire flow in **covert mode** (no camera, because `file://` is not a
-   secure context). This satisfies "usable locally" while making the camera limitation
-   explicit rather than a silent failure.
+- A 501-row list renders at most
+  `ceil(viewportHeight / VIRTUAL_ROW_HEIGHT_PX) + 2 * VIRTUAL_OVERSCAN_ROWS + 2` guest rows.
+- Selecting a virtualized late-list guest calls the same `onSelect(guestId)` path as a
+  non-virtual guest.
+- Search resets `scrollTop` to `0` and recomputes the window against filtered results.
+- Cleanup removes scroll/resize listeners and cancels pending rAF.
 
-The build artifact is a single `dist/index.html` with all CSS, JS, subset fonts (base64),
-and default roster inlined — no external requests at runtime. Kiosk meta tags (§5 Phase 6)
-make the Home-Screen launch full-screen and suppress double-tap zoom/text selection where
-Safari allows; the plan does not rely on ignored `user-scalable=no` behavior.
+### Phase 3: Styling and Accessibility
 
-The check-in log lives in that device's `localStorage`; export it from the admin panel at
-the end of the night (CSV/JSON via download or clipboard). Because storage is per-origin
-and per-device, running two check-in iPads means two logs to merge manually (acceptable for
-v1; consolidation is out of scope).
+Update roster CSS:
 
-## 10. Defaults & Revisit Triggers
+```css
+.roster-list.is-virtualized {
+  position: relative;
+  display: block;
+}
 
-These are hard defaults for v1, not open implementation blockers:
+.roster-virtual-spacer {
+  position: relative;
+  width: 100%;
+}
 
-1. **Platform:** build the portable web app, not SwiftUI. Revisit only if the organizer
-   explicitly prioritizes native fidelity over file portability and zero install.
-2. **Offline story:** `file://` runs in covert mode; live camera requires HTTPS from a
-   static host or on-site laptop. Revisit only if a fully offline live-camera iPad is a hard
-   requirement.
-3. **Roster size:** support ≤500 attendees with direct rendering and indexed search. Revisit
-   with list windowing only if the real roster exceeds 500 rows.
-4. **Re-check-in:** allow and log repeat guest selections as separate visits with a
-   "RE-VERIFYING" note. Revisit only if door policy requires blocking repeats.
-5. **Sample data:** ship ~40 themed placeholder guests/tables and expect real data via
-   admin CSV import. Revisit only if the organizer wants real data bundled into source.
-6. **Sound:** ship silent. Revisit only if the organizer wants an optional user-unlocked
-   identification blip.
+.roster-virtual-row {
+  position: absolute;
+  left: 0;
+  right: 4px;
+  height: var(--roster-virtual-row-height);
+}
+```
+
+Accessibility contract:
+
+- `.roster-list` keeps `aria-label="Ticketed guests"` and adds `role="listbox"`.
+- Guest buttons remain focusable native buttons with the current descriptive
+  `aria-label`.
+- Virtual rows add `aria-setsize` and `aria-posinset` so assistive technology receives
+  full-list context.
+- Empty results continue to render `NO MATCHING AGENTS` and do not expose stale rows.
+
+Acceptance criteria:
+
+- Visual row height matches `ROSTER.VIRTUAL_ROW_HEIGHT_PX`, including the existing 8 px
+  inter-row gap.
+- No text overlap or horizontal overflow is introduced at 768x1024 and 1024x768.
+- Momentum scrolling stays enabled through the existing `-webkit-overflow-scrolling:
+  touch`.
+
+### Phase 4: Tests and Verification
+
+Add `tests/unit/virtual-list.test.mjs` for:
+
+- Empty list.
+- Below/equal/above threshold.
+- First viewport window.
+- Middle scroll window.
+- End-of-list clamping.
+- Negative and zero measurement inputs.
+
+Extend `tests/e2e/checkin.spec.mjs` with one focused large-roster test:
+
+```js
+test('large imported rosters virtualize while preserving search and selection', async ({ page }) => {
+  /**
+   * Import a 620-row CSV through admin.
+   * Assert DOM guest-row count is bounded.
+   * Scroll roster list near the bottom.
+   * Select Agent 619 and complete the check-in.
+   * Return to roster, search Agent 012, and assert the filtered result is visible.
+   */
+  ...
+});
+```
+
+Required verification commands:
+
+```bash
+npm run lint
+npm run test:unit
+npm run test:e2e
+npm run build
+```
+
+## 7. Integration Points
+
+1. **`mountRoster(root, { guests, onSelect, onAdminHold, store })`**
+   - Contract: caller still passes a search-indexed guest array and receives selected
+     guest ids through `onSelect`.
+   - Failure mode: unknown guest ids remain handled by existing downstream lookup
+     behavior; virtualization must not synthesize ids.
+   - Migration path: no caller changes.
+
+2. **Admin CSV import**
+   - Contract: `onRosterChanged(nextGuests)` rebuilds the indexed array in `app.mjs`;
+     reopening ROSTER passes the full array to `mountRoster`.
+   - Failure mode: malformed CSV remains handled by existing admin/import code.
+   - Migration path: large imported rosters automatically virtualize on the next roster
+     render.
+
+3. **Check-in log**
+   - Contract: selecting a virtualized guest flows through SCAN and RESULT exactly like
+     a small-list guest; logging remains in RESULT.
+   - Failure mode: double-click protection via `navigating` still prevents duplicate
+     navigation.
+   - Migration path: no storage schema change.
+
+4. **Build artifact**
+   - Contract: `scripts/build.mjs` inlines module code into `dist/index.html`.
+   - Failure mode: a new module import must remain static and relative so the current
+     acorn-based build transform can include it.
+   - Migration path: adding `src/lib/virtual-list.mjs` follows the existing ES module
+     pattern and requires no build-script change.
+
+## 8. Error Handling & Edge Cases
+
+- **Empty filtered list:** render the existing empty message, clear virtual state, count
+  says `0 agents visible`.
+- **Exactly 500 results:** use full render path because the backlog threshold is `>500`.
+- **501+ results:** use virtual render path.
+- **Search after deep scroll:** reset `scrollTop` to `0`, recompute against filtered
+  results, and avoid blank windows.
+- **Viewport height temporarily zero:** use `ROSTER.VIRTUAL_MIN_VIEWPORT_PX` for one
+  render and schedule a later render through rAF.
+- **Rapid scroll events:** coalesce with one pending rAF id; cleanup cancels the id.
+- **Unmount during pending rAF:** cleanup sets a local `mounted=false`, cancels rAF, and
+  prevents DOM writes after the screen is gone.
+- **Late-list selection:** delegated click reads `data-guest-id` from the row button, not
+  from the displayed index, so filtering and scroll position do not corrupt ids.
+- **Imported duplicate names:** existing `normalizeGuests` behavior still dedupes before
+  virtualization sees the array.
+- **Reduced motion:** no new animation is added; reduced-motion timing path is unchanged.
+
+## 9. Stability & Performance
+
+Time complexity:
+
+- Filtering remains `O(n)` over the indexed roster. With 620 to 2,000 guests, this is a
+  small string-contains pass already covered by the existing debounce.
+- Virtual window calculation is `O(1)`.
+- Rendering is `O(v + overscan)`, where `v = ceil(viewportHeight / rowHeight)`. On a
+  1024 px iPad viewport with 66 px rows and 6-row overscan, the expected render count is
+  about 28 rows instead of 620+.
+
+Memory profile:
+
+- The guest array remains in memory once, as today.
+- DOM nodes are bounded to visible plus overscan rows for virtualized lists.
+- Pending scheduler state is one rAF id and a few scalar measurements.
+
+Latency targets:
+
+- Search input remains debounced at 120 ms.
+- Scroll updates should perform one DOM replacement per animation frame at most.
+- Large-roster initial render target is under 50 visible row nodes.
+
+Resource cleanup:
+
+- Remove `scroll` and `resize` listeners during roster unmount.
+- Cancel pending debounce, admin hold timeout, and rAF.
+- Do not create timers or observers that survive state transitions.
+
+## 10. Testing Strategy
+
+Unit tests:
+
+- `computeVirtualWindow` returns deterministic ranges at top, middle, and bottom scroll
+  offsets.
+- Clamping handles negative scroll, zero/negative row height, zero viewport, and overscan
+  larger than total.
+- `shouldVirtualize` enforces the strict `>500` rule.
+
+End-to-end tests:
+
+- Import 620 guests through the existing admin file input.
+- Assert the visible DOM row count is bounded and substantially below 620.
+- Scroll to the bottom of `.roster-list` and select a late guest by accessible name.
+- Confirm the usual SCAN/RESULT/log path works for that selected guest.
+- Search after returning to ROSTER and verify the list resets to the first matching row.
+- Keep the existing axe, privacy, leak, reduced-motion, file-artifact, and admin export
+  tests passing.
+
+Regression risks covered:
+
+- Small bundled roster still renders with the existing markup.
+- Empty search results still show `NO MATCHING AGENTS`.
+- Event delegation still works after rows are replaced.
+- Cleanup does not regress the existing 20-cycle leak test.
+
+## 11. Environment & Toolchain
+
+Fresh clone setup is unchanged:
+
+```bash
+npm ci
+npm run build
+npm run test
+```
+
+The implementation must not add runtime dependencies or require a network at runtime.
+The app must continue to run from `file://dist/index.html` and through `npm run serve`.
+
+## 12. Deployment & Distribution
+
+Distribution remains the existing single-file artifact:
+
+1. Build with `npm run build`.
+2. Use `dist/index.html` for file deployment or `npm run serve` / `npm run serve:https`
+   for local serving.
+3. Rollback is the prior committed artifact/source state; no data migration is needed
+   because roster/log storage schemas are unchanged.
+
+## 13. Open Questions
+
+1. **Should virtualization support variable-height names later?**
+   Proposed resolution: no for this cycle. Existing CSS clamps names to two lines and
+   fixed-height rows are sufficient for event rosters. Revisit only if real guest data
+   requires unbounded display names.
+
+2. **Should the threshold be configurable by users?**
+   Proposed resolution: no. Keep it in `src/config.mjs` for developer tuning and avoid
+   admin-panel complexity.
+
+3. **Should virtualization use IntersectionObserver sentinels?**
+   Proposed resolution: no for fixed rows. Revisit only if future lazy media or grouped
+   headers make direct scroll math insufficient.

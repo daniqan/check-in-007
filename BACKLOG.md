@@ -4,7 +4,7 @@ Improvement opportunities beyond the current plan's scope. Unchecked items reduc
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
 ## Deferred Features
-- [ ] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold)
+- [/] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold)
 - [ ] Multi-device check-in log consolidation / merge tooling (§9)
 - [ ] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6)
 - [ ] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
