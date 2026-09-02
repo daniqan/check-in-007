@@ -44,3 +44,8 @@ Three items remain strictly not-done here (`[ ]`) while scan audio is in progres
 backlog deduction of −1 (1 pt per 2 unchecked, round down): native SwiftUI, offline-HTTPS helper,
 and the optional Node 24 toolchain bump each remain separate subsystems and candidates for future
 planning cycles.
+
+**Cycle 4 is in progress** (State 1 — revise plan): `IMPLEMENTATION_PLAN.md` v8 (optional scan
+"blip" audio, gesture-gated) is critiqued at **93/100 — NOT APPROVED** (Plan Critique Rev 1). The
+scan-audio item stays `[/]` until the plan clears the ≥95 gate and passes Implementation
+Verification. See `IMPLEMENTATION_PLAN_CRITIQUE.md` for the three gate-blocking revisions.
