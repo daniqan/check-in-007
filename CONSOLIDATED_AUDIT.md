@@ -1,9 +1,49 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 71/100
-**Audit Version:** v24
-**Audited:** commit `4044d75` on 2026-09-02 (Cycle 5 — Node 24 LTS toolchain plan v14 remains APPROVED; implementation still pending)
-**Stage:** Cycle 5, **State 2 — implement the approved plan (Plan Critique Rev 3 = 98/100, APPROVED)**
+**Current Score**: 70/100
+**Audit Version:** v25
+**Audited:** working tree (uncommitted plan v15) at HEAD `44991b4` on 2026-09-02 (Cycle 6 — native SwiftUI iPad build plan v15 critiqued, NOT APPROVED; nothing implemented)
+**Stage:** Cycle 6, **State 1 — revise the plan (Plan Critique Cycle 6 Rev 1 = 91/100, NOT APPROVED)**
+
+> **STATE 1 — REVISE PLAN (v25).** The working tree **replaces the approved Cycle-5 plan v14 (Node
+> 24 LTS toolchain) with a brand-new plan v15 (Cycle 6 — native SwiftUI iPad build)**. Under the
+> staleness rule (v15 > v14) this is a **new plan requiring full critique regardless of the prior
+> 98**, so the loop is back at **State 1 (revise plan)**, not State 2. **Plan Critique Cycle 6 Rev 1
+> = 91/100 — NOT APPROVED.** Plan v15 is genuinely strong and source-grounded — every domain-parity
+> claim verified against source (`window.CHECKIN007_DEFAULT_GUESTS`, **40** default rows, `slugify`/
+> `normalizeGuests` at `roster.mjs:10,17`, storage keys `checkin007.{log,roster,audio}.v1` at
+> `config.mjs:9-11`, `appendCheckIn` idempotent by `visitId` at `store.mjs:99-101`, CSV columns
+> `visitId,guestId,name,table,timestamp` at `store.mjs:134`), and **Xcode 26.4 is installed** so the
+> native code is buildable here in principle. It is held below ≥95 by two gate-relevant gaps + one
+> commission + one feasibility risk: (1) the entire verification path is `xcodebuild … test` on an
+> iPad simulator, but **no simulator runtime is installed** (`xcrun simctl list runtimes` empty) and
+> the plan never handles the zero-runtime case — the same self-verifiability gap that held cycle-5
+> plans below 95; (2) `npm run lint` (`prettier --check .`) will check the generated
+> `native/CheckIn007/Resources/default-guests.json` (and README), which `.prettierignore` does not
+> exclude and the plan does not guarantee Prettier-clean, so adding the native tree could break the
+> "existing commands stay green" acceptance; (3) `extractDefaultGuests` requires `id` on rows that
+> have only `{ name, table }`, contradicting the real data and the plan's own slugify-parity goal;
+> (4) the hand-committed multi-target `.pbxproj` production method is unspecified. All four are
+> mechanically fixable in one revision. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 6 Rev 1.
+>
+> **Process reality (the orchestrator's "both approved" framing is inaccurate for cycle 6):**
+> Cycle 5's plan v14 was **APPROVED at 98 but NEVER IMPLEMENTED** — `.nvmrc`, `.node-version`,
+> `scripts/check-node-version.mjs`, and `tests/unit/node-version.test.mjs` never landed — and has now
+> been **abandoned** to open this native cycle. Plan v14 is preserved in git (`ff40b18`); the Node-24
+> backlog item is returned to `[ ]` (no longer actively in progress). Cycle-6 **Implementation Score
+> is N/A** — `native/` does not exist, `scripts/export-native-guests.mjs` is absent, nothing is built.
+>
+> **Deductions.** No source has changed since the cycle-4 code landing `b63a8ff`; every commit since
+> (Node-24 plans/critiques, the archive+revert of cycle 4, and now the uncommitted plan v15) is
+> plan/audit/doc only → **fifth consecutive idle cycle → −5 inactivity decay (at the −5 cap)**.
+> Backlog strict-unchecked `[ ]` = 3 (offline-HTTPS helper, CI workflow, and Node 24 returned to
+> `[ ]`); native SwiftUI is `[/]` → **backlog −1** (1 pt per 2, round down). Required Actions: all
+> #1–#8 DONE, none stalled → **−0**. The shipped cycle-1–4 system stays healthy — re-verified this
+> cycle on Node v26.3.0: **52/52 unit** green, **`prettier --check .`** clean (e2e/build not re-run;
+> no source changed since `b63a8ff`). Base health holds at **76**. **Base 76 − backlog 1 − decay 5 =
+> 70.** The single lever to climb: **revise plan v15 to ≥95** (close the four Path-to-≥95 items) and
+> **implement it** — landing native code is also the only thing that resets the accruing decay, now
+> pinned at the cap.
 
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v24).** No change since v23. The plan is unchanged
 > (`IMPLEMENTATION_PLAN.md` still v14, last committed `ff40b18`) and remains **APPROVED at 98/100**

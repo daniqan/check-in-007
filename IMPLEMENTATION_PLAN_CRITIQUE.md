@@ -1,25 +1,202 @@
-# Check-In 007 — Implementation Plan Critique (Cycle 5: Node 24 LTS Toolchain)
+# Check-In 007 — Implementation Plan Critique (Cycle 6: Native SwiftUI iPad Build)
 
-**Plan Score:** **98/100**
-**Implementation Score:** N/A — cycle-5 plan v14 APPROVED but not yet implemented; last VERIFIED implementation is cycle 4 (v5 = 98)
-**Status:** **APPROVED** (Rev 3 — the Rev-2 gate-blocker and the Path-to-100 nit are both resolved; ≥95 gate cleared)
+**Plan Score:** **91/100**
+**Implementation Score:** N/A — cycle-6 plan v15 NOT APPROVED and not implemented (`native/` does not exist); last VERIFIED implementation is cycle 4 (v5 = 98)
+**Status:** **NOT APPROVED** (Cycle 6, Rev 1 — a strong, well-grounded first cut with two gate-relevant gaps + one commission + one feasibility risk; ≥95 gate not cleared)
 
-> Cycle 4 (scan blip audio) is complete and **VERIFIED** (Implementation Verification v5 =
-> 98/100; see the archived critique further down this file). Cycle 5's plan is
-> `IMPLEMENTATION_PLAN.md` v14 (optional Node 24 LTS toolchain bump), now **APPROVED at
-> 98/100 (Rev 3)**. Loop state: **State 2 — implement the approved plan**. The plan is the
-> contract; implementation will be audited against it.
+> **Plan replaced — new cycle, new critique (audit v25, 2026-09-02).** The working tree replaces
+> the approved Cycle-5 plan v14 (Node 24 LTS toolchain) with a brand-new **plan v15 (Cycle 6 —
+> native SwiftUI iPad build)**. Under the staleness rule (v15 > v14) this is a **new plan requiring
+> full critique regardless of the prior 98**. The loop is therefore back at **State 1 — revise
+> plan**, NOT "implement." Note the process reality: **Cycle 5's plan v14 was APPROVED at 98 but
+> NEVER IMPLEMENTED** — no `.nvmrc`/guard/version files ever landed — and has now been abandoned in
+> favour of this native-app cycle. Plan v14 is preserved in git history (`ff40b18`) for a future
+> cycle; the Node-24 backlog item is returned to `[ ]` (no longer actively in progress). Cycle-6
+> **Implementation Score is N/A** — `native/` does not exist, `scripts/export-native-guests.mjs`
+> is absent, nothing is built. See `CONSOLIDATED_AUDIT.md` v25 (audit score 70; fifth consecutive
+> idle cycle → −5 inactivity decay, at cap).
 
-> **Staleness re-check (audit v24, 2026-09-02).** No change since the Rev 3 critique. The plan
-> version has **not advanced** (`IMPLEMENTATION_PLAN.md` still v14, last committed `ff40b18`;
-> working tree clean at HEAD `4044d75`), so under the staleness rule no re-critique is warranted —
-> the plan **remains APPROVED at 98/100 (Rev 3)**. The approved plan is **still not implemented**:
-> `.nvmrc`, `.node-version`, `scripts/check-node-version.mjs`, and `tests/unit/node-version.test.mjs`
-> do not exist, and `package.json` still declares `engines.node: ">=22"` with un-guarded
-> `lint`/`test`/`build` scripts. Cycle-5 **Implementation Score remains N/A (not yet implemented)**.
-> The loop is blocked solely on the generator executing Phases 1–4 — this is **State 2 (implement)**,
-> not State 1: do **not** re-revise the approved plan. See `CONSOLIDATED_AUDIT.md` v24 (audit score
-> 71; fourth idle cycle → −4 inactivity decay).
+---
+
+## Plan Critique — Cycle 6, Revision 1
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` (working tree, uncommitted) — plan v15
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v15 (Native SwiftUI iPad Build)
+**Score:** **91 / 100** (first review of the cycle-6 plan)
+**Status:** **NOT APPROVED** — a genuinely strong, well-scoped, source-grounded first cut; held below ≥95 by two gate-relevant gaps (simulator-runtime verifiability, prettier/lint on generated artifacts), one flaw of commission (the export-script `id` contract contradicts the real roster shape), and one under-specified feasibility risk (hand-committed `.pbxproj`).
+
+Plan v15 targets the `BACKLOG.md` Deferred Features item "Native SwiftUI iPad build as a
+maximum-fidelity alternative," now `[/]`. It is an ambitious cycle — a full second client
+(~30 new Swift files, an Xcode project with app/unit-test/UI-test targets, a roster-export
+script, and a parity unit test) — but the backlog sanctions it and the plan is unusually
+thorough: §4 gives seven technical decisions each with rejected alternatives, §7 five
+integration contracts (each with failure mode + migration path), §8 an extensive edge-case
+list, §10 a unit/UI/regression test strategy, §12 deployment/rollback, §13 open questions.
+
+**Domain-parity claims verified against source (all correct):**
+- `data/guests.default.js` assigns `window.CHECKIN007_DEFAULT_GUESTS = [...]` — the exact name
+  the plan's `extractDefaultGuests` parses (Phase 1). ✓
+- The default roster is **40 rows** (`grep -c "name:" data/guests.default.js` → 40), matching the
+  Phase-1 acceptance "same 40 default rows." ✓
+- Web `slugify` and `normalizeGuests` (returning `{ guests, droppedDuplicates }`) live in
+  `src/lib/roster.mjs:10,17` — the Swift `SearchNormalizer.slugify` / `GuestCatalog.normalize ->
+  (guests, droppedDuplicates: Int)` ports have a real source of truth. ✓
+- Storage keys `checkin007.log.v1` / `checkin007.roster.v1` / `checkin007.audio.v1`
+  (`src/config.mjs:9-11`) match the Phase-2 key-parity acceptance. ✓
+- `appendCheckIn(guest, visitId)` is idempotent by `visitId` (`store.mjs:99-101`) and
+  `exportLogCsv` columns are exactly `visitId,guestId,name,table,timestamp` (`store.mjs:134`) —
+  both match the Phase-2 acceptance criteria verbatim. ✓
+- **Xcode 26.4 is installed** (`xcodebuild -version` → Xcode 26.4), so §4-decision-1 (stable
+  Xcode 26, not the Xcode 27 beta) is consistent with this machine, and the native code is in
+  principle buildable here. ✓
+
+**Environment check that surfaced a gate-relevant gap:** `xcrun simctl list runtimes` returns
+**no installed runtimes** and `xcrun simctl list devices available` lists **no iOS/iPadOS
+devices**. The plan's entire verification path is
+`xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination 'platform=iOS
+Simulator,name=iPad Pro 13-inch (M4)' test` (Phase 5, §11) — which cannot run until an iPadOS 26
+simulator runtime is downloaded (a multi-GB install, separate from Xcode itself).
+
+## Issues resolved in revision 1
+
+First review of the cycle-6 plan — no prior revision to diff against.
+
+## Remaining issues
+
+1. **No path to verify the plan's own acceptance criteria when no simulator runtime is installed
+   (gate-relevant feasibility/verification gap).** §11 lists "at least one iPad simulator runtime"
+   as *required* and gives a `xcrun simctl list devices available` fallback — but that only
+   selects a device *name* among installed runtimes; it does not help when **zero** runtimes are
+   installed, which is the actual state of this machine. For a plan whose sole verification gate is
+   `xcodebuild … test` on a simulator, this is the same class of gap that held every cycle-5 plan
+   below 95 (there: `lint`/`test`/`build` unrunnable on Node 26; here: `xcodebuild test` unrunnable
+   with no runtime). *Fix:* add a "Verifying without a preinstalled simulator runtime" note to
+   §5/§11 stating this machine currently has Xcode 26.4 but **no** installed iPadOS runtime, and
+   giving the install step (`xcodebuild -downloadPlatform iOS`, or Xcode → Settings → Components)
+   plus how to confirm (`xcrun simctl list runtimes`) before the `xcodebuild test` command.
+
+2. **`npm run lint` (`prettier --check .`) will check the generated `native/` artifacts, which the
+   plan neither excludes nor guarantees Prettier-clean (gate-relevant flaw of omission).**
+   `.prettierignore` excludes only `node_modules/`, `dist/`, `test-results/`, `playwright-report/`,
+   and the four tracking docs — **not** `native/`. The Phase-1 script writes
+   `native/CheckIn007/Resources/default-guests.json` ("pretty JSON"), and Prettier *does* format
+   `.json`. If the script's output is not byte-identical to Prettier's JSON formatter, `npm run
+   lint` fails — directly breaking the Phase-5 acceptance "Existing web lint/unit/build commands
+   remain green." (README.md edits are linted too.) *Fix:* either add `native/` — or at minimum the
+   generated JSON path — to `.prettierignore`, **or** require the export script to emit
+   Prettier-conformant JSON (and keep README edits Prettier-clean), and state that `prettier --check
+   .` stays green after the native tree is added.
+
+3. **`extractDefaultGuests` requires `id` on rows that have no `id` (flaw of commission).** The
+   Phase-1 docstring says it "Throws when the source is not a single array assignment of object
+   literals with string name/table/id values," but the real rows are `{ name, table }` with **no
+   `id`** (verified in `data/guests.default.js`). The web app *generates* ids via `slugify`
+   (`roster.mjs:34`), and the plan's own Phase-1 acceptance says "Generated IDs match the web
+   slugify behavior" — so requiring `id` as *input* contradicts both the data and the plan's parity
+   goal, and as written the script would throw on the actual roster. *Fix:* require `name` + `table`
+   strings; treat `id` as optional and generate it via the ported `slugify`, mirroring
+   `normalizeGuests`.
+
+4. **The hand-committed `.pbxproj` production method is unspecified (feasibility risk).** §5 lists
+   `native/CheckIn007.xcodeproj/project.pbxproj` as a single NEW hand-authored file with app +
+   unit-test + UI-test targets, and §4-decision-2 defends committing a plain project — but a
+   hand-written multi-target `.pbxproj` is notoriously error-prone, and a malformed one means the
+   project will not open and *nothing* in the cycle is verifiable. *Fix:* state the intended
+   production path explicitly — create the project in Xcode 26 locally, then commit the
+   Xcode-generated `.pbxproj` — rather than implying manual authoring.
+
+## Scope Check
+
+Scope is adequate for the cycle; no cap applied.
+- **Audit findings in scope but not addressed:** None. `CONSOLIDATED_AUDIT.md` reports Required
+  Actions #1–#8 DONE and zero open defects.
+- **Backlog items in scope but not addressed:** None mis-scoped. The plan addresses the in-progress
+  native item; it explicitly defers the separate "on-device static-HTTPS helper" (§2 Out of scope)
+  and the CI-workflow item (§2) — both independent subsystems, correctly deferred.
+- **Process note (not a scope cap):** Cycle 5's plan v14 (Node 24 LTS) was APPROVED at 98 and
+  **abandoned unimplemented** to open this cycle. Node 24 is a different subsystem, so it does not
+  cap this plan's score — but pivoting away from an approved-but-unbuilt plan is a project-health
+  signal tracked in the audit (fifth idle cycle, decay at cap), and the Node-24 backlog item is
+  returned to `[ ]`.
+- **Integration points analyzed:** Yes — §7's five contracts (roster generation, native
+  persistence, camera permission, export/merge interop, build/test tooling).
+- **Alternatives considered:** Yes — §4's seven decisions each reject a named alternative.
+
+## Flaws of Commission
+
+1. **The `extractDefaultGuests` `id`-required contract (Remaining issue #3)** contradicts the actual
+   `{ name, table }` roster shape and the plan's own "IDs match web slugify" parity goal; as
+   documented the script throws on the real data.
+
+No other flaws of commission. The Swift API surface is internally consistent, storage keys mirror
+the verified web keys, and the CSV column order matches `store.mjs` exactly.
+
+## Flaws of Omission
+
+1. **No verification path without an installed simulator runtime (Remaining issue #1)** — the
+   gate-relevant omission for a plan whose only gate is `xcodebuild … test` on a simulator.
+2. **Prettier/lint coverage of the new `native/` tree (Remaining issue #2)** — the generated JSON
+   (and README edits) fall under `prettier --check .` but are neither excluded nor guaranteed clean.
+3. **"Native equivalent of `TIMING.X`" is never quantified** (§Phase 3/§Phase 4 repeat it). The web
+   constants are `LOADING_MS 2600 / SCAN_MS 4500 / RESULT_MS 5000` with a reduced set
+   `900 / 2500 / 4000` (`src/config.mjs:1-4,38-40`); the plan should state the native values (or that
+   they equal these) so the timing is deterministic and testable. (Path-to-100.)
+
+## Regressions
+
+No regressions to the shipped web app. §5 commits to changing no `src/`, `index.html`,
+`data/guests.default.js`, or existing web test file except adding the new parity test; the web-side
+additions (`scripts/export-native-guests.mjs`, `tests/unit/native-guests-export.test.mjs`) are
+additive, and the shipped suite is currently green (52/52 unit, `prettier --check .` clean on Node
+v26.3.0, re-verified this audit). The one interaction to watch is the lint/JSON coupling in Omission
+#2 — if unaddressed, adding the native tree *would* break `npm run lint`, a self-inflicted regression
+of the "existing commands stay green" guarantee.
+
+## Why 91 and not 92
+
+Two gate-relevant gaps (simulator-runtime verifiability; prettier/lint on the generated JSON) each
+independently block ≥95, and a false-throw commission in the one detailed NEW web-side script
+(`extractDefaultGuests`) compounds them. Any single issue might sit at ~94; the combination of two
+gate-relevant + one commission + one under-specified feasibility risk (the hand-committed
+`.pbxproj`) places it at 91. It is not lower because architecture, scope, engineering rigor,
+integration analysis, alternatives, and — critically — the domain-parity claims are all strong and
+source-verified; every gap is mechanically fixable in a single revision pass.
+
+## Path to ≥95
+
+Address all four in one revision:
+
+1. **Simulator-runtime verifiability (Remaining #1).** Add a §5/§11 note: this machine has Xcode
+   26.4 but no installed iPadOS runtime (`xcrun simctl list runtimes` is empty); document
+   `xcodebuild -downloadPlatform iOS` (or Xcode → Settings → Components) and the
+   `xcrun simctl list runtimes` confirmation before `xcodebuild … test`.
+2. **Prettier/lint on `native/` (Remaining #2).** Add `native/` (or the generated JSON) to
+   `.prettierignore`, or require Prettier-conformant JSON + Prettier-clean README, and assert
+   `prettier --check .` stays green.
+3. **`extractDefaultGuests` contract (Remaining #3).** Require `name` + `table` strings, generate
+   `id` via the ported `slugify`; drop the `id`-required wording.
+4. **`.pbxproj` production path (Remaining #4).** State that the committed project is generated by
+   Xcode 26 (not hand-authored).
+
+Doing #1–#4 clears the gate (expected ~96–97).
+
+## Path to 100
+
+- Quantify the native timing values instead of "native equivalent of `TIMING.X`" (Omission #3).
+- Specify how the parity test (`native-guests-export.test.mjs`) compares — regenerate-and-diff vs
+  byte-compare against a committed fixture — and how it stays deterministic if the export order or
+  Prettier formatting changes.
+- Note the minimum iPadOS deployment target and confirm the `iPad Pro 13-inch (M4)` device exists on
+  the installed iPadOS 26 runtime once one is added.
+
+## Summary
+
+Plan v15 is a strong, ambitious, correctly-scoped first cut for the native SwiftUI iPad build, with
+domain-parity claims that are source-verified across the board (roster name/count, slugify,
+normalize, storage keys, CSV columns, append idempotency) and a machine that actually has Xcode 26.4.
+It is one revision pass from approval: close the simulator-runtime verifiability gap, exclude or
+Prettier-conform the generated `native/` artifacts, fix the `extractDefaultGuests` `id` contract, and
+state that the `.pbxproj` is Xcode-generated. **Score 91/100 — NOT APPROVED. State 1 — revise plan.**
 
 ---
 

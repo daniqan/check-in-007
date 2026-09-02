@@ -7,13 +7,13 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
 - [x] Multi-device check-in log consolidation / merge tooling (§9) — done in `3168a28`: pure `src/lib/log-merge.mjs` (parse/normalize/dedupe/sort) + `store.mjs` preview/merge APIs + admin Merge-Logs UI; Implementation Verification v4 = 98/100 VERIFIED (38 unit + 10 e2e green)
 - [x] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6) — done in `b63a8ff`: pure `src/lib/audio.mjs` (factory-based availability, gesture unlock, per-cue oscillator/gain with exact §4.3 automation, guarded non-awaited playback resume, `dispose()`) + `store.mjs` audio-settings persistence + admin opt-in checkbox; Implementation Verification v5 = 98/100 VERIFIED (52 unit + 12 e2e green, default-off, privacy test-enforced)
-- [ ] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
+- [/] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
 - [ ] On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)
 
 ## Polish & Technical Debt
 - [x] Add a lint/format check (e.g. `prettier --check`) to `package.json` scripts and Phase 0 acceptance (done in `07ef178`: `npm run lint` + `.prettierrc.json`; `prettier --check .` clean)
 - [x] Font subsetting (Latin + needed glyphs) and a stated single-file artifact size budget (done: `scripts/font-subset.sh` subsets to Latin ranges; `build.mjs` enforces ≤750 KB gzip / ≤1.2 MB; artifact is 20,683 gzip bytes)
-- [/] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)
+- [ ] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a) — plan v14 was APPROVED at 98/100 (Cycle 5 Rev 3) but never implemented; returned to `[ ]` when Cycle 6 pivoted to the native build. Approved plan preserved in git `ff40b18` for a future cycle.
 - [ ] Add a CI workflow (e.g. GitHub Actions) running `npm ci` + `npm run lint`/`test`/`build` on the pinned Node 24 line, with Playwright browser install/cache — explicitly deferred by plan v14 §4.6/§13 (no `.github/` exists today; secrets/runner/cache policy is a separate operational decision)
 - [x] Add both `apple-mobile-web-app-capable` and the modern `mobile-web-app-capable` meta tags (done: present in `index.html` and built `dist/index.html`)
 - [x] axe-core accessibility pass wired into the e2e suite (done: `tests/e2e/checkin.spec.mjs` runs `axe.run` and asserts zero serious/critical)
@@ -68,10 +68,11 @@ engines, the guard, script wiring, README, unit tests) closes this item (`[/]` �
 −1 backlog deduction, and resets the accruing inactivity decay (now −3). See
 `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 5 Rev 3 and `CONSOLIDATED_AUDIT.md` v23.
 
-With Node 24 now `[/]`, three items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build,
-the on-device static-HTTPS helper, and the newly-added CI-workflow item — for a backlog deduction of
-−1 (3 unchecked, 1 pt per 2, round down). Each is a separate subsystem and a candidate for a future
-planning cycle.
+As of Cycle 6, native SwiftUI is `[/]` (in progress) and three items remain strictly not-done
+(`[ ]`) — the on-device static-HTTPS helper, the CI-workflow item, and the Node 24 toolchain bump
+(returned to `[ ]` after its approved plan v14 was abandoned unimplemented) — for a backlog deduction
+of −1 (3 unchecked, 1 pt per 2, round down). Each is a separate subsystem and a candidate for a future
+planning cycle. (This paragraph superseded by the Cycle 6 note below.)
 
 **Audit v24 (no change since v23):** Plan v14 (Node 24 LTS toolchain) remains APPROVED at 98/100 and
 is unchanged, but the approved plan has **not been implemented** — `.nvmrc`, `.node-version`,
@@ -80,3 +81,20 @@ is unchanged, but the approved plan has **not been implemented** — `.nvmrc`, `
 prettier clean on Node v26.3.0). This is the **fourth consecutive idle cycle** of cycle 5 (inactivity
 decay −4, cap −5). Implementing plan v14 flips Node 24 `[/]` → `[x]`, recovers the backlog deduction,
 and resets the decay. See `CONSOLIDATED_AUDIT.md` v24.
+
+**Cycle 6 is open** (State 1 — revise the plan): the approved-but-never-implemented Cycle-5 Node-24
+plan was **abandoned**, and `IMPLEMENTATION_PLAN.md` was replaced v14 → v15 with a new plan for the
+**"Native SwiftUI iPad build"** item, now in progress (`[/]`); the Node-24 item is returned to `[ ]`
+(its approved plan v14 is preserved in git `ff40b18`). **Plan v15 was critiqued at 91/100 — NOT
+APPROVED** (Cycle 6 Rev 1). It is strong and source-grounded (roster name/count, `slugify`/
+`normalizeGuests`, storage keys, CSV columns, and `visitId` idempotency all verified; Xcode 26.4 is
+installed) but held below the ≥95 gate by four mechanically-fixable items: (1) no verification path
+when **no iPad simulator runtime is installed** (`xcrun simctl list runtimes` is empty) — the entire
+gate is `xcodebuild … test` on a simulator; (2) `npm run lint` (`prettier --check .`) will check the
+generated `native/**/*.json`, which `.prettierignore` does not exclude and the plan does not
+guarantee Prettier-clean; (3) `extractDefaultGuests` requires `id` on rows that only carry
+`{ name, table }`; (4) the hand-committed multi-target `.pbxproj` production method is unspecified.
+**Next action: revise plan v15 to ≥95, then implement it** — landing native code is also the only
+thing that resets the inactivity decay (now at the −5 cap, fifth idle cycle). Strict-unchecked `[ ]`
+= 3 (offline-HTTPS helper, CI workflow, Node 24) → backlog −1. See `IMPLEMENTATION_PLAN_CRITIQUE.md`
+Cycle 6 Rev 1 and `CONSOLIDATED_AUDIT.md` v25.
