@@ -31,10 +31,16 @@ and the §4.1 magic-number nit) that were tracked in `CONSOLIDATED_AUDIT.md` Req
 
 Cycle 2 is **complete**: `IMPLEMENTATION_PLAN.md` v5 ("Roster windowing/virtualization") was
 implemented in commit `21e06f3` and passed **Implementation Verification v3 = 97/100 — VERIFIED**
-(see `IMPLEMENTATION_PLAN_CRITIQUE.md`). The item is now `[x]`. Loop → **State 4 (cycle complete)**;
-the −2 inactivity decay resets to 0 now that source has changed.
+(see `IMPLEMENTATION_PLAN_CRITIQUE.md`). The roster-windowing item is now `[x]`.
 
-Five items remain not-done here (all `[ ]`), for a backlog deduction of −2 (1 pt per 2, round down).
-The largest remaining levers are the four deferred features (multi-device merge, scan audio, native
-SwiftUI, offline-HTTPS helper) plus the optional Node 24 toolchain bump — each is a separate
-subsystem and a candidate for the next planning cycle.
+**Cycle 3 is open** (State 1 — revise plan): the "Multi-device check-in log consolidation / merge
+tooling" item is now `[/]` (in progress). `IMPLEMENTATION_PLAN.md` v6 targets it and is critiqued at
+**93/100 — NOT APPROVED** (Plan Critique Rev 1) — three moderate gaps below the ≥95 gate (build
+`modules`-order dependency on `csv.mjs`, missing CSV parse-throw error path, unspecified
+cross-device timestamp ordering). The item moves to `[x]` only after the plan clears ≥95 and its
+implementation is VERIFIED.
+
+Four items remain strictly not-done here (`[ ]`), for a backlog deduction of −2 (1 pt per 2, round
+down); the merge item is `[/]` and not counted as unchecked. The remaining levers are the three
+other deferred features (scan audio, native SwiftUI, offline-HTTPS helper) plus the optional Node 24
+toolchain bump — each a separate subsystem and a candidate for a future planning cycle.

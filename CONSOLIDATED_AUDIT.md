@@ -1,22 +1,57 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 71/100
-**Audit Version:** v12
-**Audited:** commit `21e06f3` on 2026-09-02 (Cycle 2 — roster virtualization IMPLEMENTED & VERIFIED)
-**Stage:** Cycle 2, **State 4 — cycle complete (Implementation Verification v3 = 97/100, VERIFIED)**
+**Current Score**: 70/100
+**Audit Version:** v13
+**Audited:** commit `f6e09eb` on 2026-09-02 (Cycle 3 opened — multi-device log merge plan v6)
+**Stage:** Cycle 3, **State 1 — revise plan (Plan Critique Rev 1 = 93/100, NOT APPROVED)**
 
-> **STATE 4 — CYCLE COMPLETE.** `IMPLEMENTATION_PLAN.md` v5 (roster windowing/virtualization for
-> lists >500 rows) is **implemented** in commit `21e06f3` and passes **Implementation Verification
-> v3 = 97/100 — VERIFIED** (≥95 gate cleared). All four phases + Phase 2b are COMPLIANT, confirmed by
-> execution: `npm run lint` clean, `npm run test:unit` **22/22** (7 new virtual-list cases),
-> `npm run test:e2e` **9/9** (new 620-row virtualization spec: bounded DOM ≤40, single-line long-name,
-> axe-green, late-list select + full SCAN/RESULT, search revert to non-virtualized with `scrollTop=0`),
-> `npm run build` → 22,091 gzip bytes within budget with correct `virtual-list.mjs`-before-`roster.mjs`
-> module ordering and zero residual module syntax. Both plan Path-to-100 nits are resolved in code
-> (down-transition `.is-virtualized` toggle; single-rAF zero-viewport remeasure guard). One beneficial
-> deviation: an explicit `.is-virtualized .guest-row { height:58px }` rule pins the button to the fixed
-> pitch. Code landed → **−2 inactivity decay resets to 0**; the roster-windowing backlog item moves
-> `[/]` → `[x]`. **Next: open a new planning cycle from a remaining backlog item** (do not re-implement).
+> **STATE 1 — REVISE PLAN.** Cycle 3 has opened against the `BACKLOG.md` "Multi-device check-in log
+> consolidation / merge tooling" item (now `[/]` in progress). `IMPLEMENTATION_PLAN.md` v6 landed
+> (commit `f6e09eb`) and is critiqued at **93/100 — NOT APPROVED** (Plan Critique Rev 1), three
+> concrete moderate gaps below the ≥95 gate: (1) the build `modules`-array order dependency states
+> only "`log-merge.mjs` before `store.mjs`" but omits that it must also sit **after** `csv.mjs`
+> (which it imports `parseCsv` from) — the same build-ordering bug class that blocked the prior cycle;
+> (2) §8's error taxonomy handles the JSON parse throw but not `parseCsv`'s unterminated-quote throw
+> (`csv.mjs:41`); (3) cross-device timestamp ordering is unspecified — `formatLocalIso` emits
+> offset-bearing ISO, so a string sort is not chronological across mixed timezone/DST offsets. Scope
+> is otherwise adequate (one backlog item, others correctly deferred; zero open audit defects). No
+> source changed since v12's code landing → **first idle cycle, −1 inactivity decay**. **Next: revise
+> plan v6 to clear all three blockers (see `IMPLEMENTATION_PLAN_CRITIQUE.md` Path to ≥95), then
+> re-review.** Do not begin implementation until the plan scores ≥95.
+
+## Summary (v13)
+
+Cycle 3 opened. Cycle 2 (roster virtualization) is archived and remains VERIFIED. Commits since v12
+are documentation only — `e7083f9` (archive cycle 2) and `f6e09eb` (plan v6) — **no source code
+changed**. `IMPLEMENTATION_PLAN.md` v6 (offline multi-device check-in log consolidation / merge
+tooling) is critiqued at **93/100 — NOT APPROVED** (Plan Critique Rev 1). The plan is genuinely
+strong — clean pure-lib/store/UI separation matching existing conventions, correct one-item scope
+with the other four backlog features explicitly deferred, an alternatives analysis (§4), a full
+integration map (§7), and thorough edge-case/testing sections — and every factual claim about the
+current code was verified against source (`LOG_COLUMNS` matches `exportLogCsv` at `store.mjs:103`;
+`Blob.text()`/`revokeObjectURL` match `admin.mjs:20-28`; `visitId` is effectively globally unique at
+`app.mjs:11`). It falls three moderate, mechanically-fixable gaps short of the gate: the `csv.mjs`
+build-order dependency, the missing CSV parse-throw error path, and unspecified mixed-timezone/DST
+ordering. Loop is at **State 1 — revise plan**.
+
+No source changed since the v12 code landing (commit `21e06f3`), so this is the **first idle cycle**
+→ **−1 inactivity decay**. The merge backlog item moved `[ ]` → `[/]` (in progress); strict-unchecked
+`[ ]` items drop 5 → 4, backlog deduction holds at **−2** (1 pt per 2, round down). Base system
+health is unchanged at 73 (shipped system untouched, no open defects, no regressions). The audit
+score edges **71 → 70**. The only lever now is to revise plan v6 to ≥95 and implement it — until code
+lands, inactivity decay will continue to accrue.
+
+---
+
+## Summary (v12, retained)
+
+Plan v5 is **implemented and VERIFIED**. Commit `21e06f3` ("feat(roster): implement approved
+virtualization plan", 8 files) lands the pure windowing helper `src/lib/virtual-list.mjs`, the
+`roster.mjs` virtual-render integration, the config constants, the CSS geometry, the
+`scripts/build.mjs` module-array ordering (`virtual-list.mjs` before `screens/roster.mjs`), and the
+unit + e2e coverage. **Implementation Verification v3 = 97/100 — VERIFIED**. The loop reached
+**State 4 — cycle complete**; code landing reset the −2 decay to 0 and moved the roster-windowing
+backlog item `[/]` → `[x]`. Audit score climbed **67 → 71**.
 
 ## Summary (v12)
 
@@ -113,24 +148,38 @@ Base score (8 criteria, /10 each), judged against the **verified** system (now i
 | Feature completeness | 10/10 | All four flow states + admin + **roster virtualization for >500 rows** now shipped and test-proven end-to-end |
 | Risk management | 9/10 | Deps pinned, artifact budget enforced (22,091 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added |
 
-**Base Score:** 73/100
+**Base Score:** 73/100 (unchanged — shipped system untouched since v12; no code, no new defects, no regressions)
 
 **Deductions:**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
-- Backlog: −2 (5 items `- [ ]` in `BACKLOG.md`; 1 pt per 2, round down — roster-windowing item now `[x]`)
-- Inactivity: −0 (code landed in commit `21e06f3`; decay reset from −2)
+- Backlog: −2 (4 items `- [ ]` in `BACKLOG.md`; merge item now `[/]` in progress; 1 pt per 2, round down)
+- Inactivity: −1 (first idle cycle since v12 code landing `21e06f3`; only doc/plan commits since)
 
-**Current Score**: 71/100
+**Current Score**: 70/100
 
-Trajectory: cycle 2 completed — plan v5 implemented and VERIFIED (97/100). Feature completeness rises
-9 → 10 (windowing ships), code landing resets the −2 decay to 0, and marking the roster-windowing
-backlog item `[x]` lifts the backlog deduction −3 → −2. Net **67 → 71**. No open defects in the shipped
-system. The score is now bounded almost entirely by the 5 remaining backlog items (−2) plus the
-base-health headroom; the lever to climb further is a **new planning cycle** on a remaining backlog
-item, not more work on the verified roster code.
+Trajectory: cycle 3 opened; plan v6 (multi-device log merge) critiqued at **93/100 — NOT APPROVED**
+(State 1). No source has changed since the v12 code landing, so **−1 inactivity decay** (first idle
+cycle) drops the score **71 → 70**. Base health holds at 73 (no shipped-system change, no open
+defects). Moving the merge backlog item `[ ]` → `[/]` keeps strict-unchecked at 4 → backlog −2
+(unchanged). The lever to climb is to revise plan v6 to ≥95 and implement it — every further idle
+cycle adds another −1 decay until code lands.
 
 ## Findings
 
+- **NOT APPROVED (plan v6, Rev 1)** — Multi-device log merge plan scores **93/100**, three moderate
+  gaps below the ≥95 gate (all verified against source): (1) §3/§4.4/§6-Phase4/§7.5 state only
+  "`log-merge.mjs` before `store.mjs`" but omit that it must also sit **after** `src/lib/csv.mjs` in
+  the `build.mjs:7-20` `modules` array, since `log-merge.mjs` imports `parseCsv` and the bundler
+  resolves aliases at init time (`build.mjs:106-115`) — same build-order class that blocked the prior
+  cycle; (2) §8's error taxonomy catches `JSON.parse` throws but not `parseCsv`'s unterminated-quote
+  throw (`csv.mjs:41`), violating Phase 3's "file-level failures do not throw out of the whole batch";
+  (3) ordering is "by timestamp ascending" without specifying numeric `Date.parse` vs. string compare,
+  and `formatLocalIso` (`format.mjs:1-11`) emits offset-bearing ISO, so a string sort is not
+  chronological across mixed timezone/DST offsets — a real multi-device scenario. Scope is adequate
+  (one backlog item, other four correctly deferred; zero open audit defects; §4 alternatives; §7
+  integration map). Four minor Path-to-100 nits (store method/import name collision, Apply-Merge event
+  wiring guard, "no mutation" vs. clean-malformed-rows wording, e2e literal-fixture). Loop → State 1
+  (revise plan). See `IMPLEMENTATION_PLAN_CRITIQUE.md` Rev 1.
 - **VERIFIED (implementation, v3)** — Roster virtualization (plan v5) implemented in commit `21e06f3`
   and scores **97/100** (≥95 gate cleared). All plan sections COMPLIANT, confirmed by execution: 22/22
   unit, 9/9 e2e, lint clean, build 22,091 gzip bytes within budget with correct module ordering and no
@@ -188,14 +237,21 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 2 is **complete** — **State 4**. `IMPLEMENTATION_PLAN.md` v5 is implemented (commit `21e06f3`)
-and passes **Implementation Verification v3 = 97/100 — VERIFIED**. No fixes are required; **do NOT
-re-touch the verified roster code.** To raise the audit score further, **open a new planning cycle**
-targeting a remaining backlog item — the highest-value candidates are multi-device check-in log
-consolidation, optional scan-blip audio, the native SwiftUI iPad build, the on-device static-HTTPS
-helper, or the Node 24 LTS toolchain bump. The generator should archive cycle 2 alongside cycle 1,
-draft a v-next `IMPLEMENTATION_PLAN.md` for the chosen item, and re-enter Mode 1 (plan review) at the
-≥95 approval gate. Until a new cycle produces code, expect inactivity decay to resume.
+Cycle 3 is at **State 1 — revise plan**. `IMPLEMENTATION_PLAN.md` v6 (multi-device log merge) is
+critiqued at **93/100 — NOT APPROVED**. The generator must revise the plan to clear the three
+BLOCKING items in `IMPLEMENTATION_PLAN_CRITIQUE.md` "Path to ≥95":
+
+1. Require `log-merge.mjs` **after `src/lib/csv.mjs` and before `src/lib/store.mjs`** in the
+   `build.mjs` `modules` array (§5/§6-Phase4/§7.5), with a build assertion that the `log-merge`
+   namespace resolves.
+2. Wrap `parseCsv` in try/catch inside `parseLogCsv` so the unterminated-quote throw becomes a
+   per-file error (§8 / §6-Phase1), and add a unit test for it (§10).
+3. Define ordering as numeric `Date.parse(timestamp)` with the listed tie-breaks, preserve the
+   original string for export, and add a mixed-offset unit test (§2.5/§6-Phase1/§8/§9/§10).
+
+Addressing the four Path-to-100 nits as well is encouraged but not required for the gate. Do **not**
+begin implementation until the plan scores ≥95. Every idle cycle without code adds another −1
+inactivity decay.
 
 ## Revision History
 
@@ -213,3 +269,4 @@ draft a v-next `IMPLEMENTATION_PLAN.md` for the chosen item, and re-enter Mode 1
 | v10 | 2026-09-02 | 68 | **Cycle 2 opened** (commits `6aa1131` archive, `107eea6` plan v4). Cycle 1 archived to `archive/cycle-1/`. New plan `IMPLEMENTATION_PLAN.md` v4 (roster virtualization) critiqued at **88/100 — NOT APPROVED** (Rev 1): false §7.4 build-script claim vs. hardcoded `build.mjs:7-19` module list, `role="listbox"` axe-regression risk, fixed-height vs. 2-line-name gap, row-height/gap inconsistency. **State 1 (revise plan).** No source change since v9 → −1 inactivity decay (first idle cycle). Base 72; backlog −3 (6 not-done); inactivity −1. Score 69 → 68. |
 | v11 | 2026-09-02 | 67 | **Plan v5 landed and APPROVED at 97/100** (commit `855c436`, Plan Critique Rev 2). All four Rev-1 blockers resolved with source-verified fixes (build module-ordering §Phase 2b + manifest, `role="listbox"` rejected for native semantics + axe-green, single-line clamp with 66/58 px split, row-height/gap via two config constants); all five Rev-1 Path-to-100 items closed; two non-blocking nits remain. Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v9 → −2 inactivity decay. Base 72; backlog −3 (6 not-done); inactivity −2. Score 68 → 67. |
 | v12 | 2026-09-02 | 71 | **Roster virtualization IMPLEMENTED & VERIFIED** (commit `21e06f3`, 8 files). **Implementation Verification v3 = 97/100 — VERIFIED**: all plan phases (1–4 + 2b), §7 integration, §9 cleanup COMPLIANT, confirmed by execution — lint clean, **22/22** unit, **9/9** e2e (620-row spec: bounded DOM ≤40, single-line long-name, axe-green, late-list select + full SCAN/RESULT, search revert to non-virtualized `scrollTop=0`), build 22,091 gzip bytes within budget with correct `virtual-list.mjs`-before-`roster.mjs` ordering + clean artifact. Both plan Path-to-100 nits closed in code; one beneficial deviation (`.is-virtualized .guest-row{height:58px}`). Loop → **State 4 (cycle complete)**. Feature completeness 9→10; code landed resets decay −2→0; roster-windowing backlog `[/]`→`[x]` (backlog −3→−2). Base 73; backlog −2; inactivity −0. Score 67 → 71. |
+| v13 | 2026-09-02 | 70 | **Cycle 3 opened** (commits `e7083f9` archive, `f6e09eb` plan v6). New plan `IMPLEMENTATION_PLAN.md` v6 (multi-device check-in log merge tooling) critiqued at **93/100 — NOT APPROVED** (Rev 1): three moderate gaps below the gate — (1) build `modules`-order dependency omits that `log-merge.mjs` must sit after `csv.mjs` (imports `parseCsv`) as well as before `store.mjs`; (2) §8 error taxonomy misses `parseCsv`'s unterminated-quote throw (`csv.mjs:41`); (3) cross-device timestamp ordering unspecified (offset-bearing ISO → string sort not chronological across mixed tz/DST). Scope adequate (one backlog item, four correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v12 → −1 inactivity decay (first idle cycle); merge backlog item `[ ]`→`[/]` (strict-unchecked 5→4, backlog −2 holds). Base 73; backlog −2; inactivity −1. Score 71 → 70. |
