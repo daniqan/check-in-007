@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v13
+# Check-In 007 — Implementation Plan v14
 
 > Cycle 5 backlog plan. Source item: `BACKLOG.md` Polish & Technical Debt item
 > "Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a)", now
@@ -92,12 +92,16 @@ Failure domains:
    `.node-version` covers asdf and mise. A single file was considered, but maintaining
    both is low cost and reduces setup ambiguity across developer machines.
 
-5. **Use Node 24's `import.meta.main` for CLI execution detection.** Node's ESM
-   documentation lists `import.meta.main` as added in Node `v24.2.0`; the target runtime
-   is `24.20.0`, so this plan can use it instead of the fragile
-   `` import.meta.url === `file://${process.argv[1]}` `` comparison. The URL comparison
-   was considered, but it mishandles spaces, percent-encoded characters, symlinks, and
-   platform path differences.
+5. **Use `pathToFileURL(process.argv[1]).href` for CLI execution detection.** The guard
+   must execute on unsupported runtimes too, including Node 20, Node 22 before `22.18.0`,
+   and Node 23, so it cannot rely on `import.meta.main` being present. Node's
+   `node:url` `pathToFileURL` API is available on the unsupported runtimes this guard is
+   designed to reject and produces a correct file URL for spaces, percent-encoded
+   characters, and platform path differences. A raw
+   `` import.meta.url === `file://${process.argv[1]}` `` comparison was considered, but it
+   mishandles those paths. `import.meta.main` was also considered, but it was added only
+   in Node `v24.2.0` and backported to `v22.18.0`; on Node 20, early Node 22, and Node 23
+   it can be `undefined` and would let the CLI no-op with exit code `0`.
 
 6. **Do not add CI in this cycle.** The repository has no `.github/` workflow today.
    Adding CI would be useful, but it is a separate operational change with secrets,
@@ -114,7 +118,7 @@ IMPLEMENTATION_PLAN.md           (MOD) — Replace completed cycle-4 plan with t
 package.json                     (MOD) — Tighten engines and add check:node script wiring.
 package-lock.json                (MOD) — Mirror the root package engine range.
 scripts/check-node-version.mjs   (NEW) — Fail-fast Node major guard.
-tests/unit/node-version.test.mjs (NEW) — Unit-test version parsing and supported range logic.
+tests/unit/node-version.test.mjs (NEW) — Unit-test version parsing, range logic, and CLI dispatch.
 README.md                        (MOD) — Document Node 24 setup and validation expectations.
 ```
 
@@ -154,6 +158,8 @@ Acceptance criteria:
 Create `scripts/check-node-version.mjs`:
 
 ```js
+import { pathToFileURL } from 'node:url';
+
 export const SUPPORTED_NODE_MAJOR = 24;
 
 export function parseNodeMajor(version = process.versions.node) {
@@ -189,10 +195,11 @@ export function main({ version = process.versions.node, stderr = process.stderr 
 ```
 
 The executable tail must be guarded so unit tests can import the functions without
-exiting the test process:
+exiting the test process. Use the version-agnostic file-URL comparison so the guard
+still runs on older unsupported Node majors where `import.meta.main` is unavailable:
 
 ```js
-if (import.meta.main) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exitCode = main();
 }
 ```
@@ -202,6 +209,8 @@ Acceptance criteria:
 - Node `24.x.y` exits `0`.
 - Node `22.x`, `23.x`, `25.x`, `26.x`, empty strings, and malformed values exit `1`.
 - Failure output is one line and names the detected version.
+- `node scripts/check-node-version.mjs` invokes `main()` when executed as a script on
+  Node 20/22/23/24/25/26; unsupported majors fail closed instead of no-oping.
 
 ### Phase 3: Script Wiring And Docs
 
@@ -244,6 +253,7 @@ Add `tests/unit/node-version.test.mjs`:
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   formatUnsupportedNodeMessage,
   isSupportedNodeVersion,
@@ -254,6 +264,7 @@ import {
 test('parseNodeMajor accepts plain and v-prefixed versions', () => { ... });
 test('isSupportedNodeVersion accepts only Node 24', () => { ... });
 test('main returns 1 and writes a recovery hint for unsupported versions', () => { ... });
+test('CLI executable tail runs main for the current process major', () => { ... });
 ```
 
 Run under Node 24.20.0:
@@ -272,6 +283,9 @@ Acceptance criteria:
 - `node --version` prints `v24.20.0` or another `v24.x.y` LTS patch if the official
   installer advances before implementation.
 - Unit tests include the new guard tests and all existing tests remain green.
+- The child-process smoke test spawns `node scripts/check-node-version.mjs` with the
+  current runtime and asserts exit code `0` only when the running major is 24, otherwise
+  exit code `1`.
 - E2E tests remain green with the existing Playwright fake-camera launch flags.
 - `dist/index.html` still builds under the existing gzip/raw byte budgets.
 
@@ -314,9 +328,12 @@ machine; the accepted validation path remains the guarded `npm run lint`, `npm t
    - Migration path: developers run `nvm install && nvm use`, then rerun the same command.
 
 3. **test runner**
-   - Contract: `tests/unit/node-version.test.mjs` imports pure functions from the guard.
+   - Contract: `tests/unit/node-version.test.mjs` imports pure functions from the guard
+     and includes a child-process smoke test for the executable tail.
    - Failure mode: an unguarded `process.exit()` would abort the unit suite.
-   - Migration path: keep CLI execution behind `import.meta.main`.
+   - Migration path: keep CLI execution behind
+     `import.meta.url === pathToFileURL(process.argv[1]).href`; the child-process smoke
+     test verifies that direct script execution reaches `main()`.
 
 4. **static artifact build**
    - Contract: `scripts/build.mjs` output is unchanged except being invoked under Node 24.
@@ -377,6 +394,10 @@ Unit tests:
 - `main({ version: '26.3.0', stderr })` returns `1` and writes a message containing
   `Node 24 LTS`, `26.3.0`, and `nvm install && nvm use`.
 - `main({ version: '24.20.0', stderr })` returns `0` and writes nothing.
+- A child-process smoke test uses
+  `spawnSync(process.execPath, ['scripts/check-node-version.mjs'])` and asserts the exit
+  status matches `isSupportedNodeVersion(process.versions.node) ? 0 : 1`; this proves
+  the executable tail calls `main()` instead of only testing imported pure functions.
 
 Regression tests:
 
