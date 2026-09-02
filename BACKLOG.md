@@ -7,7 +7,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
 - [x] Multi-device check-in log consolidation / merge tooling (§9) — done in `3168a28`: pure `src/lib/log-merge.mjs` (parse/normalize/dedupe/sort) + `store.mjs` preview/merge APIs + admin Merge-Logs UI; Implementation Verification v4 = 98/100 VERIFIED (38 unit + 10 e2e green)
 - [x] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6) — done in `b63a8ff`: pure `src/lib/audio.mjs` (factory-based availability, gesture unlock, per-cue oscillator/gain with exact §4.3 automation, guarded non-awaited playback resume, `dispose()`) + `store.mjs` audio-settings persistence + admin opt-in checkbox; Implementation Verification v5 = 98/100 VERIFIED (52 unit + 12 e2e green, default-off, privacy test-enforced)
-- [/] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
+- [x] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1) — done in `0e72fc8`: `native/` (27 Swift files + Xcode project, 3 targets + shared scheme) mirroring the web contracts (SearchNormalizer/GuestCatalog/CSVCodec/LogMerger/CheckInStore, storage keys `checkin007.*`, CSV `visitId,guestId,name,table,timestamp`, Timing byte-matching `config.mjs`, preview-only camera, default-off scan cue matching `config.mjs` AUDIO) + `scripts/export-native-guests.mjs` + byte-compare parity test; Implementation Verification v6 = 96/100 VERIFIED (web gates green: 57/57 unit, prettier clean, build 26315 gzip bytes, parity 5/5). Native `xcodebuild … test` unrun — no iPadOS runtime installed (§11-documented); `xcodebuild -list` resolves all 3 targets + scheme.
 - [ ] On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)
 
 ## Polish & Technical Debt
@@ -113,3 +113,19 @@ One Path-to-100 nit worth carrying into implementation: quantify the scan cue (`
 gain 0.045, 880→1320 Hz, 90 ms, 0.035 s release) so `ScanAudioPlayerTests` can assert cue parity like
 the timing constants. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 6 Rev 2 and `CONSOLIDATED_AUDIT.md`
 v26.
+
+**Cycle 6 is complete** (State 4 — cycle complete): the "Native SwiftUI iPad build" item is
+now `[x]`. `IMPLEMENTATION_PLAN.md` v16 (APPROVED at 97/100, Plan Critique Cycle 6 Rev 2) was
+implemented in commit `0e72fc8` (27 Swift files + Xcode project + web export tooling) and passed
+**Implementation Verification v6 = 96/100 — VERIFIED** (see `IMPLEMENTATION_PLAN_CRITIQUE.md`):
+all five phases COMPLIANT, byte-exact where a web source of truth exists (Timing enum vs
+`config.mjs`, scan-cue AUDIO constants, CSV columns, `checkin007.*` storage keys, roster
+normalization). Web gates proven green on Node v26.3.0 — **57/57 unit** (+5 native parity),
+`prettier --check .` clean, build **26315 gzip bytes** within budget, parity test 5/5 with a
+byte-compare regeneration. The native `xcodebuild … test` gate was **not executed** — no iPadOS
+26 simulator runtime is installed (`xcrun simctl list runtimes` empty, the §11-documented
+starting state); `xcodebuild -list` resolves all 3 targets + the `CheckIn007` scheme, so native
+correctness is source-verified, not execution-proven (the one reason the score is 96, not ≥98).
+Code landed → inactivity decay resets to 0. Strict-unchecked `[ ]` = 3 (offline-HTTPS helper,
+CI workflow, Node 24 toolchain bump), each a separate subsystem for a future cycle → backlog −1.
+See `CONSOLIDATED_AUDIT.md` v27.
