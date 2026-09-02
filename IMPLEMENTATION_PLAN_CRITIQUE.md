@@ -6,6 +6,118 @@
 
 ---
 
+## Plan Critique — Revision 4
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `b2178c2`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v11
+**Score:** **99 / 100** (previous: 99 — Rev 3)
+**Status:** APPROVED — the single Rev-3 Path-to-100 nit (unlock idempotency) is now stated
+explicitly; one equally-cosmetic test-coverage nit takes its place, so the score holds at 99.
+
+Plan v11 is a two-hunk, documentation-only follow-up to the already-approved v10. It does not
+touch scope, architecture, or any gate-blocking mechanism — it closes the exact Path-to-100
+item Rev 3 listed. Re-reviewed under the staleness rule (v11 > the v10 that Rev 3 critiqued).
+The plan remains implementation-ready, correctly scoped to the one in-progress backlog item,
+dependency-free, default-off, and privacy-preserving (`{ audio: false }`, no
+`MediaRecorder`/`captureStream`).
+
+The v10→v11 diff (two hunks) and its correctness:
+
+1. **`unlockFromGesture()` idempotency stated in the Phase-2 contract — RESOLVED (was the sole
+   Rev-3 Path-to-100 nit / Omission).** The controller contract now reads: "`unlockFromGesture()`
+   is idempotent across repeated roster selections: after the controller is already unlocked and
+   the context is `running`, a later call re-marks the controller unlocked and returns `true`
+   without creating another context or calling `resume()` again" (lines 293-296). This is exactly
+   the one-line statement Rev 3 asked for, and it is consistent with the pre-existing contract "if
+   state is `running`, it marks unlocked" (line 292).
+
+2. **§8 "Multiple rapid selections" idempotency footnote — RESOLVED (same nit, second location).**
+   §8 now adds: "Repeated eligible selections across a normal session may call
+   `unlockFromGesture()` again, but an already-unlocked running context is treated as a safe no-op
+   and does not create a second context or churn `resume()` calls" (lines 533-535). The two
+   statements agree; the behavior is a safe no-op, so it introduces no logic risk.
+
+Source re-verified for this revision (no source has changed since the v15 landing `3168a28`):
+`mountAdmin(root, { store, onRosterChanged, onClose })` (`admin.mjs:31`) confirms
+`audioSettings`/`onAudioSettingsChanged` remain net-new; `.merge-panel` (`admin.mjs:43`) and
+`.admin-grid` (`admin.mjs:49`) hold the insertion point; `SCAN_MS: 4500` (`config.mjs:3`) confirms
+the ~4.5 s unlock→playback gap the guarded playback-path resume targets.
+
+## Issues resolved in revision 4
+
+The single Rev-3 Path-to-100 item (unstated `unlockFromGesture()` idempotency) is closed in two
+locations (enumerated above). No new issues introduced; the diff is purely additive clarification.
+
+## Remaining issues
+
+No gate-blocking or specificity issues remain. Only the single cosmetic Path-to-100 nit below.
+
+## Scope Check
+
+Unchanged from Rev 3 and still adequate.
+- **Audit findings in scope but not addressed:** None. `CONSOLIDATED_AUDIT.md` reports all Required
+  Actions #1–#8 DONE and zero open defects.
+- **Backlog items in scope but not addressed:** None mis-scoped. Addresses the in-progress item
+  (`BACKLOG.md:9`, `[/]`); the three `- [ ]` items (native SwiftUI, offline-HTTPS helper, Node 24
+  bump) are independent subsystems correctly deferred.
+- **Integration points analyzed:** Yes — §7's six contracts are unchanged.
+- **Alternatives considered:** Yes — §4 unchanged.
+- **Score cap applied:** None.
+
+## Flaws of Commission
+
+No flaws of commission identified. The v11 diff adds no logic — only documentation of an
+already-implied safe no-op. The idempotency statement is behaviorally consistent with the existing
+`running`→marks-unlocked contract.
+
+## Flaws of Omission
+
+No gate-blocking omissions. One cosmetic residue (Path-to-100): the plan now *specifies*
+`unlockFromGesture()` idempotency as a contract (no second context, no repeated `resume()`) but
+§10's unit-test enumeration does not list a matching assertion. §10 tests repeated *playback*
+("repeated successful playback creates two oscillator instances", line 582) but not repeated
+*unlock* on an already-`running` context. A newly-stated behavioral contract ideally gets a test
+so a future regression (e.g. calling `resume()` on every selection) would be caught. This is
+minor — the behavior is a safe no-op and the e2e single-selection flow exercises the unlock path
+once — but it is a concrete, actionable gap.
+
+## Regressions
+
+No regressions identified. The v11 changes are documentation-only relative to v10; artifact-size
+budget, `onSelect`/visit-id semantics, the `RESULT` transition, and camera privacy are all
+unchanged.
+
+## Why 99 and not 100
+
+The plan closed the exact Rev-3 nit, but in specifying the idempotency contract it created one
+equally-cosmetic successor: that contract has no matching §10 unit assertion (Flaws of Omission).
+A flawless plan would enumerate a "repeated `unlockFromGesture()` on a running context creates no
+second context and calls `resume()` at most once" test alongside the contract. This does not gate
+approval or implementation correctness — it is polish only.
+
+**This nit is not worth another plan-revision pass.** The plan has been at the 99 ceiling since v9
+cleared the gate (Rev 2 = 97 → Rev 3 = 99 → Rev 4 = 99), and every plan-only commit since the v15
+code landing has accrued another −1 inactivity decay (audit 72 → 71 → 70 → 69). Fold the
+idempotency unit assertion into `tests/unit/audio.test.mjs` *during implementation*; do not spend
+another cycle editing the plan for it.
+
+## Path to 100
+
+- In §10's `tests/unit/audio.test.mjs` list, add one assertion for the now-stated idempotency
+  contract: a second `unlockFromGesture()` call on an already-unlocked `running` context returns
+  `true`, constructs no second `AudioContext`, and calls `resume()` at most once. (Handle this
+  when writing the tests, not via another plan revision.)
+
+## Summary
+
+Plan v11 is approved at 99/100. It folds in the one Rev-3 Path-to-100 nit (unlock idempotency,
+now stated in both the Phase-2 contract and §8) with no new logic and no new issues beyond a
+single cosmetic test-coverage successor. The plan is the contract against which implementation
+will be audited. Loop remains **State 2 — implement the approved plan**. The plan is done; further
+plan-only revisions are counterproductive (each is another idle cycle) — **implement now**.
+
+---
+
 ## Plan Critique — Revision 3
 
 **Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `a381a27`

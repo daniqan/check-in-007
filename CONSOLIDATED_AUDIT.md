@@ -1,9 +1,31 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 70/100
-**Audit Version:** v18
-**Audited:** commit `a381a27` on 2026-09-02 (Cycle 4 — scan blip audio plan v10 APPROVED)
-**Stage:** Cycle 4, **State 2 — implement the approved plan (Plan Critique Rev 3 = 99/100, APPROVED)**
+**Current Score**: 69/100
+**Audit Version:** v19
+**Audited:** commit `b2178c2` on 2026-09-02 (Cycle 4 — scan blip audio plan v11 APPROVED)
+**Stage:** Cycle 4, **State 2 — implement the approved plan (Plan Critique Rev 4 = 99/100, APPROVED)**
+
+> **STATE 2 — IMPLEMENT THE APPROVED PLAN (v19).** `IMPLEMENTATION_PLAN.md` was bumped v10→v11
+> (commit `b2178c2`, "clarify audio unlock idempotency") after the Rev-3 approval, so it was
+> re-reviewed under the staleness rule. **Plan Critique Rev 4 = 99/100 — APPROVED.** v11 is a
+> two-hunk, documentation-only follow-up that folds in the single Rev-3 Path-to-100 nit — the
+> previously-unstated `unlockFromGesture()` idempotency — now stated in both the Phase-2 controller
+> contract ("a later call re-marks the controller unlocked and returns `true` without creating
+> another context or calling `resume()` again", lines 293-296) and §8 "Multiple rapid selections"
+> ("an already-unlocked running context is treated as a safe no-op and does not … churn `resume()`
+> calls", lines 533-535). No new logic and no new issues, except one equally-cosmetic successor
+> Path-to-100 nit: the now-stated idempotency contract has no matching §10 unit assertion (§10 tests
+> repeated *playback* but not repeated *unlock*). Fold that into `tests/unit/audio.test.mjs` during
+> implementation — **not** via another plan revision. Source re-verified (unchanged since v15):
+> `mountAdmin(root, { store, onRosterChanged, onClose })` (`admin.mjs:31`), `.merge-panel`/
+> `.admin-grid` (`admin.mjs:43,49`), `SCAN_MS: 4500` (`config.mjs:3`). **State 2 — implement.**
+> Still no source since the v15 code landing (`3168a28`); commits since (`c6c9151`, `d79f742`,
+> `a381a27`, `b2178c2`) are plan/doc only → **fourth consecutive idle cycle → −4 inactivity decay**.
+> Scan-audio backlog item stays `[/]` (strict-unchecked 3 → backlog −1). Base health holds at 74;
+> audit score edges **70 → 69**. **Base 74 − backlog 1 − decay 4 = 69.** The plan has been at the
+> 99 ceiling since v9 cleared the gate (Rev 2 = 97 → Rev 3 = 99 → Rev 4 = 99); the **only** lever to
+> climb is to implement plan v11 and pass Implementation Verification (≥95). Every further plan-only
+> commit accrues another −1 decay (cap −5). Do **not** revise the plan again — build it.
 
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v18).** `IMPLEMENTATION_PLAN.md` was bumped v9→v10
 > (commit `a381a27`, "clarify scan audio test contract") after the Rev-2 approval, so it was
@@ -336,27 +358,46 @@ Base score (8 criteria, /10 each), judged against the **verified** system (now i
 | Feature completeness | 10/10 | All four flow states + admin + roster virtualization + **multi-device log merge tooling** now shipped and test-proven end-to-end |
 | Risk management | 9/10 | Deps pinned, artifact budget enforced (24,660 gzip), privacy test-enforced, dual deployment modes verified; no runtime deps added; merge preserves storage key/row shape |
 
-**Base Score:** 74/100 (unchanged vs. v15/v16 — shipped system untouched since `3168a28`; no open
+**Base Score:** 74/100 (unchanged vs. v15–v18 — shipped system untouched since `3168a28`; no open
 defects, no regressions; cycle-4 work remains plan-only through approval)
 
 **Deductions:**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
 - Backlog: −1 (3 items `- [ ]` in `BACKLOG.md`; scan-audio item `[/]`; 1 pt per 2, round down)
-- Inactivity: −2 (second consecutive idle cycle since the v15 code landing `3168a28`; commits since
-  — `3a07fcd`, `c6c9151`, `2314a55`, `d79f742` — are all doc/plan only)
+- Inactivity: −4 (fourth consecutive idle cycle since the v15 code landing `3168a28`; commits since
+  — `3a07fcd`, `c6c9151`, `2314a55`, `d79f742`, `a381a27`, `b206d37`, `b2178c2` — are all doc/plan only)
 
-**Current Score**: 71/100
+**Current Score**: 69/100
 
-Trajectory: `IMPLEMENTATION_PLAN.md` v9 (optional scan blip audio) is **APPROVED at 97/100** (Plan
-Critique Rev 2) → **State 2 (implement the approved plan)**. All three Rev-1 gate-blockers plus all
-five Rev-1 Path-to-100 items resolved. No source since the v15 landing (commit `3168a28`) → **second
-idle cycle, −2 inactivity decay** (was −1 at v16). Scan-audio backlog item holds `[/]` (backlog −1).
-Base health holds at 74; the −1 additional decay drops the audit score **72 → 71**. The only lever
-to climb is to implement plan v9 and pass Implementation Verification (≥95) — until code lands,
-inactivity decay keeps accruing.
+Trajectory: `IMPLEMENTATION_PLAN.md` v11 (optional scan blip audio) is **APPROVED at 99/100** (Plan
+Critique Rev 4) → **State 2 (implement the approved plan)**. The plan cleared the ≥95 gate at v9
+(Rev 2 = 97), reached the 99 ceiling at v10 (Rev 3), and v11 folds in the last Rev-3 nit (unlock
+idempotency now stated). No source since the v15 landing (commit `3168a28`) → **fourth idle cycle,
+−4 inactivity decay** (was −3 at v18). Scan-audio backlog item holds `[/]` (backlog −1). Base health
+holds at 74; the −1 additional decay drops the audit score **70 → 69**. The **only** lever to climb
+is to implement plan v11 and pass Implementation Verification (≥95). The plan is done — further
+plan-only revisions are counterproductive; each is another idle cycle (decay caps at −5).
 
 ## Findings
 
+- **APPROVED (plan v11, Rev 4)** — Optional scan blip audio plan scores **99/100** (≥95 gate
+  cleared; unchanged ceiling). v10→v11 re-reviewed under the staleness rule; the two-hunk,
+  documentation-only diff folds in the single Rev-3 Path-to-100 nit — `unlockFromGesture()`
+  idempotency — now stated in both the Phase-2 controller contract (lines 293-296) and §8 (lines
+  533-535): an already-unlocked `running` context is a safe no-op that creates no second context and
+  does not re-`resume()`. No new logic, no new issues, except one equally-cosmetic successor nit: the
+  now-stated idempotency contract has no matching §10 unit assertion (§10 tests repeated *playback*,
+  not repeated *unlock*) — to be folded into `tests/unit/audio.test.mjs` at implementation time, not
+  via another plan revision. Source re-verified (unchanged since v15): `mountAdmin(root, { store,
+  onRosterChanged, onClose })` (`admin.mjs:31`), `.merge-panel`/`.admin-grid` (`admin.mjs:43,49`),
+  `SCAN_MS: 4500` (`config.mjs:3`). **Scope adequate** — one in-progress backlog item; three
+  subsystems correctly deferred; zero open defects. Loop stays **State 2 (implement)**. See
+  `IMPLEMENTATION_PLAN_CRITIQUE.md` Rev 4.
+- **APPROVED (plan v10, Rev 3) — superseded by Rev 4** — Optional scan blip audio plan scored
+  **99/100**. v10 folded in all four Rev-2 Path-to-100 nits (e2e mock initial `suspended` state, ms→s
+  `durationSeconds` conversion, admin inline normalization, interrupted-cue skip footnote); the sole
+  remaining nit (unlock idempotency) was closed by v11 above. See `IMPLEMENTATION_PLAN_CRITIQUE.md`
+  Rev 3.
 - **APPROVED (plan v9, Rev 2)** — Optional scan blip audio plan scores **97/100** (≥95 gate
   cleared). All three Rev-1 gate-blockers resolved with source-verified precision: (1) availability
   is **factory-based** — potentially available when `audioContextFactory` is a function; the default
@@ -501,9 +542,10 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 4 is at **State 2 — implement the approved plan**. `IMPLEMENTATION_PLAN.md` v9 (optional scan
-blip audio) is **APPROVED at 97/100**. The plan is now the contract; do **not** revise it. Implement
-the four phases as written and land code:
+Cycle 4 is at **State 2 — implement the approved plan**. `IMPLEMENTATION_PLAN.md` v11 (optional scan
+blip audio) is **APPROVED at 99/100**. The plan is now the contract; do **not** revise it again — it
+has been at the 99 ceiling since v9 cleared the gate, and each plan-only commit since has cost another
+−1 inactivity decay (72 → 71 → 70 → 69). Implement the four phases as written and land code:
 
 1. **Phase 1** — add `AUDIO` + `AUDIO_KEY` to `src/config.mjs`; add `normalizeAudioSettings` /
    `loadAudioSettings` / `saveAudioSettings` (default-off, volatile-fallback) to `src/lib/store.mjs`.
@@ -517,9 +559,11 @@ the four phases as written and land code:
    unit/store/build/e2e tests (enabled + disabled workflows, extended privacy probe) and README note.
 
 Then run `npm run lint && npm run test:unit && npm run test:e2e && npm run build` and resubmit for
-Implementation Verification (≥95 gate). The three Path-to-100 nits (e2e mock initial `suspended`
-state, ms→seconds conversion, admin normalization mechanism) are optional polish, not blockers.
-Every idle cycle with no code change accrues an additional −1 inactivity decay until code lands.
+Implementation Verification (≥95 gate). The one remaining Path-to-100 nit (add a unit assertion for
+`unlockFromGesture()` idempotency — no second context / at-most-one `resume()` on a repeated
+`running`-state call) is optional polish to fold into `tests/unit/audio.test.mjs` during
+implementation, not a blocker and not a reason to re-touch the plan. Every idle cycle with no code
+change accrues an additional −1 inactivity decay (cap −5) until code lands.
 
 ## Revision History
 
@@ -540,6 +584,7 @@ Every idle cycle with no code change accrues an additional −1 inactivity decay
 | v13 | 2026-09-02 | 70 | **Cycle 3 opened** (commits `e7083f9` archive, `f6e09eb` plan v6). New plan `IMPLEMENTATION_PLAN.md` v6 (multi-device check-in log merge tooling) critiqued at **93/100 — NOT APPROVED** (Rev 1): three moderate gaps below the gate — (1) build `modules`-order dependency omits that `log-merge.mjs` must sit after `csv.mjs` (imports `parseCsv`) as well as before `store.mjs`; (2) §8 error taxonomy misses `parseCsv`'s unterminated-quote throw (`csv.mjs:41`); (3) cross-device timestamp ordering unspecified (offset-bearing ISO → string sort not chronological across mixed tz/DST). Scope adequate (one backlog item, four correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v12 → −1 inactivity decay (first idle cycle); merge backlog item `[ ]`→`[/]` (strict-unchecked 5→4, backlog −2 holds). Base 73; backlog −2; inactivity −1. Score 71 → 70. |
 | v15 | 2026-09-02 | 72 | **Multi-device log merge IMPLEMENTED & VERIFIED** (commit `3168a28`, 11 files). **Implementation Verification v4 = 98/100 — VERIFIED**: all four phases + §7 integration + §10 testing COMPLIANT, confirmed by execution — lint clean, **38/38** unit, **10/10** e2e (merge spec asserts literal CSV fixture + axe-green dialog), build 24,660 gzip bytes within budget with artifact order `src_lib_csv`<`src_lib_log_merge`<`src_lib_store` + `parseCsv` alias wired. Two of three plan Path-to-100 nits closed in code (e2e seed-vs-live; stray-object sniff test); one non-blocking nit remains (§9 hard 250 ms benchmark). No regressions. Loop → **State 4 (cycle complete)**. Monitoring 8→9; code landed resets decay −2→0; merge backlog `[/]`→`[x]` (backlog −2, 4 unchecked). Base 74; backlog −2; inactivity −0. Score 69 → 72. |
 | v16 | 2026-09-02 | 72 | **Cycle 4 opened** (commits `3a07fcd` archive, `c6c9151` plan v8). New plan `IMPLEMENTATION_PLAN.md` v8 (optional scan blip audio, gesture-gated) critiqued at **93/100 — NOT APPROVED** (Rev 1): three mechanically-fixable gaps below the gate — (1) availability detection vs. injected `audioContextFactory` internally inconsistent (§8/Phase-2 detect from `globalThis` but the documented seam is the factory → Phase-2/§10 unit tests unauthorable); (2) app→admin audio-settings wiring defined but the `mountAdmin(...)` call never shown updated; (3) `mountAdmin`'s new `audioSettings` param has no default/guard. Scope adequate (one in-progress backlog item; three subsystems correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v15 → −1 inactivity decay (first idle cycle); scan-audio backlog item `[ ]`→`[/]` (strict-unchecked 4→3, backlog −2→−1). Base 74; backlog −1; inactivity −1. Score holds 72. |
+| v19 | 2026-09-02 | 69 | **Plan v11 APPROVED at 99/100** (commit `b2178c2`, Plan Critique Rev 4). v10→v11 re-reviewed under the staleness rule; the two-hunk, documentation-only diff folds in the single Rev-3 Path-to-100 nit — `unlockFromGesture()` idempotency — now stated in both the Phase-2 contract (lines 293-296) and §8 "Multiple rapid selections" (lines 533-535): an already-unlocked `running` context is a safe no-op (no second context, no repeated `resume()`). No new logic; one equally-cosmetic successor nit (the stated idempotency contract has no matching §10 unit assertion — fold into `tests/unit/audio.test.mjs` at implementation, not another plan revision). Scope unchanged/adequate. Loop stays **State 2 (implement)**. Still zero source since v15 (`3168a28`); commits since are plan/doc only → **fourth** consecutive idle cycle → −4 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −4. Score 70 → 69. |
 | v18 | 2026-09-02 | 70 | **Plan v10 APPROVED at 99/100** (commit `a381a27`, Plan Critique Rev 3). v9→v10 re-reviewed under the staleness rule; the documentation-only diff folds in all four Rev-2 Path-to-100 nits, each verified against diff + source: (1) e2e mock initial state pinned `suspended`→`running` on `resume()` (§10 595-597) — the sole reason v9 held at 97, now deterministic; (2) ms→s `durationSeconds = SCAN_BLIP_DURATION_MS/1000 = 0.09` stated in `scheduleBlip` + unit assertion (§6 266-268, §10 570-572); (3) admin normalizes inline `{ scanBlipEnabled: audioSettings?.scanBlipEnabled === true }`, explicitly not importing `store.normalizeAudioSettings` (391-396); (4) interrupted-cue skip tradeoff documented (§8 514-518). No new issues; one cosmetic nit (unlock idempotency across repeated selections unstated). Scope unchanged/adequate. Loop stays **State 2 (implement)**. Still zero source since v15 (`3168a28`); commits since are plan/doc only → **third** consecutive idle cycle → −3 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −3. Score 71 → 70. |
 | v17 | 2026-09-02 | 71 | **Plan v9 APPROVED at 97/100** (commit `d79f742`, Plan Critique Rev 2). The single revision since v8 closed all three Rev-1 gate-blockers + all five Rev-1 Path-to-100 items, each source-verified: (1) availability now **factory-based** (available when `audioContextFactory` is a function; default factory resolves globals internally + throws when absent; §8 reconciled) → Phase-2/§10 unit tests authorable; (2) `onAdminHold` shows the updated `mountAdmin(...)` passing `audioSettings`/`onAudioSettingsChanged`; (3) `mountAdmin` defaults + normalizes `audioSettings`. Plus: guarded non-awaited `playScanBlip()` resume for iOS auto-suspend (~4.5 s `SCAN_MS` gap), §3/§6 ordering reconciled, exact §4.3 AudioParam automation, precise e2e unlock-vs-playback resume distinction. Scope adequate (one in-progress item; three deferred; zero open defects; §4 alternatives; §7 integration). Three cosmetic Path-to-100 nits (e2e mock initial `suspended` state; ms→s `durationSeconds`; `mountAdmin` normalize import-vs-inline). Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v15 → −2 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −2. Score 72 → 71. |
 | v14 | 2026-09-02 | 69 | **Plan v7 APPROVED at 97/100** (commit `b2477f5`, Plan Critique Rev 2). All three Rev-1 blockers resolved with source-verified precision: build slot `csv.mjs`→`log-merge.mjs`→`store.mjs` made explicit + namespace-resolution build assertion (`build.mjs:7-20` csv@4/store@5); `parseLogCsv` try/catch converts unterminated-quote throw to per-file error (`csv.mjs:41`); numeric `Date.parse` ordering + tie-breaks + mixed-offset test. All five Path-to-100 nits closed (import alias `mergeLogEntrySets`, Apply-Merge `data-action` guard, no-mutation wording, literal e2e fixture, 10k-row <250 ms benchmark). Two residual Path-to-100 nits (e2e seed-vs-live local row; benchmark CI robustness). Loop advances **State 1 → State 2 (implement)**. Still zero code (plan-only commit) → **second** idle cycle since v12 → −2 inactivity decay. Base 73; backlog −2 (4 not-done, merge `[/]`); inactivity −2. Score 70 → 69. |

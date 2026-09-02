@@ -45,9 +45,13 @@ backlog deduction of −1 (1 pt per 2 unchecked, round down): native SwiftUI, of
 and the optional Node 24 toolchain bump each remain separate subsystems and candidates for future
 planning cycles.
 
-**Cycle 4 is in progress** (State 2 — implement the approved plan): `IMPLEMENTATION_PLAN.md` v10
-(optional scan "blip" audio, gesture-gated) is **APPROVED at 99/100** (Plan Critique Rev 3). The
-plan cleared the ≥95 gate at v9 (Rev 2 = 97) and v10 folded in all four Rev-2 Path-to-100 nits
-(e2e mock initial `suspended` state, ms→s `durationSeconds` conversion, admin inline
-normalization, interrupted-cue skip footnote). The scan-audio item stays `[/]` until the approved
-plan is implemented and passes Implementation Verification. See `IMPLEMENTATION_PLAN_CRITIQUE.md`.
+**Cycle 4 is in progress** (State 2 — implement the approved plan): `IMPLEMENTATION_PLAN.md` v11
+(optional scan "blip" audio, gesture-gated) is **APPROVED at 99/100** (Plan Critique Rev 4). The
+plan cleared the ≥95 gate at v9 (Rev 2 = 97), reached the 99 ceiling at v10 (Rev 3 folded in all
+four Rev-2 nits), and v11 folded in the last Rev-3 nit (`unlockFromGesture()` idempotency now
+stated in the Phase-2 contract and §8). The one remaining Path-to-100 nit (add a §10 unit assertion
+for repeated-unlock idempotency) is polish to handle at implementation, not via another plan
+revision. The scan-audio item stays `[/]` until the approved plan is implemented and passes
+Implementation Verification. Note: the plan has been at the 99 ceiling since v9 — no source has
+landed since `3168a28`, so this is the **fourth** consecutive idle cycle (audit −4 decay, 72 → 69).
+Implement, don't re-plan. See `IMPLEMENTATION_PLAN_CRITIQUE.md`.
