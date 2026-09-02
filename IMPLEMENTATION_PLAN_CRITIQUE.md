@@ -1,13 +1,144 @@
 # Check-In 007 — Implementation Plan Critique (Cycle 5: Node 24 LTS Toolchain)
 
-**Plan Score:** **93/100**
-**Implementation Score:** _n/a — Cycle 5 plan is below the ≥95 gate; not yet implemented_
-**Status:** **NOT APPROVED** (Rev 2 — every Rev-1 item resolved, but the fix introduced one new gate-blocking flaw of commission)
+**Plan Score:** **98/100**
+**Implementation Score:** _n/a — plan just APPROVED at Rev 3; not yet implemented_
+**Status:** **APPROVED** (Rev 3 — the Rev-2 gate-blocker and the Path-to-100 nit are both resolved; ≥95 gate cleared)
 
 > Cycle 4 (scan blip audio) is complete and **VERIFIED** (Implementation Verification v5 =
 > 98/100; see the archived critique further down this file). Cycle 5's plan is
-> `IMPLEMENTATION_PLAN.md` v13 (optional Node 24 LTS toolchain bump). Rev 2 review below.
-> Loop state: **State 1 — revise plan** (plan < 95).
+> `IMPLEMENTATION_PLAN.md` v14 (optional Node 24 LTS toolchain bump), now **APPROVED at
+> 98/100 (Rev 3)**. Loop state: **State 2 — implement the approved plan**. The plan is the
+> contract; implementation will be audited against it.
+
+---
+
+## Plan Critique — Cycle 5, Revision 3
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `ff40b18`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v14
+**Score:** **98 / 100** (previous: 93 — Rev 2, plan v13)
+**Status:** **APPROVED** — the sole Rev-2 gate-blocker is resolved and the Path-to-100 nit is folded in; the plan is implementation-ready.
+
+Plan v14 does exactly and only what Rev 2 asked. Verified against the v13→v14 diff (`git show ff40b18`):
+
+1. **Rev-2 gate-blocker (guard fails open on sub-24 majors) — RESOLVED.** The executable tail
+   is now `if (import.meta.url === pathToFileURL(process.argv[1]).href) { process.exitCode = main(); }`
+   (Phase 2, plan lines 201-205), with `import { pathToFileURL } from 'node:url';` added to the
+   guard sketch (line 161). `pathToFileURL` has existed since Node 10.12, so it evaluates correctly
+   on **every** runtime the guard must reject (Node 20, Node 22.0–22.17, all of Node 23) — `main()`
+   now runs on all majors and returns `1` for non-24, satisfying the Phase-2 acceptance criterion
+   ("Node 22.x, 23.x … exit 1", line 210). §4.5 (lines 95-104) is rewritten with the correct
+   rationale — the guard must run on the runtimes it *rejects*, and `import.meta.main` was added in
+   v24.2.0 / backported only to v22.18.0 so it is `undefined` on the older majors — and §7.3's
+   migration path (lines 330-336) is updated to the same idiom. This is precisely Rev 2's option (a),
+   the one the critique flagged as "cleanest and keeps every stated acceptance criterion true."
+2. **Rev-2 Path-to-100 (no test exercises the executable tail) — FOLDED IN.** A fourth unit test
+   `CLI executable tail runs main for the current process major` (Phase 4, line 267), a §10
+   child-process smoke test using `spawnSync(process.execPath, ['scripts/check-node-version.mjs'])`
+   asserting the exit status matches `isSupportedNodeVersion(process.versions.node) ? 0 : 1`
+   (lines 397-400), a matching Phase-4 acceptance bullet (lines 286-288), the §7.3 test-runner
+   contract, and the File-Manifest note ("range logic, and CLI dispatch", line 121) all now assert
+   that direct script execution actually reaches `main()`. This is the assertion that would have
+   caught the Rev-2 defect.
+
+Re-verified against the working tree: `package.json` engines still `">=22"` (`package.json:6-8`);
+lockfile root `packages[""].engines.node` `">=22"` (`package-lock.json:17-18`), distinct from the
+transitive `>=20`/`>=12` dep floors; no `.github/`; `README.md` not in `.prettierignore`;
+`node --version` → **v26.3.0** (the guard's canonical rejected version, still the audit shell). The
+v13→v14 diff touches nothing else — no `src/`, fixture, style, screen, build output, or storage key.
+
+## Issues resolved in revision 3
+
+Both open Rev-2 items are closed (enumerated above): the gate-blocking `import.meta.main` fail-open
+flaw of commission, and the Path-to-100 executable-tail test omission. The diff is otherwise a pure
+rationale/acceptance-criteria update with no new surface.
+
+## Remaining issues
+
+None gate-blocking. Two trivial Path-to-100 nits remain (see Path to 100); neither affects correctness
+on this repo's documented invocation and neither blocks implementation.
+
+## Scope Check
+
+Unchanged from Rev 1/Rev 2 and still adequate.
+- **Audit findings in scope but not addressed:** None. `CONSOLIDATED_AUDIT.md` reports all Required
+  Actions #1–#8 DONE and zero open defects.
+- **Backlog items in scope but not addressed:** None mis-scoped. The plan addresses the in-progress
+  item ("Optional toolchain bump to Node 24 LTS", `BACKLOG.md:16`, `[/]`); the two remaining `- [ ]`
+  items (native SwiftUI iPad build, on-device static-HTTPS helper) are independent subsystems
+  correctly deferred (§2 Out of scope).
+- **Integration points analyzed:** Yes — §7's five contracts (npm engines, dev validation scripts,
+  test runner, static build, operator docs), each with failure mode and migration path.
+- **Alternatives considered:** Yes — §4 justifies `>=24 <25` over `>=24`, a local guard over the
+  `check-node-version` package, pinned deps, both version files, `pathToFileURL` over both
+  `import.meta.main` and the raw `file://` comparison (now with the correct reasoning), and deferring CI.
+- **Score cap applied:** None. Scope is adequate.
+
+## Flaws of Commission
+
+No flaws of commission. The Rev-2 fail-open defect is resolved: the `pathToFileURL` idiom runs on all
+Node majors, so the guard fires and rejects on 20/22/23 as its acceptance criteria require. The engine
+range `>=24 <25` is valid semver consistent with the guard's major-only logic; the direct-invocation
+script wiring is correct; the in-place lockfile edit verified via `npm ci` changes no dependency
+versions or integrity hashes; §4.5's rationale and Phase-2's acceptance criteria are now internally
+consistent.
+
+## Flaws of Omission
+
+No gate-blocking omissions. The Rev-2 omission (no test for the executable tail) is closed by the
+child-process smoke test. The two residual items are Path-to-100 polish, not omissions of required
+behavior.
+
+## Regressions
+
+No regressions. The v13→v14 edit **reverses** the Rev-2 plan-level regression: the guard's rejection
+behavior on sub-24 runtimes goes from "silently passes" (v13's `import.meta.main`) back to "correctly
+fails closed" (v14's `pathToFileURL`), now on *every* Node version rather than only on space-free POSIX
+paths. No shipped-product regression — the plan still touches no `src/` file, fixture, style, screen,
+build output, or storage key (§5).
+
+## Why 98 and not 99
+
+Two genuine (if trivial) improvements separate v14 from a 99:
+
+1. **§4.5 claims `pathToFileURL` handles "platform path differences" but does not acknowledge the
+   `argv[1]`-vs-`import.meta.url` realpath asymmetry.** Node's loader realpath-resolves the module URL
+   (`import.meta.url`), while `process.argv[1]` is left as invoked (not realpathed unless the runtime
+   does so). If the guard were ever launched through a *symlinked* path, the equality would be false,
+   `main()` would no-op, and the guard would fail open again. This does **not** affect this repo —
+   validation invokes `node scripts/check-node-version.mjs` by its real relative path, and the new
+   child-process smoke test would surface any mismatch in-environment — so it is non-blocking. But the
+   rationale overstates robustness by one case it does not cover.
+
+2. **The §10/Phase-4 smoke test spawns a cwd-relative path (`['scripts/check-node-version.mjs']`).**
+   Correct under the documented flow (`node --test` from the repo root), but a root-anchored path
+   (`fileURLToPath(new URL('../../scripts/check-node-version.mjs', import.meta.url))`) would make the
+   test cwd-independent.
+
+Neither is blocking; both are noted below.
+
+## Path to ≥95
+
+Cleared. The plan is APPROVED at 98. No required changes remain before implementation.
+
+## Path to 100
+
+- Add one sentence to §4.5 acknowledging that `import.meta.url` is realpath-resolved while
+  `process.argv[1]` is not, so the equality assumes the script is invoked by its real (non-symlinked)
+  path — true for this repo's `node scripts/check-node-version.mjs` flow. (Why-98 nit #1.)
+- Anchor the child-process smoke-test path to the module rather than cwd
+  (`fileURLToPath(new URL('../../scripts/check-node-version.mjs', import.meta.url))`) so it passes
+  regardless of the directory `node --test` is launched from. (Why-98 nit #2.)
+
+## Summary
+
+Plan v14 resolves the Rev-2 gate-blocker with the version-agnostic `pathToFileURL(process.argv[1]).href`
+comparison (Rev 2's recommended option (a)) so the guard fires and fails closed on every sub-24 Node
+major it must reject, and folds in the child-process CLI smoke test that would have caught the Rev-2
+defect. Scope remains adequate, no flaws of commission or gate-blocking omissions remain, and the one
+plan-level regression from Rev 2 is undone. Two trivial Path-to-100 nits (a realpath-asymmetry caveat
+in §4.5, a cwd-relative smoke-test path) keep it at 98 rather than 99, but neither blocks
+implementation. **APPROVED at 98/100. State 2 — implement the approved plan.**
 
 ---
 

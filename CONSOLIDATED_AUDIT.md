@@ -1,9 +1,33 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 73/100
-**Audit Version:** v22
-**Audited:** commit `cbdabe3` on 2026-09-02 (Cycle 5 — Node 24 LTS toolchain plan v13 critiqued, Rev 2)
-**Stage:** Cycle 5, **State 1 — revise plan (Plan Critique Rev 2 = 93/100, NOT APPROVED)**
+**Current Score**: 72/100
+**Audit Version:** v23
+**Audited:** commit `ff40b18` on 2026-09-02 (Cycle 5 — Node 24 LTS toolchain plan v14 critiqued, Rev 3)
+**Stage:** Cycle 5, **State 2 — implement the approved plan (Plan Critique Rev 3 = 98/100, APPROVED)**
+
+> **STATE 2 — IMPLEMENT THE APPROVED PLAN (v23).** Plan v14 (commit `ff40b18`, "plan: v14 - fix
+> Node guard dispatch") is a **new** version, re-critiqued under the staleness rule (v14 > the v13
+> Rev 2 reviewed). **Plan Critique Rev 3 = 98/100 — APPROVED.** v14 does exactly and only what Rev 2
+> asked (verified vs. `git show ff40b18`): (1) the Rev-2 **gate-blocker is resolved** — the
+> executable tail swaps `import.meta.main` for the version-agnostic
+> `import.meta.url === pathToFileURL(process.argv[1]).href` (Phase-2 lines 201-205, with
+> `import { pathToFileURL } from 'node:url'` added at line 161), which — since `pathToFileURL` has
+> existed since Node 10.12 — evaluates correctly on **every** runtime the guard must reject (Node 20,
+> Node 22.0–22.17, all Node 23), so `main()` now runs on all majors and returns `1` for non-24,
+> satisfying the Phase-2 acceptance criterion ("Node 22.x, 23.x … exit 1"); §4.5 and §7.3 updated to
+> the same idiom with the correct reasoning (the guard must run on the runtimes it *rejects*). (2) The
+> Rev-2 **Path-to-100 nit is folded in** — a fourth unit test plus a §10 child-process smoke test
+> (`spawnSync(process.execPath, ['scripts/check-node-version.mjs'])` asserting the exit status matches
+> `isSupportedNodeVersion(process.versions.node) ? 0 : 1`) now exercises the executable tail. No flaws
+> of commission, no gate-blocking omissions, and the Rev-2 plan-level regression (guard failing open)
+> is undone. Two trivial Path-to-100 nits keep it at 98 not 99 (a realpath-asymmetry caveat missing
+> from §4.5; a cwd-relative smoke-test spawn path) — neither blocks implementation. **State 2 —
+> implement the approved plan.** No source since the v20 code landing `b63a8ff`; commits since v22
+> (`faffa87` critique, `ff40b18` plan v14) are audit/plan/critique only → **third idle cycle of cycle
+> 5 → −3 inactivity decay**. Node 24 backlog item `[/]`; strict-unchecked `[ ]` = 2 (native SwiftUI,
+> offline-HTTPS) → backlog **−1**. Base health holds at **76**. **Base 76 − backlog 1 − decay 3 = 72.**
+> The plan is now APPROVED; the single lever that both clears the Node 24 backlog item and resets the
+> accruing decay is to **implement plan v14** and land the code.
 
 > **STATE 1 — REVISE PLAN (v22).** Plan v13 (commit `cbdabe3`, "plan: v13 - clarify Node 24
 > verification") is a **new** version, re-critiqued under the staleness rule (v13 > the v12 Rev 1
@@ -448,32 +472,49 @@ Base score (8 criteria, /10 each), judged against the **verified** system (now i
 **Base Score:** 76/100 (held from v20 — the shipped system is untouched by cycle 5 so far; cycle-4
 scan audio remains shipped & VERIFIED, no open defects, no regressions. Cycle 5 is plan-only to date.)
 
-**Deductions (v22):**
+**Deductions (v23):**
 - Required Actions: −0 (all actions #1–#8 remain DONE; none stalled)
 - Backlog: −1 (2 items `- [ ]` in `BACKLOG.md` — native SwiftUI, offline-HTTPS helper; Node 24 bump
   `[/]` in progress, scan-audio `[x]`; 1 pt per 2, round down → 2/2 = −1)
-- Inactivity: −2 (no source changed since the v20 code landing `b63a8ff`; commits since — `a77af4b`
-  audit, `2c1ea09` plan v12, `df3a8e9` critique, `cbdabe3` plan v13 — are audit/plan/critique only →
-  **second** idle cycle of cycle 5)
+- Inactivity: −3 (no source changed since the v20 code landing `b63a8ff`; commits since v22 —
+  `faffa87` critique, `ff40b18` plan v14 — are audit/plan/critique only → **third** consecutive idle
+  cycle of cycle 5; cap −5)
 
-**Current Score**: 73/100
+**Current Score**: 72/100
 
-Trajectory: Cycle 5's plan was revised v12 → v13 (`IMPLEMENTATION_PLAN.md`, Node 24 LTS toolchain) and
-re-critiqued **Rev 2 = 93/100 — NOT APPROVED** → **State 1 (revise plan)**. v13 resolved all four
-Rev-1 items (the non-24-shell verification gate-blocker + three Path-to-100 nits) but introduced a NEW
-gate-blocking flaw of commission: the `import.meta.main` executable-tail idiom (added v24.2.0 /
-backported v22.18.0) is `undefined` on Node 20 / 22.0–22.17 / all 23.x, so the guard fails **open** —
-exits `0` and lets `lint`/`test`/`build` run on the unsupported Node it must reject. Net vs. v21 (74):
-base holds at 76, backlog holds at −1, inactivity moves −1 → −2 (second idle cycle since `b63a8ff`) →
-audit score edges **74 → 73**. The plan is one mechanically-fixable idiom swap from the gate (use
-`import.meta.url === pathToFileURL(process.argv[1]).href`, which runs on every Node version). The
-levers to climb: revise plan v13 to ≥95 and implement it (closes the Node 24 backlog item and resets
-decay), or address the two remaining deferred backlog features. Until code lands, inactivity decay
-keeps accruing (cap −5).
+Trajectory: Cycle 5's plan was revised v13 → v14 (`IMPLEMENTATION_PLAN.md`, Node 24 LTS toolchain) and
+re-critiqued **Rev 3 = 98/100 — APPROVED** → **State 2 (implement the approved plan)**. v14 resolved
+the Rev-2 gate-blocker by swapping the executable-tail idiom to the version-agnostic
+`import.meta.url === pathToFileURL(process.argv[1]).href` (runs on every Node major, so the guard now
+fails **closed** on Node 20/22/23 as its acceptance criteria require) and folded in the Path-to-100
+child-process smoke test that exercises the tail. Net vs. v22 (73): base holds at 76, backlog holds at
+−1, inactivity moves −2 → −3 (third idle cycle since `b63a8ff`) → audit score edges **73 → 72**. The
+plan is APPROVED; the only lever that both closes the Node 24 backlog item and resets the accruing
+decay is to **implement plan v14** and land the code (`.nvmrc`/`.node-version`, tightened engines, the
+guard, wiring, README, and unit tests). Until code lands, inactivity decay keeps accruing (cap −5).
 
 ## Findings
 
-- **NOT APPROVED (plan v13, Cycle 5 Rev 2)** — Node 24 LTS toolchain plan scores **93/100**. v13
+- **APPROVED (plan v14, Cycle 5 Rev 3)** — Node 24 LTS toolchain plan scores **98/100** (≥95 gate
+  cleared). Verified vs. `git show ff40b18`: v14 does exactly and only what Rev 2 asked. (1) The
+  Rev-2 gate-blocker is **resolved** — the executable tail swaps `import.meta.main` for the
+  version-agnostic `import.meta.url === pathToFileURL(process.argv[1]).href` (Phase-2 lines 201-205;
+  `import { pathToFileURL } from 'node:url'` added line 161). Because `pathToFileURL` has existed since
+  Node 10.12, `main()` now runs on **every** major the guard must reject (Node 20, Node 22.0–22.17,
+  all Node 23) and returns `1` for non-24, satisfying the Phase-2 acceptance criterion ("Node 22.x,
+  23.x … exit 1"). §4.5 (lines 95-104) and §7.3 (lines 330-336) are updated to the same idiom with the
+  correct reasoning — the guard must run on the runtimes it *rejects*. (2) The Rev-2 Path-to-100 nit is
+  **folded in** — a fourth unit test plus a §10 child-process smoke test
+  (`spawnSync(process.execPath, ['scripts/check-node-version.mjs'])` asserting exit ==
+  `isSupportedNodeVersion(process.versions.node) ? 0 : 1`) now exercises the executable tail. No flaws
+  of commission, no gate-blocking omissions; the Rev-2 plan-level regression (guard failing open) is
+  undone. Two trivial Path-to-100 nits remain (98 not 99): §4.5 does not acknowledge that
+  `import.meta.url` is realpath-resolved while `process.argv[1]` is not (a symlinked invocation would
+  fail open — not applicable to this repo's real-path `node scripts/check-node-version.mjs` flow), and
+  the smoke-test spawn uses a cwd-relative path. Scope adequate (one in-progress backlog item; native
+  SwiftUI + offline-HTTPS deferred; zero open defects; §4 alternatives; §7 five-contract map). Loop →
+  **State 2 (implement the approved plan)**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 5, Rev 3.
+- **NOT APPROVED (plan v13, Cycle 5 Rev 2) — SUPERSEDED by Rev 3** — Node 24 LTS toolchain plan scores **93/100**. v13
   **resolves every Rev-1 item** (verified vs. `git show cbdabe3`): the gate-blocker (Phase 4
   "Verifying on a non-24 shell" + §11 procedure require `nvm install && nvm use` and enumerate the
   direct-tool bypass) and all three Path-to-100 nits (guard invoked directly with §9 perf claim
@@ -726,6 +767,7 @@ code lands, each further plan-only cycle re-accrues −1 inactivity decay (cap �
 | v15 | 2026-09-02 | 72 | **Multi-device log merge IMPLEMENTED & VERIFIED** (commit `3168a28`, 11 files). **Implementation Verification v4 = 98/100 — VERIFIED**: all four phases + §7 integration + §10 testing COMPLIANT, confirmed by execution — lint clean, **38/38** unit, **10/10** e2e (merge spec asserts literal CSV fixture + axe-green dialog), build 24,660 gzip bytes within budget with artifact order `src_lib_csv`<`src_lib_log_merge`<`src_lib_store` + `parseCsv` alias wired. Two of three plan Path-to-100 nits closed in code (e2e seed-vs-live; stray-object sniff test); one non-blocking nit remains (§9 hard 250 ms benchmark). No regressions. Loop → **State 4 (cycle complete)**. Monitoring 8→9; code landed resets decay −2→0; merge backlog `[/]`→`[x]` (backlog −2, 4 unchecked). Base 74; backlog −2; inactivity −0. Score 69 → 72. |
 | v16 | 2026-09-02 | 72 | **Cycle 4 opened** (commits `3a07fcd` archive, `c6c9151` plan v8). New plan `IMPLEMENTATION_PLAN.md` v8 (optional scan blip audio, gesture-gated) critiqued at **93/100 — NOT APPROVED** (Rev 1): three mechanically-fixable gaps below the gate — (1) availability detection vs. injected `audioContextFactory` internally inconsistent (§8/Phase-2 detect from `globalThis` but the documented seam is the factory → Phase-2/§10 unit tests unauthorable); (2) app→admin audio-settings wiring defined but the `mountAdmin(...)` call never shown updated; (3) `mountAdmin`'s new `audioSettings` param has no default/guard. Scope adequate (one in-progress backlog item; three subsystems correctly deferred; zero open defects; §4 alternatives; §7 integration). **State 1 (revise plan).** No source since v15 → −1 inactivity decay (first idle cycle); scan-audio backlog item `[ ]`→`[/]` (strict-unchecked 4→3, backlog −2→−1). Base 74; backlog −1; inactivity −1. Score holds 72. |
 | v22 | 2026-09-02 | 73 | **Plan v13 re-critiqued — Rev 2 = 93/100 — NOT APPROVED** (commit `cbdabe3`, "plan: v13 - clarify Node 24 verification"). v13 **resolves every Rev-1 item** — the non-24-shell verification gate-blocker (Phase 4 subsection + §11 procedure: `nvm install && nvm use` before guarded commands, direct-tool bypass enumerated) and all three Path-to-100 nits (guard invoked directly `node scripts/check-node-version.mjs && …`, §9 perf claim corrected; README-Prettier + `npm ci`-not-`install` hygiene notes). But the main-module fix adopted **`import.meta.main`** (added v24.2.0 / backported v22.18.0), which is `undefined` on Node 20 / 22.0–22.17 / all 23.x → guard's executable tail no-ops and exits `0`, **failing open** on the sub-24 majors it must reject, contradicting Phase-2 acceptance ("Node 22.x, 23.x … exit 1"), hidden by a green pure-function suite. NEW gate-blocking flaw of commission. *Fix:* `import.meta.url === pathToFileURL(process.argv[1]).href` (version-agnostic). Scope adequate. **State 1 (revise plan).** No source since v20 landing `b63a8ff` → **second** idle cycle of cycle 5 → −2 inactivity decay. Base 76; backlog −1 (2 unchecked, Node 24 `[/]`); inactivity −2. Score 74 → 73. |
+| v23 | 2026-09-02 | 72 | **Plan v14 APPROVED at 98/100 — Rev 3** (commit `ff40b18`, "plan: v14 - fix Node guard dispatch"). v14 does exactly what Rev 2 asked (verified vs. `git show ff40b18`): (1) the Rev-2 gate-blocker is **resolved** — the executable tail swaps `import.meta.main` for the version-agnostic `import.meta.url === pathToFileURL(process.argv[1]).href` (`pathToFileURL` exists since Node 10.12, so `main()` now runs on every major the guard must reject and returns `1` for non-24, satisfying Phase-2 acceptance); §4.5 + §7.3 updated with the correct "must run on the runtimes it rejects" reasoning; (2) the Rev-2 Path-to-100 nit is **folded in** — a fourth unit test + §10 child-process smoke test (`spawnSync` on `scripts/check-node-version.mjs`, exit == `isSupportedNodeVersion ? 0 : 1`) exercises the tail. No flaws of commission, no gate-blocking omissions; Rev-2 plan-level regression undone. Two trivial Path-to-100 nits (realpath-asymmetry caveat missing from §4.5; cwd-relative smoke-test spawn) → 98 not 99, neither blocking. Loop advances **State 1 → State 2 (implement)**. Still zero source since v20 landing `b63a8ff` → **third** idle cycle of cycle 5 → −3 inactivity decay. Base 76; backlog −1 (2 unchecked, Node 24 `[/]`); inactivity −3. Score 73 → 72. |
 | v21 | 2026-09-02 | 74 | **Cycle 5 opened** (commits `a77af4b` audit, `2c1ea09` plan v12). New, unrelated plan `IMPLEMENTATION_PLAN.md` v12 (Node 24 LTS toolchain) critiqued at **94/100 — NOT APPROVED** (Rev 1): one mechanically-fixable gate-relevant gap — for a *toolchain* plan it omits how its acceptance criteria are verified on a non-24 shell, and **this machine is Node v26.3.0** (the version the guard blocks), so wiring the guard into `lint`/`test`/`build` makes all three fail there until Node 24 is installed, with no documented direct-tool bypass for the audit. Source-verified: engine target `package.json:6-8`/lockfile `:17-18` correct & distinct from transitive dep floors; deps Node-24-compatible; README markdown-linted & Prettier-clean. Scope adequate (one in-progress backlog item; native SwiftUI + offline-HTTPS deferred; zero open defects; §4 alternatives; §7 five-contract map). Three Path-to-100 nits (fragile `import.meta.url` main-check; understated §9 perf claim; README/lockfile-edit hygiene). **State 1 (revise plan).** No source since the v20 code landing `b63a8ff` → −1 inactivity decay (first idle cycle of cycle 5); Node 24 backlog `[ ]`→`[/]` (strict-unchecked 2 → backlog −1). Base 76; backlog −1; inactivity −1. Score 75 → 74. |
 | v20 | 2026-09-02 | 75 | **Scan blip audio IMPLEMENTED & VERIFIED** (commit `b63a8ff`, 13 files). **Implementation Verification v5 = 98/100 — VERIFIED**: every plan section COMPLIANT, confirmed by execution — lint clean, **52/52** unit, **12/12** e2e, build 26,315 gzip bytes within budget with module order `src_config`<`src_lib_audio`<`src_app` + both aliases wired. Pure `src/lib/audio.mjs` (factory availability, idempotent gesture unlock, exact §4.3 automation unit-asserted, guarded non-awaited playback resume, `dispose()`); default-off `store.mjs` persistence; app unlock-on-select/play-on-scan wiring; admin opt-in checkbox. Camera privacy preserved & test-enforced (`getUserMedia audio === false`). Last Path-to-100 nit (repeated-unlock idempotency) folded into unit suite. No regressions. Loop → **State 4 (cycle complete)**. Plan compliance 9→10, testing rigor 9→10 → base 74→76; code landed resets decay −4→0; scan-audio backlog `[/]`→`[x]` (backlog −1, 3 unchecked). Score 69 → 75. |
 | v19 | 2026-09-02 | 69 | **Plan v11 APPROVED at 99/100** (commit `b2178c2`, Plan Critique Rev 4). v10→v11 re-reviewed under the staleness rule; the two-hunk, documentation-only diff folds in the single Rev-3 Path-to-100 nit — `unlockFromGesture()` idempotency — now stated in both the Phase-2 contract (lines 293-296) and §8 "Multiple rapid selections" (lines 533-535): an already-unlocked `running` context is a safe no-op (no second context, no repeated `resume()`). No new logic; one equally-cosmetic successor nit (the stated idempotency contract has no matching §10 unit assertion — fold into `tests/unit/audio.test.mjs` at implementation, not another plan revision). Scope unchanged/adequate. Loop stays **State 2 (implement)**. Still zero source since v15 (`3168a28`); commits since are plan/doc only → **fourth** consecutive idle cycle → −4 inactivity decay. Base 74; backlog −1 (3 unchecked, scan-audio `[/]`); inactivity −4. Score 70 → 69. |

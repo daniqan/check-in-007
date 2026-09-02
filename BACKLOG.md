@@ -55,17 +55,17 @@ privacy preserved and test-enforced. The last Path-to-100 nit (repeated-unlock i
 assertion) was folded into `tests/unit/audio.test.mjs` as recommended. No regressions. Code landed →
 inactivity decay resets to 0.
 
-**Cycle 5 is open** (State 1 — revise plan): the "Optional toolchain bump to Node 24 LTS" item is now
-in progress (`[/]`). `IMPLEMENTATION_PLAN.md` was revised v12 → v13 and re-critiqued at
-**93/100 — NOT APPROVED** (Plan Critique Cycle 5 Rev 2). v13 **resolved every Rev-1 item** (the
-non-24-shell verification gate-blocker + all three Path-to-100 nits — guard invoked directly with §9
-perf claim corrected, README-Prettier and `npm ci`-not-`install` hygiene notes). But the fix for the
-main-module nit adopted **`import.meta.main`** (added Node v24.2.0, backported only v22.18.0), which is
-`undefined` on Node 20 / 22.0–22.17 / all 23.x → the guard's executable tail no-ops and exits `0`,
-**failing open** on the sub-24 majors it must reject and contradicting its own Phase-2 acceptance
-("Node 22.x, 23.x … exit 1"). NEW gate-blocking flaw of commission. Fix: use
-`import.meta.url === pathToFileURL(process.argv[1]).href` (version-agnostic). See
-`IMPLEMENTATION_PLAN_CRITIQUE.md` and `CONSOLIDATED_AUDIT.md` v22.
+**Cycle 5 is open** (State 2 — implement the approved plan): the "Optional toolchain bump to Node 24
+LTS" item is in progress (`[/]`). `IMPLEMENTATION_PLAN.md` was revised v13 → v14 and re-critiqued at
+**98/100 — APPROVED** (Plan Critique Cycle 5 Rev 3). v14 resolved the Rev-2 gate-blocker by swapping
+the executable-tail idiom to the version-agnostic `import.meta.url === pathToFileURL(process.argv[1]).href`
+(runs on every Node major, so the guard fails **closed** on Node 20/22/23 as its acceptance criteria
+require) and folded in the Path-to-100 child-process smoke test that exercises the tail. Two trivial
+Path-to-100 nits remain (realpath-asymmetry caveat in §4.5; cwd-relative smoke-test spawn), neither
+blocking. **Next action: implement plan v14** — landing the code (`.nvmrc`/`.node-version`, tightened
+engines, the guard, script wiring, README, unit tests) closes this item (`[/]` → `[x]`), recovers the
+−1 backlog deduction, and resets the accruing inactivity decay (now −3). See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 5 Rev 3 and `CONSOLIDATED_AUDIT.md` v23.
 
 With Node 24 now `[/]`, two items remain strictly not-done here (`[ ]`) — native SwiftUI iPad build and
 the on-device static-HTTPS helper — for a backlog deduction of −1 (2 unchecked, 1 pt per 2, round
