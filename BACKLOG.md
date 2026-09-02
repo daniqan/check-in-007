@@ -129,3 +129,19 @@ correctness is source-verified, not execution-proven (the one reason the score i
 Code landed → inactivity decay resets to 0. Strict-unchecked `[ ]` = 3 (offline-HTTPS helper,
 CI workflow, Node 24 toolchain bump), each a separate subsystem for a future cycle → backlog −1.
 See `CONSOLIDATED_AUDIT.md` v27.
+
+**Cycle 7 is open** (State 2 — implement the approved plan): the two coupled toolchain/infra
+items — "Optional toolchain bump to Node 24 LTS" and "Add a CI workflow … on the pinned Node 24
+line" — are both in progress (`[/]`), folded into `IMPLEMENTATION_PLAN.md` v17. **Plan v17 was
+critiqued at 97/100 — APPROVED** (Cycle 7 Rev 1), clearing the ≥95 gate on the first review: it
+reuses the vetted Cycle-5 v14 Node-24 material and adds a net-new, fully-written
+`.github/workflows/ci.yml` (ubuntu, Node 24 via `.nvmrc`, npm + Playwright-chromium caching,
+least-privilege permissions, cancel-in-progress concurrency). Every version/config claim was
+re-verified against the live tree. Three non-blocking nits (dist-upload `if:always()`+
+`if-no-files-found:error` double-failure, no `timeout-minutes`, no local YAML schema check) hold
+it at 97 not 98. **Next action: implement approved plan v17** — landing `.nvmrc`/`.node-version`/
+tightened engines/the guard/wired scripts/README/unit tests/`ci.yml` flips **both** `[/]` items
+`[x]` and resets the (re-accruing, now −1) inactivity decay. The third strictly-unchecked item —
+the on-device static-HTTPS helper (`[ ]`, an unrelated native subsystem) — is justly deferred to
+a future cycle (plan §2 Out of scope). Strict-unchecked `[ ]` = 1 → backlog −0. See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 7 Rev 1 and `CONSOLIDATED_AUDIT.md` v28.

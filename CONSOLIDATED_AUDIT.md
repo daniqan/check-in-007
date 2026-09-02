@@ -1,9 +1,62 @@
 # Consolidated Audit — Check-In 007
 
 **Current Score**: 89/100
-**Audit Version:** v27
-**Audited:** HEAD `0e72fc8` on 2026-09-02 (Cycle 6 — native SwiftUI iPad build IMPLEMENTED & VERIFIED)
-**Stage:** Cycle 6, **State 4 — cycle complete (Impl Verification v6 = 96/100, VERIFIED)**
+**Audit Version:** v28
+**Audited:** HEAD `5efd0ce` on 2026-09-02 (Cycle 7 — Node 24 LTS pin + GitHub Actions CI; plan v17 APPROVED)
+**Stage:** Cycle 7, **State 2 — implement the approved plan (Plan Critique v17 Rev 1 = 97/100, APPROVED)**
+
+> **STATE 2 — IMPLEMENT THE APPROVED PLAN (v28).** Cycle 6 completed (v27); a **new**
+> Cycle-7 plan opened. `IMPLEMENTATION_PLAN.md` was replaced with **v17 (commit `5efd0ce`,
+> "plan: v17 (Cycle 7) — Node 24 LTS toolchain pin + GitHub Actions CI")** — a new version,
+> fully critiqued under the staleness rule. **Plan Critique Cycle 7 Rev 1 = 97/100 —
+> APPROVED** (≥95 gate cleared on the first review). v17 bundles the two remaining,
+> tightly-coupled backlog items — the Node 24 LTS toolchain pin and a CI workflow that runs
+> the web gate **on** that pin — reusing the previously-APPROVED (98/100, Cycle-5 Rev 3) v14
+> Node-24 material (preserved in git `ff40b18`) and adding a net-new, fully-written
+> `.github/workflows/ci.yml`. Every load-bearing claim was re-verified against the live tree:
+> - `package.json:6-8` and lockfile `packages[""].engines` (`package-lock.json:17-18`) both
+>   currently read `">=22"` — the plan's edit target (`">=24 <25"`) is precise and does not
+>   touch the transitive `>=20`/`>=8` dep floors.
+> - `.prettierignore` already contains `native/`; `.github/` is **absent**, so `ci.yml` **is**
+>   Prettier-checked by `npm run lint` — the plan requires it authored Prettier-clean (§8).
+> - `playwright.config.mjs` sets `reuseExistingServer: true`, port 8080, webServer `npm run
+>   serve` — the CI e2e step matches.
+> - `scripts/build.mjs:148` enforces the ≤750 KB gzip / ≤1.2 MB raw budget the plan cites.
+> - Node on this machine is **v26.3.0** — the guarded `lint`/`test`/`build` will (by design)
+>   fail here post-implementation; §5/§11 pre-declare the direct-tool diagnostic bypass so the
+>   eventual implementation audit is not blocked by the absence of a Node-24 runtime.
+> - The `pathToFileURL(process.argv[1]).href` executable-tail idiom is the correct fix for the
+>   Cycle-5 Rev-2 fails-open bug (runs on every Node major the guard must reject → fails CLOSED
+>   on Node 20/22-pre-22.18/23).
+>
+> Three residual nits hold it at 97, none blocking: (1) the `dist` artifact upload is
+> `if: always()` + `if-no-files-found: error`, so an earlier failure that skips `build`
+> produces a *second* spurious red step; (2) no `timeout-minutes` on the `web` job; (3) no
+> local YAML **schema** validation (Prettier parse + GitHub's own parse only — a reasonable
+> zero-new-dependency consequence). Scope is adequate: Required Actions #1–#8 all DONE, the two
+> coupled backlog items addressed, the unrelated on-device static-HTTPS native helper justly
+> deferred (§2). Loop advances **State 4 (cycle 6 complete) → State 2 (implement approved plan
+> v17)** — the plan is now the contract; do **not** revise it to chase points, land the code.
+> See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 7 Rev 1.
+>
+> **Implementation Score remains N/A for Cycle 7** — nothing is built yet: `.nvmrc`,
+> `.node-version`, `scripts/check-node-version.mjs`, `tests/unit/node-version.test.mjs`, and
+> `.github/workflows/ci.yml` are all **absent** (verified); `package.json` still `engines.node
+> ">=22"` with unguarded `lint`/`test`/`build`. Last VERIFIED implementation is Cycle 6 (native
+> SwiftUI, v6 = 96).
+>
+> **Deductions.** No source has changed since the Cycle-6 code landing `0e72fc8` — the two
+> commits since (`159b139` archive cycle 4, `5efd0ce` plan v17) are doc/plan-only → **first
+> idle cycle since the v27 landing → −1 inactivity decay** (decay had reset to 0 at v27).
+> Backlog strict-unchecked `[ ]` = **1** (on-device static-HTTPS helper only; the Node-24 and CI
+> items are now `[/]` in progress) → **backlog −0** (1/2, round down). Required Actions #1–#8 all
+> DONE, none stalled → **−0**. **Base health holds at 90** (Cycle-6 native client shipped & web
+> fully proven; no code has changed, so base is unchanged; approving a plan is loop progress, not
+> system-state change). **Base 90 − backlog 0 − decay 1 = 89.** Score unchanged from v27: plan
+> approval moves the loop, not the shipped system. The single lever that both raises the audit
+> score and resets the (now re-accruing) decay is to **implement approved plan v17** — landing
+> `.nvmrc`/`.node-version`/tightened engines/the guard/wired scripts/README/unit tests/`ci.yml`
+> flips both backlog items `[/]` → `[x]`.
 
 > **STATE 4 — CYCLE COMPLETE (v27).** Approved plan v16 (Cycle 6 Rev 2 = 97/100) was
 > **implemented** in commit `0e72fc8` and audited against the contract section-by-section.
@@ -892,6 +945,7 @@ cycle re-accrues −1 inactivity decay (currently −4; cap −5 — one idle cy
 
 | Version | Date | Score | Summary |
 |---------|------|-------|---------|
+| v28 | 2026-09-02 | 89 | **Cycle 7 opened — plan v17 APPROVED, Rev 1 = 97/100** (commit `5efd0ce`, "plan: v17 (Cycle 7) — Node 24 LTS toolchain pin + GitHub Actions CI"). New version fully critiqued under the staleness rule; clears the ≥95 gate first review. v17 bundles the two coupled backlog items — Node 24 LTS pin + a CI workflow that runs the web gate **on** that pin — reusing the vetted Cycle-5 v14 Node-24 material (`ff40b18`) and adding a net-new fully-written `.github/workflows/ci.yml` (ubuntu-latest, `setup-node` reading `.nvmrc`, npm + Playwright-chromium caching, `permissions: contents: read`, `concurrency` cancel-in-progress). Every load-bearing claim re-verified vs the live tree: `package.json:6-8` + lockfile `packages[""].engines` (`package-lock.json:17-18`) both `">=22"` (edit target `">=24 <25"` precise, transitive floors untouched); `.prettierignore` has `native/` and lacks `.github/` (so `ci.yml` **is** Prettier-checked); `playwright.config.mjs` `reuseExistingServer:true` port 8080; `scripts/build.mjs:148` enforces ≤750 KB gzip/≤1.2 MB; this machine Node **v26.3.0** (guard rejects by design, §5/§11 bypass documented); `pathToFileURL(process.argv[1]).href` tail fails CLOSED on sub-24 (fixes the Cycle-5 Rev-2 fails-open bug). Three non-blocking nits → 97 not 98: (1) `dist` upload `if:always()` + `if-no-files-found:error` yields a spurious 2nd red step on an earlier failure; (2) no `timeout-minutes` on the job; (3) no local YAML **schema** validation (Prettier + GitHub parse only). Scope adequate: RA #1–#8 all DONE; both coupled items addressed; unrelated offline-HTTPS native helper justly deferred (§2). Loop advances **State 4 → State 2 (implement approved plan v17)**. Implementation Score **N/A** — `.nvmrc`/`.node-version`/`check-node-version.mjs`/`node-version.test.mjs`/`ci.yml` all absent, `engines` still `">=22"`. No source since `0e72fc8`; the 2 commits since (archive + plan v17) are doc-only → **first** idle cycle since the v27 landing → **−1** decay (reset from 0). Backlog strict-unchecked `[ ]` = **1** (offline-HTTPS only; Node-24 + CI now `[/]`) → **−0**. RA −0. Base 90 − backlog 0 − decay 1 = **89** (unchanged: plan approval is loop progress, not code). See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 7 Rev 1. |
 | v27 | 2026-09-02 | 89 | **Cycle 6 native SwiftUI build IMPLEMENTED & VERIFIED** (commit `0e72fc8`, 34 files). **Implementation Verification v6 = 96/100 — VERIFIED**: all five plan phases COMPLIANT, byte-exact where a web source of truth exists — roster export reuses the web's own `normalizeGuests` (`default-guests.json` regenerated in-audit → byte-identical, 40 rows); storage keys `checkin007.{log,roster,audio}.v1`, CSV columns `visitId,guestId,name,table,timestamp`, `visitId` idempotency, `CSVCodec`/`LogMerger` edge cases mirror `csv.mjs`/`log-merge.mjs`; `Timing` enum byte-matches `config.mjs` (2600/900, 4500/2500, 5000/4000, 500/150); `CameraPreviewModel` preview-only (no outputs, no audio input) + `NSCameraUsageDescription`; `ScanAudioPlayer` default-off with `Cue` constants matching `config.mjs` AUDIO exactly (gain 0.045, 880→1320 Hz, 90 ms, 0.035 s — Rev-2 Path-to-100 #1 folded into code). Web gates re-run green on Node v26.3.0: `prettier --check .` clean, **57/57 unit** (+5 native parity), build **26315 gzip bytes** within budget, parity 5/5; `xcodebuild -list` resolves all 3 targets + `CheckIn007` scheme. **96 not ≥98:** native `xcodebuild … test` unrun — no iPadOS 26 runtime installed (`xcrun simctl list runtimes` empty, §11-documented starting state) — so native correctness is source-verified, not execution-proven; deviation is plan-sanctioned (§4.2 `.pbxproj`, §11 runtime). Loop → **State 4 (cycle complete)**. Native SwiftUI backlog `[/]` → `[x]`. Code landed → **decay resets 0** (was −5, six idle cycles). Base 90 (major faithful native client added, web fully proven; native-test env-block holds base off perfect); backlog −1 (3 unchecked: offline-HTTPS, CI, Node 24); required actions −0. Base 90 − 1 − 0 = **89**. Big recovery from 70. |
 | v26 | 2026-09-02 | 70 | **Cycle 6 plan v16 APPROVED — Rev 2 = 97/100** (commit `bd9dc4b`). v16 resolves all four Rev-1 Path-to-≥95 items + all three Path-to-100 items, each re-verified against source: (1) simulator-runtime verifiability (§5/§11: Xcode 26.4 present, `xcrun simctl list runtimes` empty, `-downloadPlatform iOS` install+confirm gates `xcodebuild … test`); (2) prettier/lint on `native/` closed two ways (`.prettierignore` gains `native/` — verified absent — **and** Prettier-conformant JSON); (3) `extractDefaultGuests` now `{name,table}` + optional/generated `id` (verified `roster.mjs:34` `slugify(requestedId||name)`); (4) `.pbxproj` stated Xcode-GENERATED (§4.2). Path-to-100 folded in: `Timing` enum byte-matches `config.mjs` (2600/900, 4500/2500, 5000/4000, 500/150), byte-compare parity test (§10), iPadOS 26.0 min-target + device confirm (§11). Three residual specificity nits (chiefly scan-cue params unquantified though `config.mjs:15-20` gives them) → 97 not 99, none blocking. Loop advances **State 1 → State 2 (implement)**. Implementation Score **N/A** — `native/` absent, nothing built. No source since `b63a8ff`; only commit since v25 is plan-only → **sixth** idle cycle → −5 decay (cap). Base 76; backlog −1 (3 unchecked, native `[/]`); inactivity −5. Score holds 70. |
 | v25 | 2026-09-02 | 70 | **Cycle 6 opened — plan v15 critiqued Rev 1 = 91/100 — NOT APPROVED** (working tree, uncommitted plan v15). Approved-but-unimplemented Cycle-5 Node-24 plan v14 **abandoned**; `IMPLEMENTATION_PLAN.md` replaced v14→v15 (native SwiftUI iPad build); Node-24 backlog item returned to `[ ]` (approved plan preserved in git `ff40b18`). v15 strong and source-grounded (roster name/count, `slugify`/`normalizeGuests`, storage keys, CSV columns, `visitId` idempotency all verified; Xcode 26.4 installed) but held below ≥95 by four mechanically-fixable items: (1) no verification path with **no simulator runtime installed** (`xcrun simctl list runtimes` empty); (2) `prettier --check .` would check generated `native/**/*.json` (`.prettierignore` lacks `native/`); (3) `extractDefaultGuests` requires `id` on `{name,table}`-only rows; (4) hand-committed multi-target `.pbxproj` production method unspecified. Scope adequate. **State 1 (revise plan).** Implementation Score N/A. No source since `b63a8ff` → **fifth** idle cycle → −5 decay (cap). Base 76; backlog −1 (3 unchecked); inactivity −5. Score 71 → 70. |
