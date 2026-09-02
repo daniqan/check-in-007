@@ -98,3 +98,18 @@ guarantee Prettier-clean; (3) `extractDefaultGuests` requires `id` on rows that 
 thing that resets the inactivity decay (now at the −5 cap, fifth idle cycle). Strict-unchecked `[ ]`
 = 3 (offline-HTTPS helper, CI workflow, Node 24) → backlog −1. See `IMPLEMENTATION_PLAN_CRITIQUE.md`
 Cycle 6 Rev 1 and `CONSOLIDATED_AUDIT.md` v25.
+
+**Cycle 6 plan APPROVED (Rev 2, audit v26):** `IMPLEMENTATION_PLAN.md` was revised v15 → v16 (commit
+`bd9dc4b`) and re-critiqued at **97/100 — APPROVED** (Cycle 6 Rev 2). v16 resolved all four Rev-1
+gate items (simulator-runtime verifiability, prettier/lint on `native/`, the `extractDefaultGuests`
+`id` contract, the Xcode-generated `.pbxproj`) and all three Rev-1 Path-to-100 items (timing enum
+byte-matching `config.mjs`, byte-compare parity test, iPadOS 26.0 min-target + device confirmation),
+each re-verified against source. The native SwiftUI item stays `[/]` (in progress) — **the plan is
+approved but NOT yet implemented** (`native/` does not exist, `scripts/export-native-guests.mjs` is
+absent). **Next action: implement approved plan v16** — landing the native tree flips native SwiftUI
+`[/]` → `[x]` and is the only thing that resets the inactivity decay (pinned at the −5 cap, sixth
+idle cycle). Strict-unchecked `[ ]` = 3 (offline-HTTPS helper, CI workflow, Node 24) → backlog −1.
+One Path-to-100 nit worth carrying into implementation: quantify the scan cue (`config.mjs:15-20`:
+gain 0.045, 880→1320 Hz, 90 ms, 0.035 s release) so `ScanAudioPlayerTests` can assert cue parity like
+the timing constants. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 6 Rev 2 and `CONSOLIDATED_AUDIT.md`
+v26.

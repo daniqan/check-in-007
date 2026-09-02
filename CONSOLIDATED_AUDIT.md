@@ -1,9 +1,42 @@
 # Consolidated Audit — Check-In 007
 
 **Current Score**: 70/100
-**Audit Version:** v25
-**Audited:** working tree (uncommitted plan v15) at HEAD `44991b4` on 2026-09-02 (Cycle 6 — native SwiftUI iPad build plan v15 critiqued, NOT APPROVED; nothing implemented)
-**Stage:** Cycle 6, **State 1 — revise the plan (Plan Critique Cycle 6 Rev 1 = 91/100, NOT APPROVED)**
+**Audit Version:** v26
+**Audited:** HEAD `bd9dc4b` on 2026-09-02 (Cycle 6 — native SwiftUI iPad build plan v16 critiqued & APPROVED; nothing implemented yet)
+**Stage:** Cycle 6, **State 2 — implement the approved plan (Plan Critique Cycle 6 Rev 2 = 97/100, APPROVED)**
+
+> **STATE 2 — IMPLEMENT THE APPROVED PLAN (v26).** Plan v16 (commit `bd9dc4b`, "plan: v16 (Cycle 6
+> native SwiftUI) — address Rev-1 critique") is a **new** version re-critiqued under the staleness
+> rule (v16 > the v15 Rev 1 reviewed). **Plan Critique Cycle 6 Rev 2 = 97/100 — APPROVED.** v16
+> resolves **all four** Rev-1 Path-to-≥95 items and **all three** Rev-1 Path-to-100 items, and every
+> fix was re-verified against source: (1) simulator-runtime verifiability — §5/§11 now document that
+> this machine has Xcode 26.4 but **no installed iPadOS runtime** (`xcrun simctl list runtimes` empty,
+> re-confirmed this audit) with the one-time `xcodebuild -downloadPlatform iOS` install + confirmation
+> before `xcodebuild … test`; (2) prettier/lint on `native/` — belt-and-suspenders: `.prettierignore`
+> gains `native/` (verified currently absent) **and** the generated JSON is required Prettier-conformant;
+> (3) `extractDefaultGuests` now takes `{ name, table }` with `id` optional/generated via the ported
+> `slugify` (verified `roster.mjs:34` calls `slugify(requestedId || name)`); (4) the `.pbxproj` is
+> stated Xcode-GENERATED, not hand-authored (§4.2). Path-to-100 folded in: the `Timing` enum matches
+> `config.mjs` byte-for-byte (2600/900, 4500/2500, 5000/4000, 500/150 — verified lines 1-5, 37-41), a
+> byte-compare deterministic parity test (§10), and iPadOS 26.0 min-target + device confirmation (§11).
+> Three residual specificity nits (chiefly: the scan cue is not quantified though `config.mjs:15-20`
+> gives exact gain/freq/duration) hold it at 97 not 99; none block the gate. Loop advances **State 1 →
+> State 2 (implement the approved plan)** — the plan is now the contract; do not revise it to raise the
+> score, land the native code. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 6 Rev 2.
+>
+> **Implementation Score remains N/A** — `native/` does not exist, `scripts/export-native-guests.mjs`
+> is absent, nothing is built; last VERIFIED implementation is cycle 4 (scan audio, v5 = 98).
+>
+> **Deductions.** No source has changed since the cycle-4 code landing `b63a8ff`; the only commit
+> since v25 (`bd9dc4b`, plan v16) is plan-only → **sixth consecutive idle cycle → −5 inactivity decay
+> (pinned at the −5 cap)**. Backlog strict-unchecked `[ ]` = 3 (offline-HTTPS helper, CI workflow,
+> Node 24 returned to `[ ]`); native SwiftUI is `[/]` → **backlog −1** (1 pt per 2, round down).
+> Required Actions #1–#8 all DONE, none stalled → **−0**. Shipped cycle-1–4 system re-verified healthy
+> on Node v26.3.0: **52/52 unit** green, **`prettier --check .`** clean (e2e/build not re-run; no
+> source changed since `b63a8ff`). Base health holds at **76**. **Base 76 − backlog 1 − decay 5 = 70.**
+> The score is unchanged from v25 because plan approval is loop progress, not code — the single lever
+> that both moves the audit score and resets the pinned decay is to **implement approved plan v16** and
+> land the native tree.
 
 > **STATE 1 — REVISE PLAN (v25).** The working tree **replaces the approved Cycle-5 plan v14 (Node
 > 24 LTS toolchain) with a brand-new plan v15 (Cycle 6 — native SwiftUI iPad build)**. Under the
@@ -820,6 +853,8 @@ cycle re-accrues −1 inactivity decay (currently −4; cap −5 — one idle cy
 
 | Version | Date | Score | Summary |
 |---------|------|-------|---------|
+| v26 | 2026-09-02 | 70 | **Cycle 6 plan v16 APPROVED — Rev 2 = 97/100** (commit `bd9dc4b`). v16 resolves all four Rev-1 Path-to-≥95 items + all three Path-to-100 items, each re-verified against source: (1) simulator-runtime verifiability (§5/§11: Xcode 26.4 present, `xcrun simctl list runtimes` empty, `-downloadPlatform iOS` install+confirm gates `xcodebuild … test`); (2) prettier/lint on `native/` closed two ways (`.prettierignore` gains `native/` — verified absent — **and** Prettier-conformant JSON); (3) `extractDefaultGuests` now `{name,table}` + optional/generated `id` (verified `roster.mjs:34` `slugify(requestedId||name)`); (4) `.pbxproj` stated Xcode-GENERATED (§4.2). Path-to-100 folded in: `Timing` enum byte-matches `config.mjs` (2600/900, 4500/2500, 5000/4000, 500/150), byte-compare parity test (§10), iPadOS 26.0 min-target + device confirm (§11). Three residual specificity nits (chiefly scan-cue params unquantified though `config.mjs:15-20` gives them) → 97 not 99, none blocking. Loop advances **State 1 → State 2 (implement)**. Implementation Score **N/A** — `native/` absent, nothing built. No source since `b63a8ff`; only commit since v25 is plan-only → **sixth** idle cycle → −5 decay (cap). Base 76; backlog −1 (3 unchecked, native `[/]`); inactivity −5. Score holds 70. |
+| v25 | 2026-09-02 | 70 | **Cycle 6 opened — plan v15 critiqued Rev 1 = 91/100 — NOT APPROVED** (working tree, uncommitted plan v15). Approved-but-unimplemented Cycle-5 Node-24 plan v14 **abandoned**; `IMPLEMENTATION_PLAN.md` replaced v14→v15 (native SwiftUI iPad build); Node-24 backlog item returned to `[ ]` (approved plan preserved in git `ff40b18`). v15 strong and source-grounded (roster name/count, `slugify`/`normalizeGuests`, storage keys, CSV columns, `visitId` idempotency all verified; Xcode 26.4 installed) but held below ≥95 by four mechanically-fixable items: (1) no verification path with **no simulator runtime installed** (`xcrun simctl list runtimes` empty); (2) `prettier --check .` would check generated `native/**/*.json` (`.prettierignore` lacks `native/`); (3) `extractDefaultGuests` requires `id` on `{name,table}`-only rows; (4) hand-committed multi-target `.pbxproj` production method unspecified. Scope adequate. **State 1 (revise plan).** Implementation Score N/A. No source since `b63a8ff` → **fifth** idle cycle → −5 decay (cap). Base 76; backlog −1 (3 unchecked); inactivity −5. Score 71 → 70. |
 | v1 | 2026-09-02 | 56 | Baseline audit; plan-only repo; plan critiqued at 92 (not approved) |
 | v2 | 2026-09-02 | 55 | Re-audit; no changes since v1; plan still 92 (not approved); −1 inactivity decay (loop stalled, awaiting plan revision) |
 | v3 | 2026-09-02 | 54 | Re-audit; still no changes; plan still 92 (not approved); −2 inactivity decay (2nd idle cycle); P1 actions at staleness 2 |

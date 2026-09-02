@@ -1,8 +1,17 @@
 # Check-In 007 — Implementation Plan Critique (Cycle 6: Native SwiftUI iPad Build)
 
-**Plan Score:** **91/100**
-**Implementation Score:** N/A — cycle-6 plan v15 NOT APPROVED and not implemented (`native/` does not exist); last VERIFIED implementation is cycle 4 (v5 = 98)
-**Status:** **NOT APPROVED** (Cycle 6, Rev 1 — a strong, well-grounded first cut with two gate-relevant gaps + one commission + one feasibility risk; ≥95 gate not cleared)
+**Plan Score:** **97/100**
+**Implementation Score:** N/A — cycle-6 plan v16 APPROVED but not yet implemented (`native/` does not exist, `scripts/export-native-guests.mjs` absent); last VERIFIED implementation is cycle 4 (v5 = 98)
+**Status:** **APPROVED** (Cycle 6, Rev 2 — all four Rev-1 Path-to-≥95 items and all three Path-to-100 items resolved and re-verified against source; ≥95 gate cleared → **State 2, implement the approved plan**)
+
+> **APPROVED at Rev 2 (audit v26, 2026-09-02).** Plan v16 (commit `bd9dc4b`, "plan: v16 … address
+> Rev-1 critique") is a **new** version re-critiqued under the staleness rule (v16 > the v15 Rev 1
+> reviewed). It does exactly and only what Rev 1 asked, and every fix was re-verified against source.
+> The loop moves from **State 1 (revise plan)** to **State 2 (implement the approved plan)**. The plan
+> is now the contract against which implementation will be audited. **Implementation Score remains
+> N/A** — `native/` does not exist, nothing is built; the audit's sixth idle cycle and −5 decay cap
+> persist until native code lands. See `CONSOLIDATED_AUDIT.md` v26 (audit score 70). Rev 1 (91, NOT
+> APPROVED) is preserved below.
 
 > **Plan replaced — new cycle, new critique (audit v25, 2026-09-02).** The working tree replaces
 > the approved Cycle-5 plan v14 (Node 24 LTS toolchain) with a brand-new **plan v15 (Cycle 6 —
@@ -15,6 +24,185 @@
 > **Implementation Score is N/A** — `native/` does not exist, `scripts/export-native-guests.mjs`
 > is absent, nothing is built. See `CONSOLIDATED_AUDIT.md` v25 (audit score 70; fifth consecutive
 > idle cycle → −5 inactivity decay, at cap).
+
+---
+
+## Plan Critique — Cycle 6, Revision 2
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `bd9dc4b` — plan v16
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v16 (Native SwiftUI iPad Build)
+**Score:** **97 / 100** (previous: 91, Rev 1)
+**Status:** **APPROVED** — all four Rev-1 gate items and all three Rev-1 Path-to-100 items resolved and re-verified against source; three residual specificity nits keep it at 97 rather than 99, none blocking.
+
+Plan v16 is a clean, surgical response to Rev 1. Every fix was checked against the repository, not
+taken on the author's word:
+
+**Rev-1 Path-to-≥95 items — all resolved (re-verified):**
+
+1. **Simulator-runtime verifiability (Rev-1 #1) — RESOLVED.** §5 now carries a "Simulator-runtime
+   prerequisite (see §11)" note stating this machine has Xcode 26.4 but **no installed iPadOS
+   runtime** (`xcrun simctl list runtimes` empty), and §11 adds a full "Verifying without a
+   preinstalled simulator runtime" block with the one-time install (`xcodebuild -downloadPlatform
+   iOS`, or Xcode → Settings → Components), the `xcrun simctl list runtimes` confirmation, and a
+   `xcrun simctl list devices available | grep -i 'iPad Pro 13-inch (M4)'` device check. Phase 5 and
+   §7.5 both gate `xcodebuild … test` behind that install. **Verified:** `xcodebuild -version` →
+   `Xcode 26.4`; `xcrun simctl list runtimes` → empty `== Runtimes ==`. The zero-runtime case the
+   Rev-1 fallback could not handle is now explicitly the documented starting state.
+
+2. **Prettier/lint on `native/` (Rev-1 #2) — RESOLVED (belt-and-suspenders).** §5 adds
+   `.prettierignore (MOD) — Add native/`, a "Lint coupling" paragraph, and Phase 1/Phase 5 acceptance
+   criteria requiring the generated JSON to be Prettier-conformant (2-space indent, trailing newline)
+   *and* `native/` added to `.prettierignore`, with §7.5 restating that `prettier --check .` stays
+   green. **Verified:** current `.prettierignore` excludes only `node_modules/ dist/ test-results/
+   playwright-report/` + the four tracking docs — **not** `native/` — so the diagnosis was correct
+   and the two independent mitigations each close it.
+
+3. **`extractDefaultGuests` `id` contract (Rev-1 #3) — RESOLVED.** The Phase-1 docstring now states
+   rows carry only `{ name, table }` with **no `id`**, that IDs are generated downstream by
+   `normalizeGuests` via `slugify`, and that `id` is optional/preserved-when-present — it no longer
+   throws on the real data. **Verified:** `src/lib/roster.mjs:17,34` — `normalizeGuests` calls
+   `slugify(requestedId || name)`, so `id` is genuinely optional input, exactly as the revised
+   docstring claims. The script importing the web app's own `normalizeGuests` (rather than
+   re-implementing slugify) is the correct single-source-of-truth choice.
+
+4. **`.pbxproj` production path (Rev-1 #4) — RESOLVED.** §4-decision-2 adds a "Production path (not
+   hand-authored)" paragraph — the `.pbxproj` is created in Xcode 26 (File → New → Project → iOS App,
+   then add Unit/UI Testing targets) and committed verbatim, never hand-authored — and §5 relabels the
+   manifest entry "Xcode-GENERATED … committed verbatim; not hand-authored — see §4.2." The
+   feasibility risk (a malformed hand-written multi-target project making the whole cycle
+   unverifiable) is removed.
+
+**Rev-1 Path-to-100 items — all folded in:**
+
+- **Timing quantified (Rev-1 Omission #3) — DONE and exact.** Phase 3 adds a `Timing` enum with
+  `loadingMs 2600 / loadingReducedMs 900`, `scanMs 4500 / scanReducedMs 2500`, `resultMs 5000 /
+  resultReducedMs 4000`, `transitionMs 500 / transitionReducedMs 150`, and each screen requirement
+  names its constant. **Verified byte-for-byte against `src/config.mjs`:** `TIMING` =
+  `LOADING_MS 2600, SCAN_MS 4500, RESULT_MS 5000, TRANSITION_MS 500` (lines 1-5); `REDUCED` =
+  `900 / 2500 / 4000 / 150` (lines 37-41). Exact match.
+- **Parity-test comparison method — DONE.** §10 Regression tests now specifies the test calls
+  `writeNativeGuests` to a temp path/string and **byte-compares** against the committed
+  `default-guests.json`, asserts `count === 40`, and explains the three determinism guarantees
+  (source row order, shared `normalizeGuests`, fixed Prettier JSON) so it fails loudly on drift.
+- **Deployment target + device confirmation — DONE.** §11 states "**Minimum deployment target:
+  iPadOS 26.0**" and adds the device-existence `grep` confirmation for `iPad Pro 13-inch (M4)` with a
+  documented fallback to the newest available iPad. §13 Q1 mirrors the resolution.
+
+## Issues resolved in revision 2
+
+All four Rev-1 remaining issues (simulator-runtime verifiability, prettier/lint on `native/`, the
+`extractDefaultGuests` `id` contract, the `.pbxproj` production path) and all three Rev-1
+Path-to-100 items (timing quantification, parity-test method, deployment target/device confirmation)
+are resolved as detailed above. No fix introduced a new flaw of commission, omission, or regression.
+
+## Remaining issues
+
+None gate-blocking. Three residual specificity nits (all Path-to-100):
+
+1. **Scan-cue audio parameters are not quantified, unlike timing (specificity / internal
+   consistency).** Phase 4 describes the cue only qualitatively ("short duration, low gain, rising
+   pitch, no looping"), yet the same `src/config.mjs` the plan mirrored exactly for `Timing` also
+   defines the exact web cue: `SCAN_BLIP_GAIN 0.045`, `SCAN_BLIP_START_HZ 880`, `SCAN_BLIP_END_HZ
+   1320`, `SCAN_BLIP_DURATION_MS 90`, `SCAN_BLIP_RELEASE_SECONDS 0.035` (lines 15-20, verified). Since
+   §10 plans a `ScanAudioPlayerTests` "enabled cue path" assertion, those constants should be named
+   (or stated to equal the web config) for the same determinism/parity the plan gives timing.
+   Non-blocking because the qualitative description plus default-off privacy posture is enough to
+   implement; this only sharpens test parity.
+
+2. **Observation-system inconsistency between `AppModel` and `CameraPreviewModel`.** Phase 3's
+   `AppModel` uses the modern `@Observable` macro; Phase 4's `CameraPreviewModel` uses the older
+   `ObservableObject` + `@ObservedObject`. Both are legal and bridging a `UIViewRepresentable` to an
+   `ObservableObject` is a common, valid pattern, but on Swift 6.2 / iPadOS 26 a single observation
+   model reads cleaner. Non-blocking stylistic nit.
+
+3. **"copy actions where pasteboard APIs are available" (Phase 3 AdminSheet) is mildly hand-wavy.**
+   `UIPasteboard` is always available on iPadOS, so the hedge is unnecessary; naming `UIPasteboard`
+   would be marginally more concrete. Cosmetic.
+
+## Scope Check
+
+Scope remains adequate; no cap applied (unchanged from Rev 1).
+- **Audit findings in scope but not addressed:** None. `CONSOLIDATED_AUDIT.md` reports Required
+  Actions #1–#8 DONE and zero open defects.
+- **Backlog items in scope but not addressed:** None mis-scoped. Plan addresses the in-progress
+  native `[/]` item; explicitly defers the separate on-device static-HTTPS helper and CI-workflow
+  items (§2 Out of scope) — independent subsystems, correctly deferred.
+- **Integration points analyzed:** Yes — §7's five contracts, each with failure mode + migration
+  path; the lint/JSON coupling (Rev-1 #2) is now an explicit contract (§7.5).
+- **Alternatives considered:** Yes — §4's seven decisions each reject a named alternative.
+- **Process note (not a cap):** Cycle 5's plan v14 (Node 24) was APPROVED at 98 and abandoned
+  unimplemented to open this cycle; Node 24 is a different subsystem so it does not cap this plan.
+  The pivot remains a project-health signal tracked in the audit (now sixth idle cycle, decay at −5
+  cap).
+
+## Flaws of Commission
+
+None. The Rev-1 commission (the `extractDefaultGuests` `id`-required contract) is fixed and
+re-verified against `roster.mjs:34`. The Swift API surface is internally consistent, storage keys
+mirror the verified web keys, the CSV column order matches `store.mjs:134` exactly, and the `Timing`
+enum matches `config.mjs` exactly.
+
+## Flaws of Omission
+
+None gate-blocking. The two Rev-1 gate omissions (no runtime-less verification path; prettier/lint
+coverage of `native/`) are both closed. The one residual omission is a Path-to-100 item: the scan-cue
+audio parameters are not quantified (Remaining issue #1), unlike the timing constants.
+
+## Regressions
+
+None. §5 still commits to changing no `src/`, `index.html`, `data/guests.default.js`, or existing web
+test file except adding the additive parity test; `scripts/export-native-guests.mjs` and
+`tests/unit/native-guests-export.test.mjs` are additive. The Rev-1 latent self-inflicted regression
+(adding `native/` breaking `npm run lint`) is now prevented two ways (Prettier-conformant JSON +
+`.prettierignore`). Shipped suite re-verified green this cycle (52/52 unit, `prettier --check .`
+clean on Node v26.3.0).
+
+## Why 97 and not 98
+
+Three residual specificity nits remain, and one of them is more than cosmetic: the scan-cue audio
+parameters exist and are exact in `src/config.mjs` (gain 0.045, 880→1320 Hz, 90 ms, 0.035 s release)
+and the plan already plans a unit test for the "enabled cue path," yet Phase 4 leaves the cue
+qualitative — the plan quantified timing to the millisecond but not the audio it mirrors from the
+same file. That asymmetry is a genuine specificity/consistency gap (not merely cosmetic), which
+holds it one below 98. It is not lower because the gate items are fully and verifiably closed and the
+plan is otherwise excellent.
+
+## Why 97 and not 96
+
+All four Rev-1 gate items are closed *and independently re-verified against source* (not accepted on
+assertion), and all three Rev-1 Path-to-100 items are folded in — including a byte-exact timing match
+and a fully-specified deterministic parity test. A 96 would imply lingering gate-relevant softness;
+there is none. The only things separating it from a higher score are three specificity nits, one
+mildly substantive and two cosmetic.
+
+## Path to ≥95
+
+Cleared. Plan is APPROVED at 97. **State 2 — implement the approved plan.** The plan is now the
+contract; do not revise it to raise the score. Land the native tree and run both verification tracks
+(`npm run lint`/`test:unit`/`build`; then, after installing an iPadOS 26 runtime per §11,
+`xcodebuild … test`).
+
+## Path to 100
+
+- **Quantify the scan cue** (Remaining #1): name `SCAN_BLIP_GAIN 0.045`, `SCAN_BLIP_START_HZ 880`,
+  `SCAN_BLIP_END_HZ 1320`, `SCAN_BLIP_DURATION_MS 90`, `SCAN_BLIP_RELEASE_SECONDS 0.035` in Phase 4
+  (or state they equal `src/config.mjs`) so `ScanAudioPlayerTests` can assert cue parity the way the
+  timing constants already enable.
+- **Unify the observation model** (Remaining #2): use `@Observable` for `CameraPreviewModel` too, or
+  add one sentence noting the deliberate `ObservableObject` bridge for `UIViewRepresentable`.
+- **Name `UIPasteboard`** (Remaining #3) instead of "where pasteboard APIs are available."
+- Optional: note that `grep -c "name:" data/guests.default.js` counts lines (it returns 40 today,
+  verified) and that the parity test's `count === 40` assertion is the durable guard if that grep
+  ever drifts.
+
+## Summary
+
+Plan v16 cleanly resolves every Rev-1 gate item and every Rev-1 Path-to-100 item, each re-verified
+against the actual source (timing constants byte-exact, `id` genuinely optional in `normalizeGuests`,
+`.prettierignore` gap real and doubly closed, Xcode 26.4 present with no runtime as documented). It is
+implementation-ready: a competent developer could start without architectural questions. **Score
+97/100 — APPROVED. State 2 — implement the approved plan.** Three specificity nits (chiefly:
+quantify the scan cue like the timing) separate it from 99–100 but none block the gate.
 
 ---
 
