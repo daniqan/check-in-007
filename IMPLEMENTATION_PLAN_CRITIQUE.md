@@ -151,3 +151,57 @@ missing job timeout, no local YAML schema check) separate it from a 98–99. **S
 APPROVED. Loop advances to State 2: implement the approved plan.** The plan is now the
 contract — do not revise it to chase points; land the code, then it will be audited against
 this spec.
+
+---
+
+### Implementation Verification — v7 (Cycle 7)
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v17 @ commit `5efd0ce` (approved score: 97, Cycle 7 Rev 1)
+**Code:** commit `61c456b` ("feat(cycle7): implement Node 24 LTS pin + GitHub Actions CI"),
+9 files, audited on `master` on 2026-09-02 (runtime: Node v26.3.0 — the §5/§11 direct-tool
+diagnostic path; the guarded npm scripts run this same chain on Node 24 in CI).
+
+**Plan Score:** 97/100
+**Implementation Score:** 97/100
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6.1 Version metadata (`.nvmrc`, `.node-version`) | COMPLIANT | Both files byte-exact `24.20.0\n` (verified via `xxd`: `32 34 2e 32 30 2e 30 0a`). |
+| §6.1 `engines` tighten (`package.json` + lockfile root) | COMPLIANT | `package.json:6-8` reads `">=24 <25"`; lockfile diff is a **single line** — `packages[""].engines.node` `">=22"`→`">=24 <25"` (verified `git show`), no dep versions/integrity hashes touched. `npm ci` validates (build/tests ran off it). |
+| §6.2 Guard `scripts/check-node-version.mjs` | COMPLIANT | Byte-matches the plan's Phase-2 spec: `parseNodeMajor`/`isSupportedNodeVersion`/`formatUnsupportedNodeMessage`/`main` + the version-agnostic `import.meta.url === pathToFileURL(process.argv[1]).href` executable tail. Direct run on Node 26 → **exit 1** with the one-line hint naming `26.3.0`, `Node 24 LTS`, `nvm install && nvm use` (fails **closed** as designed). |
+| §6.3 Script wiring (`package.json`) | COMPLIANT | `check:node` added; `lint`/`test`/`build` guard-prefixed (`node scripts/check-node-version.mjs && …`); `serve`/`serve:https`/`test:unit`/`test:e2e`/`fonts:subset` left unguarded exactly as specified. |
+| §6.3 README | COMPLIANT | Node 24 prereq + `nvm install && nvm use` setup path, fail-fast note, `check:node` mention, and a "Continuous Integration" section pointing at `ci.yml`. Existing iPad-HTTPS/privacy/build wording preserved; `prettier --check .` clean. |
+| §6.4 `.github/workflows/ci.yml` | COMPLIANT | Byte-matches the Phase-4 spec: `on` push(main/master)+PR, `permissions: contents: read`, `concurrency`+`cancel-in-progress`, `ubuntu-latest`, `setup-node@v4` `node-version-file: '.nvmrc'` + `cache: 'npm'`, `npm ci`→lint→test:unit→cache/install chromium→test:e2e→build, dist upload `if: always()`, report upload `if: failure()`. All `actions/*` pinned `@v4` (major-tag, §4.7). Web-only; no `xcodebuild`/`native/`. |
+| §6.5 Unit tests `tests/unit/node-version.test.mjs` | COMPLIANT | 6 test funcs incl. the child-process smoke test `spawnSync(process.execPath, [scriptPath])` asserting `status === (isSupportedNodeVersion(...) ? 0 : 1)`, path resolved via `fileURLToPath(new URL(...))` (cwd-independent). |
+| §6 Phase 5 gates (executed) | COMPLIANT | `prettier --check .` **clean** (incl. `ci.yml`, README, guard — `.github/` absent from `.prettierignore`, verified); **63/63** unit pass (+6 guard tests, was 57); **12/12** e2e pass; `node scripts/build.mjs` → `dist/index.html` **26315 gzip bytes** (≤750 KB budget). |
+
+**Regression check (Step 3.5):** none. Unit suite grew 57→63; e2e held 12/12; build byte-size
+unchanged (26315). No `src/`/`data/`/`assets/`/`vendor/`/`native/`/`build.mjs`-internal change
+(commit touches only the 9 manifest files). The one intentional behavioral change — guarded
+`lint`/`test`/`build` now fail closed on non-24 runtimes — is the designed gate, not an
+accidental regression (`serve`/`test:unit`/`test:e2e`/`fonts:subset` still start on Node 26).
+
+**Deviations:** one, plan-sanctioned. The guarded npm scripts were verified via the §5/§11
+**direct-tool bypass on Node 26**, not executed on an actual Node 24 runtime, and the
+`ci.yml` workflow has **not yet had its first real run** (no `git push`/PR observed) — so the
+workflow is verified structurally (Prettier YAML parse + a key-by-key structural read: `on`,
+`permissions`, `concurrency`, `runs-on`, `node-version-file`, `cache`, action `@v4` pins,
+`if-no-files-found`) and by the plan's own acknowledgement (§10) that "GitHub itself parses
+and runs it on the first push, which is the definitive check." This is the §5/§11 pre-declared
+accepted audit path, not a spec violation.
+
+## Defects
+
+None gate-blocking. The three critique nits (dist upload `if: always()`+`if-no-files-found:
+error` double-failure; no `timeout-minutes`; no local YAML schema check) are **plan-level
+Path-to-100 items** the approved v17 spec deliberately kept — the implementation matches the
+contract verbatim, so they are not implementation defects. Carry them into a future CI-hardening
+cycle if desired; do **not** reopen this cycle for them.
+
+**Why 97 and not ≥98:** parity with the Cycle-6 precedent — the actual **Node-24 execution of
+the guarded chain** and the **first live CI run** are deferred to first-push (verification
+environment is Node 26; no GitHub run observed in-audit). Everything reproducible here is green
+and every file byte-matches the spec, so this is a small, plan-sanctioned gap, not a code fault.
+
+**Implementation Score: 97/100 — VERIFIED** (≥95 gate cleared). Cycle 7 complete. Both coupled
+backlog items (Node 24 pin + CI-on-Node-24) close `[/]` → `[x]`.

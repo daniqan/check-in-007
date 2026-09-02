@@ -1,9 +1,58 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 89/100
-**Audit Version:** v28
-**Audited:** HEAD `5efd0ce` on 2026-09-02 (Cycle 7 — Node 24 LTS pin + GitHub Actions CI; plan v17 APPROVED)
-**Stage:** Cycle 7, **State 2 — implement the approved plan (Plan Critique v17 Rev 1 = 97/100, APPROVED)**
+**Current Score**: 92/100
+**Audit Version:** v29
+**Audited:** HEAD `61c456b` on 2026-09-02 (Cycle 7 — Node 24 LTS pin + GitHub Actions CI IMPLEMENTED & VERIFIED)
+**Stage:** Cycle 7, **State 4 — cycle complete (Implementation Verification v7 = 97/100, VERIFIED)**
+
+> **STATE 4 — CYCLE COMPLETE (v29).** Approved plan v17 (Cycle 7 Rev 1 = 97/100) was
+> **implemented** in commit `61c456b` (9 files) and audited against the contract
+> section-by-section. **Implementation Score = 97/100 — VERIFIED** (≥95 gate cleared). All five
+> phases COMPLIANT; the single deviation (guarded chain verified via the §5/§11 Node-26
+> direct-tool bypass, and the `ci.yml` first live run deferred to first-push) is
+> **plan-sanctioned** (§5/§11/§10), not a spec violation. Verified against source and by
+> execution, not on the commit's word:
+> - **Version metadata:** `.nvmrc` and `.node-version` both byte-exact `24.20.0\n`
+>   (`xxd`: `32 34 2e 32 30 2e 30 0a`). `package.json:6-8` engines `">=24 <25"`; lockfile diff
+>   is a **single line** (`packages[""].engines.node` `">=22"`→`">=24 <25"`), no dep versions or
+>   integrity hashes touched.
+> - **Guard:** `scripts/check-node-version.mjs` byte-matches the Phase-2 spec incl. the
+>   version-agnostic `import.meta.url === pathToFileURL(process.argv[1]).href` tail. Direct run
+>   on Node 26 → **exit 1** with the one-line hint (`26.3.0` + `Node 24 LTS` +
+>   `nvm install && nvm use`) — fails **closed** as designed.
+> - **Wiring/docs:** `check:node` added; `lint`/`test`/`build` guard-prefixed;
+>   `serve`/`serve:https`/`test:unit`/`test:e2e`/`fonts:subset` left unguarded exactly as
+>   specified. README gains the Node 24 setup path + a CI section; existing wording preserved.
+> - **CI:** `.github/workflows/ci.yml` matches Phase 4 key-for-key — push(main/master)+PR,
+>   `permissions: contents: read`, `cancel-in-progress`, `ubuntu-latest`, `setup-node@v4`
+>   `node-version-file: '.nvmrc'` + `cache: 'npm'`, Playwright cache + `--with-deps chromium`,
+>   all `actions/*` pinned `@v4`, web-only (no `xcodebuild`/`native/`).
+> - **Tests:** `tests/unit/node-version.test.mjs` = 6 test funcs incl. the child-process smoke
+>   test (`spawnSync(process.execPath, [scriptPath])`, cwd-independent path).
+> - **Gates (executed on Node v26.3.0, §5 path):** `prettier --check .` **clean** (incl.
+>   `ci.yml`/README/guard — `.github/` absent from `.prettierignore`), **63/63 unit** (+6 guard
+>   tests, was 57), **12/12 e2e**, build **26315 gzip bytes** within the ≤750 KB budget.
+>
+> **Why 97, not ≥98:** parity with the Cycle-6 precedent — the guarded chain's **Node-24
+> execution** and the workflow's **first live CI run** are deferred to first-push (audit runtime
+> is Node 26; no GitHub run observed in-audit). Everything reproducible here is green and every
+> file byte-matches the spec, so this is a small, plan-sanctioned verification-environment gap,
+> not a code fault. **Do not revise plan or code — the cycle is complete.** The three critique
+> nits (dist upload `if: always()`+`if-no-files-found: error` double-failure, no
+> `timeout-minutes`, no local YAML schema check) are plan-level Path-to-100 items the approved
+> v17 spec deliberately kept; a future CI-hardening cycle can address them.
+>
+> **Deductions.** Code landed this cycle (`61c456b`, 9 files) → **inactivity decay resets to 0**
+> (was −1 at v28). **Both** coupled backlog items (Node 24 pin + CI) flip `[/]` → `[x]`;
+> strict-unchecked `[ ]` = **1** (on-device static-HTTPS helper only, an unrelated native
+> subsystem) → **backlog −0** (1/2, round down). Required Actions #1–#8 all DONE, none stalled →
+> **−0**. **Base health rises 90 → 92:** the previously-manual web quality gate is now a
+> reproducible CI workflow on a pinned LTS toolchain, and the last two toolchain/infra backlog
+> items are closed; tempered off a higher band only by the still-unexecuted native `xcodebuild
+> … test` (env-blocked, pre-existing from v27) and the CI workflow's unobserved first run.
+> **Base 92 − backlog 0 − decay 0 = 92.** Recovery from 89: landing approved plan v17 — the
+> single lever that both raised the audit score and reset the re-accruing decay — was pulled.
+> See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v7.
 
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v28).** Cycle 6 completed (v27); a **new**
 > Cycle-7 plan opened. `IMPLEMENTATION_PLAN.md` was replaced with **v17 (commit `5efd0ce`,

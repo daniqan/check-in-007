@@ -13,8 +13,8 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 ## Polish & Technical Debt
 - [x] Add a lint/format check (e.g. `prettier --check`) to `package.json` scripts and Phase 0 acceptance (done in `07ef178`: `npm run lint` + `.prettierrc.json`; `prettier --check .` clean)
 - [x] Font subsetting (Latin + needed glyphs) and a stated single-file artifact size budget (done: `scripts/font-subset.sh` subsets to Latin ranges; `build.mjs` enforces ≤750 KB gzip / ≤1.2 MB; artifact is 20,683 gzip bytes)
-- [/] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a) — plan v14 was APPROVED at 98/100 (Cycle 5 Rev 3) but never implemented; returned to `[ ]` when Cycle 6 pivoted to the native build. Approved plan preserved in git `ff40b18`. **Cycle 7 in progress** — folded into `IMPLEMENTATION_PLAN.md` v17 (Node 24 pin + CI), reusing the vetted v14 material.
-- [/] Add a CI workflow (e.g. GitHub Actions) running `npm ci` + `npm run lint`/`test`/`build` on the pinned Node 24 line, with Playwright browser install/cache — was explicitly deferred by plan v14 §4.6/§13. **Cycle 7 in progress** — `IMPLEMENTATION_PLAN.md` v17 Phase 4 adds `.github/workflows/ci.yml` (ubuntu, Node 24 via `.nvmrc`, npm + Playwright-chromium caching), coupled to the Node 24 pin above.
+- [x] Optional toolchain bump to Node 24 LTS for a longer support runway (§4.1a) — done in `61c456b`: `.nvmrc`/`.node-version` pin `24.20.0`, `engines` `>=24 <25` (package.json + lockfile root), dependency-free `scripts/check-node-version.mjs` guard (pathToFileURL executable tail, fails closed on non-24) wired into `lint`/`test`/`build` + standalone `check:node`, README Node 24 setup path, `tests/unit/node-version.test.mjs` (6 tests incl. child-process smoke). Implementation Verification v7 = 97/100 VERIFIED.
+- [x] Add a CI workflow (e.g. GitHub Actions) running `npm ci` + `npm run lint`/`test`/`build` on the pinned Node 24 line, with Playwright browser install/cache — done in `61c456b`: `.github/workflows/ci.yml` (ubuntu-latest, Node 24 via `setup-node@v4` `node-version-file: .nvmrc`, npm cache + `~/.cache/ms-playwright` cache keyed on the lockfile, `npx playwright install --with-deps chromium`, least-privilege `permissions: contents: read`, `cancel-in-progress` concurrency, dist artifact upload). Coupled to the Node 24 pin. Implementation Verification v7 = 97/100 VERIFIED. First live CI run lands on first push (§10, the definitive parse check).
 - [x] Add both `apple-mobile-web-app-capable` and the modern `mobile-web-app-capable` meta tags (done: present in `index.html` and built `dist/index.html`)
 - [x] axe-core accessibility pass wired into the e2e suite (done: `tests/e2e/checkin.spec.mjs` runs `axe.run` and asserts zero serious/critical)
 
@@ -145,3 +145,18 @@ tightened engines/the guard/wired scripts/README/unit tests/`ci.yml` flips **bot
 the on-device static-HTTPS helper (`[ ]`, an unrelated native subsystem) — is justly deferred to
 a future cycle (plan §2 Out of scope). Strict-unchecked `[ ]` = 1 → backlog −0. See
 `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 7 Rev 1 and `CONSOLIDATED_AUDIT.md` v28.
+
+**Cycle 7 is complete** (State 4 — cycle complete): **both** coupled toolchain/infra items —
+"Optional toolchain bump to Node 24 LTS" and "Add a CI workflow … on the pinned Node 24 line" —
+are now `[x]`. `IMPLEMENTATION_PLAN.md` v17 (APPROVED at 97/100, Cycle 7 Rev 1) was implemented
+in commit `61c456b` (9 files) and passed **Implementation Verification v7 = 97/100 — VERIFIED**
+(see `IMPLEMENTATION_PLAN_CRITIQUE.md`): all five phases COMPLIANT, byte-exact where a spec value
+exists (version files `24.20.0`, single-line lockfile engines edit, guard idiom, `ci.yml` keys).
+Web gates proven green on Node v26.3.0 via the §5 direct-tool path — guard fails closed (exit 1),
+`prettier --check .` clean (incl. `ci.yml`/README/guard), **63/63 unit** (+6 guard tests),
+**12/12 e2e**, build **26315 gzip bytes** within budget. The one deviation — the guarded chain's
+Node-24 execution and the first live CI run are deferred to first-push — is plan-sanctioned
+(§5/§11/§10), analogous to Cycle 6's env-blocked native tests. Code landed → inactivity decay
+resets to 0. **Only one strictly-unchecked `[ ]` item remains** — the on-device static-HTTPS
+helper (an unrelated native subsystem, a candidate for a future cycle) → backlog −0. See
+`CONSOLIDATED_AUDIT.md` v29.
