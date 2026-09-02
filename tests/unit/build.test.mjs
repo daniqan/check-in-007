@@ -42,9 +42,23 @@ test('build emits a self-contained classic artifact', async () => {
   const csvIndex = html.indexOf('window.__CHECKIN007.modules.src_lib_csv');
   const mergeIndex = html.indexOf('window.__CHECKIN007.modules.src_lib_log_merge');
   const storeIndex = html.indexOf('window.__CHECKIN007.modules.src_lib_store');
+  const configIndex = html.indexOf('window.__CHECKIN007.modules.src_config');
+  const audioIndex = html.indexOf('window.__CHECKIN007.modules.src_lib_audio');
+  const appIndex = html.indexOf('window.__CHECKIN007.modules.src_app');
+  assert.ok(configIndex !== -1);
+  assert.ok(audioIndex > configIndex);
+  assert.ok(appIndex > audioIndex);
   assert.ok(csvIndex !== -1);
   assert.ok(mergeIndex > csvIndex);
   assert.ok(storeIndex > mergeIndex);
+  assert.match(
+    html.slice(audioIndex, appIndex),
+    /const AUDIO = window\.__CHECKIN007\.modules\.src_config\.AUDIO;/,
+  );
+  assert.match(
+    html.slice(appIndex),
+    /const createScanAudioController = window\.__CHECKIN007\.modules\.src_lib_audio\.createScanAudioController;/,
+  );
   assert.match(
     html.slice(mergeIndex, storeIndex),
     /const parseCsv = window\.__CHECKIN007\.modules\.src_lib_csv\.parseCsv;/,

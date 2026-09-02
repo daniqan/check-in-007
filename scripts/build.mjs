@@ -6,6 +6,7 @@ import * as acorn from 'acorn';
 const root = new URL('..', import.meta.url).pathname;
 const modules = [
   'src/config.mjs',
+  'src/lib/audio.mjs',
   'src/lib/format.mjs',
   'src/lib/roster.mjs',
   'src/lib/virtual-list.mjs',

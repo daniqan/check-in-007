@@ -28,8 +28,18 @@ export function downloadText(filename, text, type) {
   URL.revokeObjectURL(url);
 }
 
-export function mountAdmin(root, { store, onRosterChanged, onClose }) {
+export function mountAdmin(
+  root,
+  {
+    store,
+    audioSettings = { scanBlipEnabled: false },
+    onAudioSettingsChanged = (settings) => settings,
+    onRosterChanged,
+    onClose,
+  },
+) {
   const priorFocus = document.activeElement;
+  const normalizedAudioSettings = { scanBlipEnabled: audioSettings?.scanBlipEnabled === true };
   root.insertAdjacentHTML(
     'beforeend',
     `
@@ -46,6 +56,7 @@ export function mountAdmin(root, { store, onRosterChanged, onClose }) {
           <div class="merge-preview" aria-live="polite"></div>
           <button type="button" data-action="apply-merge" disabled>Apply Merge</button>
         </section>
+        <label class="audio-setting"><input class="scan-blip-input" type="checkbox" ${normalizedAudioSettings.scanBlipEnabled ? 'checked' : ''} />Scan blip audio</label>
         <div class="admin-grid">
           <button type="button" data-action="export-csv">Export CSV</button>
           <button type="button" data-action="copy-csv">Copy CSV</button>
@@ -63,6 +74,7 @@ export function mountAdmin(root, { store, onRosterChanged, onClose }) {
   const status = dialog.querySelector('.admin-status');
   const input = dialog.querySelector('.csv-input');
   const mergeInput = dialog.querySelector('.log-merge-input');
+  const scanBlipInput = dialog.querySelector('.scan-blip-input');
   const mergePreview = dialog.querySelector('.merge-preview');
   const applyMergeButton = dialog.querySelector('[data-action="apply-merge"]');
   let clearArmed = false;
@@ -198,6 +210,13 @@ export function mountAdmin(root, { store, onRosterChanged, onClose }) {
     }
   });
   mergeInput.addEventListener('change', handleMergeSelection);
+  scanBlipInput.addEventListener('change', () => {
+    const saved = onAudioSettingsChanged({ scanBlipEnabled: scanBlipInput.checked });
+    scanBlipInput.checked = saved.scanBlipEnabled === true;
+    status.textContent = scanBlipInput.checked
+      ? 'Scan blip audio enabled.'
+      : 'Scan blip audio disabled.';
+  });
 
   dialog.addEventListener('click', async (event) => {
     const action = event.target?.dataset?.action;

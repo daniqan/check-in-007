@@ -328,11 +328,26 @@ h2 {
 
 .admin-grid button,
 .file-label,
+.audio-setting,
 .merge-panel button {
   border: 1px solid var(--line);
   background: rgba(212, 175, 55, 0.1);
   color: var(--paper);
   padding: 12px;
+}
+
+.audio-setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.audio-setting input {
+  min-height: auto;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gold);
 }
 
 .merge-panel button:disabled {

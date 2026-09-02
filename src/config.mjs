@@ -8,6 +8,16 @@ export const TIMING = {
 export const STORAGE = {
   LOG_KEY: 'checkin007.log.v1',
   ROSTER_KEY: 'checkin007.roster.v1',
+  AUDIO_KEY: 'checkin007.audio.v1',
+};
+
+export const AUDIO = {
+  SCAN_BLIP_DEFAULT_ENABLED: false,
+  SCAN_BLIP_GAIN: 0.045,
+  SCAN_BLIP_START_HZ: 880,
+  SCAN_BLIP_END_HZ: 1320,
+  SCAN_BLIP_DURATION_MS: 90,
+  SCAN_BLIP_RELEASE_SECONDS: 0.035,
 };
 
 export const ADMIN = {

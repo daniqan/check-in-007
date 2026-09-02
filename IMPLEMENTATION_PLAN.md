@@ -174,7 +174,7 @@ planned.
 
 ## 6. Implementation Phases
 
-### Phase 1: Audio Configuration And Store Settings
+### Phase 1: Audio Configuration And Store Settings [COMPLETE]
 
 Modify `src/config.mjs`:
 
@@ -233,7 +233,7 @@ Acceptance criteria:
 - Existing roster/log storage keys and APIs behave exactly as before.
 - Volatile storage mode can save and read the setting during the current session.
 
-### Phase 2: Web Audio Helper
+### Phase 2: Web Audio Helper [COMPLETE]
 
 Create `src/lib/audio.mjs`:
 
@@ -319,7 +319,7 @@ Acceptance criteria:
 - Repeated successful scan completions create separate oscillator instances and do not
   reuse a stopped source node.
 
-### Phase 3: App And Admin Integration
+### Phase 3: App And Admin Integration [COMPLETE]
 
 Modify `src/app.mjs`:
 
@@ -428,7 +428,7 @@ Acceptance criteria:
 - Selecting a guest still creates exactly one visit id and logs exactly once.
 - Scan completion still transitions to result when audio unlock or playback fails.
 
-### Phase 4: Build, Tests, Documentation
+### Phase 4: Build, Tests, Documentation [COMPLETE]
 
 Modify `scripts/build.mjs` by inserting `src/lib/audio.mjs` immediately after
 `src/config.mjs`. This ensures `AUDIO` is available before the audio module runs, while

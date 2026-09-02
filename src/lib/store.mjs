@@ -4,6 +4,15 @@ import { STORAGE } from '../config.mjs';
 import { toCsv } from './csv.mjs';
 import { mergeLogEntries as mergeLogEntrySets } from './log-merge.mjs';
 
+export function normalizeAudioSettings(raw) {
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return { scanBlipEnabled: parsed?.scanBlipEnabled === true };
+  } catch {
+    return { scanBlipEnabled: false };
+  }
+}
+
 export function createStore(
   storage = globalThis.localStorage,
   defaults = globalThis.CHECKIN007_DEFAULT_GUESTS,
@@ -12,6 +21,7 @@ export function createStore(
   let memory = {
     [STORAGE.LOG_KEY]: '[]',
     [STORAGE.ROSTER_KEY]: '',
+    [STORAGE.AUDIO_KEY]: '',
   };
 
   const read = (key) => {
@@ -108,6 +118,14 @@ export function createStore(
       const result = mergeLogEntrySets(loadLog(), importedEntries);
       replaceLog(result.entries);
       return result;
+    },
+    loadAudioSettings() {
+      return normalizeAudioSettings(read(STORAGE.AUDIO_KEY));
+    },
+    saveAudioSettings(nextSettings) {
+      const normalized = normalizeAudioSettings(nextSettings);
+      write(STORAGE.AUDIO_KEY, JSON.stringify(normalized));
+      return normalized;
     },
     clearLog() {
       saveLog([]);

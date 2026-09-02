@@ -37,6 +37,12 @@ scan fallback because camera access requires a secure context.
 4. Apply Merge.
 5. Export the consolidated CSV or JSON from Admin Controls.
 
+## Optional Scan Audio
+
+Admin Controls includes an optional Scan blip audio setting. When enabled, the kiosk
+unlocks local Web Audio from the first guest-selection gesture and synthesizes a short
+scan cue on identification; it does not request microphone access or record audio.
+
 ## iPad Checklist
 
 Camera permission prompt appears on HTTPS; front camera feed is visible; portrait and

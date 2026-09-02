@@ -13,6 +13,79 @@ async function runCheckIn(page, guestName = /Ava Sterling/) {
   await expect(page.getByText('Table 1 - Casino Royale')).toBeVisible({ timeout: 6000 });
 }
 
+async function installAudioMock(page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: undefined,
+      configurable: true,
+    });
+    window.__audioProbe = {
+      constructions: 0,
+      unlockResume: 0,
+      playbackResume: 0,
+      oscillators: 0,
+      gains: 0,
+      starts: 0,
+      stops: 0,
+      connections: 0,
+      checkins: () => JSON.parse(localStorage.getItem('checkin007.log.v1') || '[]').length,
+    };
+    class MockAudioContext {
+      constructor() {
+        window.__audioProbe.constructions += 1;
+        this.state = 'suspended';
+        this.currentTime = 22;
+        this.destination = { type: 'destination' };
+      }
+      async resume() {
+        if (window.__audioProbe.oscillators === 0) window.__audioProbe.unlockResume += 1;
+        else window.__audioProbe.playbackResume += 1;
+        this.state = 'running';
+      }
+      async suspend() {
+        this.state = 'suspended';
+      }
+      createOscillator() {
+        window.__audioProbe.oscillators += 1;
+        return {
+          type: 'oscillator',
+          frequency: {
+            setValueAtTime() {},
+            linearRampToValueAtTime() {},
+          },
+          connect() {
+            window.__audioProbe.connections += 1;
+          },
+          disconnect() {},
+          addEventListener() {},
+          start() {
+            window.__audioProbe.starts += 1;
+          },
+          stop() {
+            window.__audioProbe.stops += 1;
+          },
+        };
+      }
+      createGain() {
+        window.__audioProbe.gains += 1;
+        return {
+          type: 'gain',
+          gain: {
+            setValueAtTime() {},
+            setTargetAtTime() {},
+          },
+          connect() {
+            window.__audioProbe.connections += 1;
+          },
+          disconnect() {},
+        };
+      }
+    }
+    window.AudioContext = MockAudioContext;
+    window.webkitAudioContext = undefined;
+  });
+}
+
 test('boot, search, scan, result, log flow, and privacy probes', async ({ page, context }) => {
   await context.grantPermissions(['camera']);
   await page.goto('/');
@@ -23,6 +96,7 @@ test('boot, search, scan, result, log flow, and privacy probes', async ({ page, 
       captureStream: 0,
       mediaRecorder: 0,
       tracks: [],
+      audioConstraints: [],
     };
     const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
     HTMLCanvasElement.prototype.toDataURL = function (...args) {
@@ -47,6 +121,7 @@ test('boot, search, scan, result, log flow, and privacy probes', async ({ page, 
     }
     const nativeGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = async (...args) => {
+      window.__privacyProbe.audioConstraints.push(args[0]?.audio);
       const stream = await nativeGetUserMedia(...args);
       window.__privacyProbe.tracks.push(...stream.getVideoTracks());
       return stream;
@@ -62,12 +137,15 @@ test('boot, search, scan, result, log flow, and privacy probes', async ({ page, 
       captureStream: window.__privacyProbe.captureStream,
       mediaRecorder: window.__privacyProbe.mediaRecorder,
       trackStates: window.__privacyProbe.tracks.map((track) => track.readyState),
+      audioConstraints: window.__privacyProbe.audioConstraints,
       attachedStream: document.querySelector('video')?.srcObject ?? null,
     },
   }));
   expect(log).toHaveLength(1);
   expect(log[0]).toMatchObject({ guestId: 'ava-sterling', name: 'Ava Sterling' });
   expect(privacy).toMatchObject({ toDataURL: 0, captureStream: 0, mediaRecorder: 0 });
+  expect(privacy.audioConstraints.length).toBeGreaterThan(0);
+  expect(privacy.audioConstraints.every((audio) => audio === false)).toBe(true);
   expect(privacy.trackStates.length).toBeGreaterThan(0);
   expect(privacy.trackStates.every((state) => state === 'ended')).toBe(true);
   expect(privacy.attachedStream).toBeNull();
@@ -109,6 +187,7 @@ test('admin import and accessibility smoke', async ({ page }) => {
   await page.locator('.logo-hit').dispatchEvent('pointerdown');
   await page.waitForTimeout(2100);
   await expect(page.getByRole('dialog', { name: 'ADMIN CONTROLS' })).toBeVisible();
+  await expect(page.getByLabel('Scan blip audio')).toBeVisible();
   await page.setInputFiles('.csv-input', {
     name: 'guests.csv',
     mimeType: 'text/csv',
@@ -124,6 +203,60 @@ test('admin import and accessibility smoke', async ({ page }) => {
   expect(
     result.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact)),
   ).toEqual([]);
+});
+
+test('admin-enabled scan blip unlocks from selection and plays once at result', async ({
+  page,
+}) => {
+  await installAudioMock(page);
+  await page.goto('/');
+  await waitForRoster(page);
+  await page.locator('.logo-hit').dispatchEvent('pointerdown');
+  await page.waitForTimeout(2100);
+  await page.getByLabel('Scan blip audio').check();
+  await expect(page.getByText('Scan blip audio enabled.')).toBeVisible();
+  await page.getByLabel('Close admin').click();
+  await waitForRoster(page);
+  await page.getByRole('button', { name: /Ava Sterling/ }).click();
+  await expect(page.getByText('OPTICAL SENSOR OFFLINE - COVERT MODE')).toBeVisible();
+  await expect(page.getByText('Table 1 - Casino Royale')).toBeVisible({ timeout: 6000 });
+  const probe = await page.evaluate(() => ({
+    constructions: window.__audioProbe.constructions,
+    unlockResume: window.__audioProbe.unlockResume,
+    playbackResume: window.__audioProbe.playbackResume,
+    oscillators: window.__audioProbe.oscillators,
+    gains: window.__audioProbe.gains,
+    starts: window.__audioProbe.starts,
+    stops: window.__audioProbe.stops,
+    connections: window.__audioProbe.connections,
+    checkins: window.__audioProbe.checkins(),
+  }));
+  expect(probe).toMatchObject({
+    constructions: 1,
+    unlockResume: 1,
+    playbackResume: 0,
+    oscillators: 1,
+    gains: 1,
+    starts: 1,
+    stops: 1,
+    connections: 2,
+    checkins: 1,
+  });
+});
+
+test('default-off scan blip schedules no audio during a normal scan', async ({ page }) => {
+  await installAudioMock(page);
+  await page.goto('/');
+  await waitForRoster(page);
+  await page.getByRole('button', { name: /Ava Sterling/ }).click();
+  await expect(page.getByText('OPTICAL SENSOR OFFLINE - COVERT MODE')).toBeVisible();
+  await expect(page.getByText('Table 1 - Casino Royale')).toBeVisible({ timeout: 6000 });
+  const probe = await page.evaluate(() => ({
+    constructions: window.__audioProbe.constructions,
+    starts: window.__audioProbe.starts,
+    checkins: window.__audioProbe.checkins(),
+  }));
+  expect(probe).toEqual({ constructions: 0, starts: 0, checkins: 1 });
 });
 
 test('large imported rosters virtualize while preserving search and selection', async ({

@@ -1,4 +1,5 @@
 import { ADMIN, REDUCED, TIMING } from './config.mjs';
+import { createScanAudioController } from './lib/audio.mjs';
 import { findGuestById, buildSearchIndex } from './lib/roster.mjs';
 import { createStore } from './lib/store.mjs';
 import { mountAdmin } from './screens/admin.mjs';
@@ -13,6 +14,8 @@ export function createVisitId() {
 
 export function start(root = document.getElementById('app')) {
   const store = createStore();
+  const audio = createScanAudioController();
+  audio.setEnabled(store.loadAudioSettings().scanBlipEnabled);
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const timing = reduced ? REDUCED : TIMING;
   let guests = buildSearchIndex(store.loadRoster());
@@ -26,6 +29,12 @@ export function start(root = document.getElementById('app')) {
 
   document.documentElement.style.setProperty('--transition-ms', `${timing.TRANSITION_MS}ms`);
   document.documentElement.style.setProperty('--admin-hitzone', `${ADMIN.HITZONE_PX}px`);
+
+  function updateAudioSettings(nextSettings) {
+    const saved = store.saveAudioSettings(nextSettings);
+    audio.setEnabled(saved.scanBlipEnabled);
+    return saved;
+  }
 
   function setState(next, payload = {}) {
     cleanup();
@@ -44,12 +53,15 @@ export function start(root = document.getElementById('app')) {
         onSelect: (guestId) => {
           currentGuestId = guestId;
           currentVisitId = createVisitId();
+          audio.unlockFromGesture();
           setState('SCAN');
         },
         onAdminHold: () => {
           if (state !== 'ROSTER' || adminCleanup) return;
           adminCleanup = mountAdmin(root, {
             store,
+            audioSettings: store.loadAudioSettings(),
+            onAudioSettingsChanged: updateAudioSettings,
             onRosterChanged: (nextGuests) => {
               guests = buildSearchIndex(nextGuests);
             },
@@ -66,7 +78,10 @@ export function start(root = document.getElementById('app')) {
       cleanup = mountScan(root, {
         guest,
         timing,
-        onDone: () => setState('RESULT', { guest }),
+        onDone: () => {
+          audio.playScanBlip();
+          setState('RESULT', { guest });
+        },
       });
     }
     if (state === 'RESULT') {

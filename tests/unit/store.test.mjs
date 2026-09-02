@@ -104,3 +104,36 @@ test('merged log CSV keeps the existing export column order', () => {
     'visitId,guestId,name,table,timestamp\nvisit-1,ava,Ava,One,2026-09-02T09:00:00-04:00',
   );
 });
+
+test('audio settings default off and malformed settings normalize off', () => {
+  const storage = memoryStorage();
+  const store = createStore(storage, []);
+  assert.deepEqual(store.loadAudioSettings(), { scanBlipEnabled: false });
+  storage.setItem('checkin007.audio.v1', '{not-json');
+  assert.deepEqual(store.loadAudioSettings(), { scanBlipEnabled: false });
+  storage.setItem('checkin007.audio.v1', JSON.stringify({ scanBlipEnabled: 'yes' }));
+  assert.deepEqual(store.loadAudioSettings(), { scanBlipEnabled: false });
+});
+
+test('audio settings round-trip under the versioned key', () => {
+  const storage = memoryStorage();
+  const store = createStore(storage, []);
+  assert.deepEqual(store.saveAudioSettings({ scanBlipEnabled: true }), {
+    scanBlipEnabled: true,
+  });
+  assert.equal(storage.getItem('checkin007.audio.v1'), '{"scanBlipEnabled":true}');
+  assert.deepEqual(store.loadAudioSettings(), { scanBlipEnabled: true });
+  assert.deepEqual(store.saveAudioSettings({ scanBlipEnabled: false }), {
+    scanBlipEnabled: false,
+  });
+  assert.deepEqual(store.loadAudioSettings(), { scanBlipEnabled: false });
+});
+
+test('volatile fallback can read saved audio settings during the session', () => {
+  const store = createStore(memoryStorage(true), []);
+  assert.deepEqual(store.saveAudioSettings({ scanBlipEnabled: true }), {
+    scanBlipEnabled: true,
+  });
+  assert.equal(store.isVolatile(), true);
+  assert.deepEqual(store.loadAudioSettings(), { scanBlipEnabled: true });
+});
