@@ -5,7 +5,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
-- [ ] Multi-device check-in log consolidation / merge tooling (§9)
+- [/] Multi-device check-in log consolidation / merge tooling (§9)
 - [ ] Optional subtle scan "blip" audio on identification, gated on a user-gesture unlock (§10 Q6)
 - [ ] Native SwiftUI iPad build as a maximum-fidelity alternative (§10 Q1)
 - [ ] On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)
