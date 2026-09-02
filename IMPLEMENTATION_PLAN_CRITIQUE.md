@@ -1,9 +1,69 @@
 # Check-In 007 Plan Critique
 
 **Plan Score:** 98/100
-**Implementation Score:** 91/100
-**Status:** Plan APPROVED (≥95 cleared); IMPLEMENTATION NOT YET VERIFIED — 91 < 95 gate → **State 3: fix the code**
-**Latest review:** Implementation Verification v1 — source @ commit `07ef178`, audited 2026-09-02
+**Implementation Score:** 96/100
+**Status:** Plan APPROVED (≥95 cleared); IMPLEMENTATION **VERIFIED** — 96 ≥ 95 gate → **State 4: cycle complete**
+**Latest review:** Implementation Verification v2 — source @ commit `75c8279`, audited 2026-09-02
+
+---
+
+## Implementation Verification — v2
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v3 @ approved score 98/100 (Revision 7)
+**Code:** commit `75c8279` ("fix(audit): cover implementation verification gaps"), audited 2026-09-02
+**Result:** **Implementation Score 96/100 — VERIFIED (gate ≥95 cleared).** State 4: the plan/
+implementation cycle is complete. Defects D1–D6 from Verification v1 are all resolved and
+confirmed by execution; the plan remains the authoritative contract and was not altered.
+
+### What was verified by execution (hard evidence)
+
+- **Unit tests:** `node --test tests/unit/*.test.mjs` → **16/16 pass**.
+- **E2E tests:** `npx playwright test` → **8/8 pass** (up from 4/4). The four new specs are the
+  D1–D5 acceptance assertions.
+- **Build:** `node scripts/build.mjs` → `dist/index.html` at **20,858 gzip bytes** (budget ≤750 KB
+  gzip / ≤1.2 MB uncompressed), **exactly 1 `<script>`**, **0** `type="module"` tokens.
+- **Lint:** `prettier --check .` → clean.
+- **§4.1 invariant restored:** `grep -rnE '\b(2000|2600|4500|5000|120|900|2500|4000)\b' src --include='*.mjs'`
+  excluding `config.mjs` → **NONE**. The "grep for literal durations and find none outside
+  `config.mjs`" claim is true again.
+
+### Defect resolution (D1–D6 from Verification v1)
+
+| Defect | Fix landed in `75c8279` | Verified |
+|--------|--------------------------|----------|
+| **D1** privacy frame-grab spy + track-ended | e2e test #1 spies `toDataURL`/`captureStream`/`MediaRecorder` (all asserted 0), asserts every video track `ended` and `srcObject` null after SCAN | ✅ test passes |
+| **D2** orientation-change idempotency | e2e test #3 drives boot→scan→RESULT, calls `setViewportSize()` twice, asserts exactly 1 log entry for the `visitId` | ✅ test passes |
+| **D3** export-equals-stored-log | e2e test #5 grants `clipboard-read/write`, spies `clipboard.writeText`, asserts copied string `=== ` the CSV recomputed from `checkin007.log.v1` | ✅ test passes |
+| **D4** 20-cycle timer/listener leak | e2e test #6 instruments `setTimeout`/`addEventListener`, loops the flow 20×, asserts counts equal baseline; backed by `roster.mjs` now delegating one list `click` listener and `removeEventListener`-ing all listeners on unmount | ✅ test passes |
+| **D5** reduced-motion e2e | e2e test #7 `emulateMedia({ reducedMotion:'reduce' })`, roster appears in 973 ms — under the 2000 ms cap the normal 2600 ms `LOADING_MS` path would miss, proving `REDUCED` timings are selected | ✅ test passes |
+| **D6** §4.1 single-source-of-truth | `config.mjs` adds `ROSTER.SEARCH_DEBOUNCE_MS = 120`; `roster.mjs` imports `ADMIN`/`ROSTER` and uses `ADMIN.HOLD_MS` + `ROSTER.SEARCH_DEBOUNCE_MS`; grep invariant holds | ✅ verified |
+
+### Remaining nits (Path to 100 — not gates)
+
+1. **D5 reduced-motion e2e proves only the LOADING timing.** It asserts LOADING auto-advances
+   under `REDUCED.LOADING_MS`, which matches the D5 directive, but does not additionally assert
+   the `REDUCED` `SCAN_MS`/`RESULT_MS`/`TRANSITION_MS` values are used. Shallow but acceptance-
+   satisfying. Path to 100: assert a reduced SCAN or RESULT duration too.
+2. **`window.CheckIn007.setState` is exposed beyond the documented public surface.** §4.4 step 5
+   says the bundle "exposes only `window.CheckIn007.start()`". The D4 leak test drives
+   `window.CheckIn007.setState('ROSTER')`, so `setState` is now public. A benign test affordance
+   and an improvement for testability, but a minor deviation from the §4.4 "only `start()`" wording.
+   Path to 100: namespace test hooks (e.g. `window.CheckIn007.__test.setState`) or back-port the
+   wider surface into §4.4.
+
+### Why 96 and not higher
+
+The two nits above are the only gap between the delivered code and a flawless 98–100: one e2e
+assertion is shallower than it could be, and one extra public method slipped past the §4.4
+"only `start()`" contract. Neither affects behavior, correctness, or any acceptance criterion.
+
+### Why 96 and not lower
+
+Every §5 phase acceptance criterion and the full §7.2 e2e enumeration are now implemented and
+green under execution — including the flagship privacy proof (§1) that Verification v1 flagged as
+honored-in-code-but-untested. Build/budget/lint/artifact-shape/`file://` boot all pass; the §4.1
+magic-number regression is gone. This is a comprehensively tested, faithful implementation of the
+approved 98/100 plan. **Cycle complete.**
 
 ---
 
@@ -494,11 +554,14 @@ gaps and this comfortably clears 95.
 
 ---
 
-**Authoritative scores (this file): Plan Score 98/100 — APPROVED (v3, Revision 7).
-Implementation Score 91/100 — NOT VERIFIED (Implementation Verification v1, commit `07ef178`).
-Loop is in State 3: fix the code (defects D1–D6) to reach the ≥95 implementation gate; the plan
-remains the authoritative spec and must NOT be revised.**
+**Authoritative scores (this file):**
+**Plan Score:** 98/100 — APPROVED (v3, Revision 7).
+**Implementation Score:** 96/100 — **VERIFIED** (Implementation Verification v2, commit `75c8279`).
+Loop is in **State 4: cycle complete.** Defects D1–D6 are resolved and confirmed by execution
+(16/16 unit, 8/8 e2e, build within budget, lint clean, §4.1 grep invariant restored). The plan
+remains the authoritative spec and was not revised.
 
-_(The Revision 1–5 analysis above is retained as history. Revision 1 critiqued v1 at 92;
-Revisions 2–5 were no-change re-reviews of the unrevised v1. Revision 6 critiqued v2 at 96.
-Revision 7 is the authoritative critique of v3 and supersedes them.)_
+_(History retained above. Revision 1 critiqued v1 at 92; Revisions 2–5 were no-change re-reviews;
+Revision 6 critiqued v2 at 96; Revision 7 critiqued v3 at 98 (APPROVED). Implementation
+Verification v1 scored the first landing at 91 (NOT VERIFIED); Verification v2 scores commit
+`75c8279` at 96 (VERIFIED).)_

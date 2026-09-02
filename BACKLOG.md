@@ -23,8 +23,12 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 
 ## Notes
 The four Polish items above (lint gate, font subsetting/budget, dual meta tags, axe-core e2e)
-were **implemented and verified** at implementation-audit v8 (commit `07ef178`) and are now
-marked done. Six unchecked items remain (five deferred features + the optional Node 24 bump),
-for a backlog deduction of −3. Remaining implementation gaps (missing e2e privacy spy,
-orientation/export/leak/reduced-motion e2e, and the §4.1 magic-number nit) are tracked as
-**defects** in `CONSOLIDATED_AUDIT.md` Required Actions #5–#8, not here.
+were **implemented and verified** at implementation-audit v8 (commit `07ef178`) and are marked
+done. The implementation defects D1–D6 (privacy-spy/orientation/export/leak/reduced-motion e2e
+and the §4.1 magic-number nit) that were tracked in `CONSOLIDATED_AUDIT.md` Required Actions
+#5–#8 are now **all resolved** in commit `75c8279` — Implementation Verification v2 = 96/100
+**VERIFIED** (audit v9). No open defects remain.
+
+Six unchecked items remain here (five deferred features + the optional Node 24 bump), for a
+backlog deduction of −3. With the plan/implementation cycle complete, these backlog items are
+now the **only** lever on the audit score — closing any two recovers 1 point.
