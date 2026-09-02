@@ -1,4 +1,4 @@
-# Check-In 007 — Implementation Plan v9
+# Check-In 007 — Implementation Plan v10
 
 > Cycle 4 backlog plan. Source item: `BACKLOG.md` Deferred Features item
 > "Optional subtle scan \"blip\" audio on identification, gated on a user-gesture unlock
@@ -264,7 +264,9 @@ export function createScanAudioController({
 function scheduleBlip(context, config) {
   /**
    * Create a fresh OscillatorNode and GainNode for each cue.
-   * Connect oscillator -> gain -> destination. At context.currentTime, call
+   * Connect oscillator -> gain -> destination. Convert
+   * config.SCAN_BLIP_DURATION_MS to durationSeconds with
+   * config.SCAN_BLIP_DURATION_MS / 1000. At context.currentTime, call
    * oscillator.frequency.setValueAtTime(config.SCAN_BLIP_START_HZ, now), then
    * oscillator.frequency.linearRampToValueAtTime(config.SCAN_BLIP_END_HZ,
    * now + durationSeconds / 2). Call gain.gain.setValueAtTime(config.SCAN_BLIP_GAIN,
@@ -387,8 +389,11 @@ export function mountAdmin(root, {
 }) {
   /**
    * Render a checkbox labeled "Scan blip audio".
-   * Normalize the received audioSettings to `{ scanBlipEnabled: boolean }` before any
-   * dereference so direct mounts or omitted params default off instead of throwing.
+   * Normalize the received audioSettings inline with
+   * `{ scanBlipEnabled: audioSettings?.scanBlipEnabled === true }` before any dereference
+   * so direct mounts or omitted params default off instead of throwing. Do not import
+   * store.normalizeAudioSettings into this screen; store remains responsible for
+   * persisted shape normalization, while admin only needs a defensive UI boolean.
    * Initialize checked from normalizedAudioSettings.scanBlipEnabled.
    * On change, call onAudioSettingsChanged({ scanBlipEnabled: checked }) and announce
    * "Scan blip audio enabled." or "Scan blip audio disabled." in the existing status
@@ -508,7 +513,9 @@ not request microphone access.
   cue instead of blocking result navigation.
 - **Interrupted context:** playback checks `context.state`; if it is `interrupted`, it
   starts the same guarded non-awaited `resume()` attempt when available, skips scheduling,
-  and lets a future scan play after recovery.
+  and lets a future scan play after recovery. The cue for the scan that encountered
+  `interrupted` is intentionally skipped because waiting for resume would delay result
+  navigation and could violate autoplay policy on browsers that reject the resume.
 - **Closed context:** playback skips, and repeated calls do not try to use closed nodes.
 - **Repeated scans:** each successful playback creates new oscillator/gain nodes and
   disconnects them on end when possible.
@@ -560,6 +567,9 @@ Unit tests:
   - successful playback creates oscillator/gain, connects oscillator -> gain ->
     destination, calls the exact frequency/gain automation sequence from §4.3, and
     schedules start/stop exactly once.
+  - successful playback converts `SCAN_BLIP_DURATION_MS` to seconds with
+    `SCAN_BLIP_DURATION_MS / 1000`, then uses that value for
+    `now + durationSeconds / 2` and `now + durationSeconds`.
   - suspended/interrupted state after unlock starts one non-awaited resume attempt during
     playback and schedules no oscillator for that skipped cue.
   - repeated successful playback creates two oscillator instances.
@@ -582,7 +592,9 @@ End-to-end tests:
 - New enabled-audio workflow:
   - install an init-script mocked `AudioContext` with counters for constructor,
     unlock-phase resume, playback-phase resume, oscillator creation, gain creation,
-    start, stop, and connection calls.
+    start, stop, and connection calls. The mock context starts in `suspended`, and its
+    `resume()` implementation changes state to `running`, so the unlock-phase resume
+    assertion is load-bearing and deterministic.
   - open admin, enable "Scan blip audio", close admin.
   - select a guest and wait for result.
   - assert one context construction, one unlock/resume-attempt counter increment from
