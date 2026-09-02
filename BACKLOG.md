@@ -29,6 +29,11 @@ and the §4.1 magic-number nit) that were tracked in `CONSOLIDATED_AUDIT.md` Req
 #5–#8 are now **all resolved** in commit `75c8279` — Implementation Verification v2 = 96/100
 **VERIFIED** (audit v9). No open defects remain.
 
-Six unchecked items remain here (five deferred features + the optional Node 24 bump), for a
-backlog deduction of −3. With the plan/implementation cycle complete, these backlog items are
-now the **only** lever on the audit score — closing any two recovers 1 point.
+Cycle 2 is now open: the "Roster windowing/virtualization" item is marked in progress (`[/]`) and
+is the subject of `IMPLEMENTATION_PLAN.md` v4. That plan is currently **NOT APPROVED (88/100)** —
+see `IMPLEMENTATION_PLAN_CRITIQUE.md` Rev 1 — so no code has landed for it yet.
+
+Six items remain not-done here (one `[/]` in progress + five `[ ]`), for a backlog deduction of −3.
+The item moves to `[x]` only when plan v4 reaches ≥95, is implemented, and passes implementation
+verification (≥95). Until then the audit score is also carrying a −1 inactivity decay (cycle 2 has
+produced a plan but no source change).
