@@ -218,12 +218,12 @@ None permits product-code edits, assertion weakening, approximate evidence, or s
 
 ## 14. Completion Checklist
 
-- [ ] Exact `50b4357` reproduction fails at missing `scan.status` and retains the expected hierarchy attachment.
-- [ ] Full attachment validation proves `roster.row.` present and `scan.status` absent; committed excerpt is minimal and sanitized.
-- [ ] Plan contract explicitly requires `sheet.swipeUp()` before both unchanged clear-log confirmations.
-- [ ] Current focused first-check-in and clear-log methods pass independently.
-- [ ] Current full native scheme passes 37/37 with zero failures/skips, and all web gates pass.
-- [ ] Temporary worktree/results are removed; final tracked diff contains only the two §5 files.
-- [ ] Evidence distinguishes pre-fix expected failure, current native/web PASS, and CI `BLOCKED (external billing)`.
+- [x] Exact `50b4357` reproduction fails at missing `scan.status` and retains the expected hierarchy attachment.
+- [x] Full attachment validation proves `roster.row.` present and `scan.status` absent; committed excerpt is minimal and sanitized.
+- [x] Plan contract explicitly requires `sheet.swipeUp()` before both unchanged clear-log confirmations.
+- [x] Current focused first-check-in and clear-log methods pass independently.
+- [x] Current full native scheme passes 37/37 with zero failures/skips, and all web gates pass.
+- [x] Temporary worktree/results are removed; final tracked diff contains only the two §5 files.
+- [x] Evidence distinguishes pre-fix expected failure, current native/web PASS, and CI `BLOCKED (external billing)`.
 
 Every checkbox is required. This plan addresses only the two Audit-v53 backlog follow-ups; the discriminator decides backlog closure after implementation audit.

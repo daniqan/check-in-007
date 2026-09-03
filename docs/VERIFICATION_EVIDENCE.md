@@ -188,3 +188,61 @@ completion boxes remain open pending a code-fix/re-audit cycle and a successful 
 ### CI disposition — BLOCKED (external billing)
 
 - Run `33711898714` remains `BLOCKED (external billing)`; no steps ran and no artifact exists.
+
+## Cycle 14 — Evidence and Plan-Consistency Closure
+
+- Tested current source: `6c10875faaf21a088f2e9ca238f0d9b5025ac724` (documentation-only Cycle 14
+  implementation follows this runtime-identical source).
+- Historical source: exact detached commit `50b435766f805cd86186a598c6534f667f9a5221`,
+  immediately before repair commit `5e80c8bf7721d31c96dfac081f86399e8c531dfc`.
+- Environment: Xcode 26.4 (`17E192`); iOS 26.4 (`23E244`); iPad (A16). Volatile paths,
+  process identifiers, timestamps, coordinates, simulator/container identifiers, and fixture display
+  names are intentionally omitted.
+
+### Pre-fix first-check-in reproduction — EXPECTED FAIL
+
+- In a temporary detached worktree at `50b4357`, a failure-only test hook attached
+  `app.debugDescription` as `pre-fix-first-check-in-hierarchy.txt` with `.keepAlways`; the existing row
+  tap, five-second wait, and `XCTAssertTrue` outcome were preserved. The focused
+  `CheckIn007UITests/testFirstCheckInFlow` run exited 65 and failed at the unchanged missing
+  `scan.status` assertion.
+- Xcode's `--only-failures` export skipped the custom attachment because its manifest marked the named
+  activity `isAssociatedWithFailure: false`, despite `.keepAlways`. The attachment was therefore
+  exported from that same failed method by its exact test identifier. This tool-level export deviation
+  did not change the run, payload, or validation invariants.
+- Machine checks over the complete 12,831-byte attachment found 12 occurrences of `roster.row.` and
+  zero occurrences of `scan.status`. The excerpt below is documentary only; the complete attachment,
+  not this selected line, was used for both counts.
+
+```text
+Button, identifier: 'roster.row.<redacted>', label: <redacted>
+```
+
+- This establishes the pre-fix state: roster rows remained exposed after the attempted tap while the
+  scan screen did not appear. Repair commit `5e80c8b` added the full-width row hit region and preserved
+  the now-passing workflow. The temporary worktree, instrumentation, DerivedData, result bundles, and
+  exported attachments were deleted after validation; none is committed.
+
+### Lazy admin Form navigation — REQUIRED CONTRACT
+
+- After `admin.sheet` exists, `testClearLogRequiresTwoConfirmations` must call `sheet.swipeUp()` so the
+  below-viewport lazy `Form` danger section materializes. It must then require and tap
+  `admin.clearLog`, re-identify and require `admin.clearLog.confirm`, and tap the confirmation, in that
+  order with the existing three-second waits. The scroll navigates to the controls; it does not bypass
+  either mandatory assertion.
+
+### Current native and web health — PASS
+
+- Both focused current-tree UI methods passed independently: `testFirstCheckInFlow` and
+  `testClearLogRequiresTwoConfirmations`.
+- The complete `CheckIn007` scheme exited 0. Its structured `.xcresult` contains both targets, all six
+  unit suites, and exactly 33 unit + four UI methods = 37/37 passed, zero failed or skipped.
+- Sanctioned direct Node path: `npm ci` (exit 0, 0 vulnerabilities),
+  `npx prettier --check .` (exit 0), `node --test tests/unit/*.test.mjs` (78/78 passed),
+  `npx playwright test` (13/13 passed), and `node scripts/build.mjs` (exit 0; 26,315 gzip bytes).
+  `dist/` remains untracked.
+
+### CI disposition — BLOCKED (external billing)
+
+- Run `33711898714` remains `BLOCKED (external billing)`; no steps ran and no artifact exists. The
+  historical expected failure and current local PASS results above do not change that disposition.
