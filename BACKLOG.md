@@ -16,7 +16,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
   installed web-apps cache `index.html` aggressively; stale loads were observed while debugging the
   scroll issue and forced new filenames / manual "Clear Website Data" between tests. A cache-bust
   (hashed asset name, `Cache-Control`, or a version query) would make kiosk redeploys reliable.
-- [ ] Web app manifest / `start_url` for reliable standalone Add-to-Home-Screen installs. Plan v28
+- [/] Web app manifest / `start_url` for reliable standalone Add-to-Home-Screen installs. Plan v28
   §13 Q4 explicitly defers this: Cycle 15 ships content-hashed URLs + existing meta tags first, and
   a `manifest.json` with `start_url`/`display:standalone` is only warranted in a later cycle *if*
   fresh hashed URLs do not fully solve stale standalone loads. Deferred pending Cycle-15 real-iPad results.
