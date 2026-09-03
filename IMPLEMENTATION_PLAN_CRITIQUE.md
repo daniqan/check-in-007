@@ -128,6 +128,123 @@ JSON; do not fold the CI guard past the empty-critique window without addressing
 
 ---
 
+## Implementation Verification — v24
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v30 (Cycle 17) @ approved commit `bd9af4e` (approved score 96/100)
+**Code:** `master` @ State-3 fix commit `c669930` ("fix(audit): pass iOS probe env to XCTest runner"), audited 2026-09-03
+**Implementation Score:** **96 / 100** — **≥95 gate CLEARED → VERIFIED → Cycle 17 COMPLETE (State 4)**
+
+The v23 blocking defect (D1 / RA #18 — the probe URL never reached the XCUITest runner) is **FIXED and
+execution-proven on a real iOS 26.4 Simulator this cycle.** Plan v30 is now faithfully and fully
+implemented: the wrapper injects the probe env via the Xcode `TEST_RUNNER_` mechanism, a launch-env
+regression assertion prevents the mocked-pass test from ever masking the gap again, and the lane fails
+closed with structured evidence. Every plan acceptance criterion passes. The score is 96 (not higher)
+only for the residual N1 stale-default-device nit and the XCUITest-harness flakiness surfaced this cycle
+(both out of plan-v30 scope). **Crucially, the now-functional lane produced its first real device
+evidence — and that evidence is that RA #14 does NOT pass on device (scroll oracle fails / harness
+flaky). That is a system-audit finding driving the next cycle, not a plan-v30 fidelity defect** — plan
+v30 explicitly sanctioned "required iOS mode either produces a real PASS or remains explicitly
+blocked/unresolved" (§6 Phase 5 acceptance) and §13 Q2 (no closure without a device PASS).
+
+### Independently reproduced this cycle (trust nothing)
+
+- `node --test tests/unit/*.test.mjs` → **100/100 pass** (was 98; +2: `testRunnerEnvironment` unit + a
+  `runIosScrollSmoke` launch-env assertion that captures the `xcodebuild test` env and asserts it carries
+  `TEST_RUNNER_CHECKIN007_IOS_PROBE_URL`).
+- `npx playwright test` → **15/15 pass**.
+- `node scripts/build.mjs` ×2 → deterministic SHA `15d6647afdf4`, **26898 gzip bytes**.
+- `npx prettier --check .` → clean on all git-tracked files (only the untracked `Claude outputs/` scratch
+  dir warns — `git ls-files "Claude outputs/"` = empty).
+- **Real simulator run #1** — `CHECKIN007_IOS_DEVICE='iPad (A16)' CHECKIN007_IOS_RUNTIME='iOS'
+  CHECKIN007_IOS_SCROLL_REQUIRED=1 node scripts/ios-scroll-smoke.mjs`: preflight passed, kiosk built,
+  HTTPS served (`https://127.0.0.1:58750/check-in-007.15d6647afdf4.html?scrollProbe=1`), `xcodebuild test`
+  launched → **exit 65**. The `.xcresult` shows the test failed at **`WebRosterScrollUITests.swift:35:
+  XCTAssertTrue failed - Probe text must report positive scrollTop after a touch drag`** — i.e. it got
+  **past** the line-15 `XCTUnwrap` (D1 gone), past line 26 (`scroll-probe:0` probe loaded → Safari loaded
+  the kiosk and dismissed the self-signed warning), performed the right-edge press-drag, and the roster's
+  `scrollTop` **stayed 0**. Wrapper wrote `status:"failed"`, `stage:"xcodebuild"`, exited nonzero.
+- **Real simulator run #2** (determinism check) → **exit 65**, but failed at a **different** line:
+  `WebRosterScrollUITests.swift:42: Failed to synthesize event: Neither element nor any descendant has
+  keyboard focus` — the `open()` helper's `address.typeText(url)` matched the inactive
+  `TabBarItemTitleContainer` address field instead of the keyboard-focused one. **The XCUITest harness is
+  itself flaky** at the Safari-address-bar level (run-to-run different failure points), independent of the
+  scroll behavior.
+
+### D1 / RA #18 verdict — RESOLVED (execution-proven)
+
+`runIosScrollSmoke` now composes the `xcodebuild test` env via `testRunnerEnvironment({probeUrl,
+allowSelfSignedHttps})` (`scripts/ios-scroll-smoke.mjs:52-65,262-266`), which emits **both** the plain and
+the `TEST_RUNNER_`-prefixed vars (`TEST_RUNNER_CHECKIN007_IOS_PROBE_URL`,
+`TEST_RUNNER_CHECKIN007_ALLOW_SELF_SIGNED_HTTPS`). Xcode strips the prefix inside the test-runner's
+`ProcessInfo.environment`, so `WebRosterScrollUITests.swift:16` now reads the URL (no longer nil). Proven
+by run #1 reaching line 35 (was line 15 in v23). The new `runIosScrollSmoke` launch-env unit test asserts
+the captured `xcodebuild test` env carries the prefixed probe URL, so the gap cannot silently reappear.
+
+### §-by-§ Plan Compliance
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.1 / Phase 1 — preflight + structured evidence | **COMPLIANT (D1 fixed)** | `preflightIosRunner`, `normalizeIosScrollResult`, `writeIosScrollResult` present/correct; skip/fail paths work; **the real pass path is now reachable** — env reaches the runner (proven run #1). Launch-env assertion added (Path-to-≥95 #1 of v23 folded in). |
+| §4.2 — single JSON evidence | COMPLIANT | Writes `test-results/ios-scroll-result.json` with all §4.2 fields; gitignored; trailing newline; parent dirs created. |
+| §4.3 — preflight classification | COMPLIANT | `missing_xcrun`/`missing_xcodebuild`/`missing_runtime`/`missing_device` in order; 10 s timeouts; unit-proven + reproduced live. |
+| §4.4 — cycle-artifact guard + override | COMPLIANT | Unchanged from v23; RA #16 durably fixed & execution-verified. |
+| §5 / Phase 2 — CI wiring | COMPLIANT | `ci.yml` runs guard after `npm ci`, before lint/test/build; `ios-scroll.yml` uploads both artifacts `if: always()`. |
+| §5 / Phase 3 — tests | COMPLIANT | +2 this fix (100/100 total); `IOS_SCROLL_ERROR_LIMIT` asserted; existing suites unchanged. |
+| §5 / Phase 4 — docs & evidence | COMPLIANT | Runbook/bug/evidence docs honest; device PASS still correctly **blank** (no PASS exists). |
+| §5 — no `src/`/`native/` drift | COMPLIANT | `c669930` touches only `scripts/ios-scroll-smoke.mjs` + `tests/unit/ios-scroll-smoke.test.mjs`. XCTest & production kiosk unchanged (Cycle-17 scope honored). |
+| Phase 5 — verification gates | COMPLIANT (plan-sanctioned) | Local non-iOS gates green; required iOS mode runs end-to-end and **remains explicitly unresolved** — exactly the §6 Phase-5 acceptance ("real PASS **or** remains blocked/unresolved"). |
+
+### Regression check
+
+No shipped-gate regression: unit **grew** 98→100, e2e 15/15, deterministic build byte-identical, prettier
+clean, zero `src/`/`native/` change. D1 is repaired without touching the XCTest or the plan.
+
+### Defects
+
+**None blocking (D1 resolved).** Two non-blocking, out-of-plan-scope items carry to the next cycle:
+
+- **N1 (nit) — stale default device.** The hardcoded default `iPad Pro 13-inch (M4)`
+  (`ios-scroll-smoke.mjs:137,181`) is not installed here (the runtime ships the `M5` line + `iPad (A16)`),
+  so out-of-box `npm run test:ios-scroll` skips even on a machine full of iPads. Spec-faithful (§13 Q1),
+  overridable via `CHECKIN007_IOS_DEVICE`; refresh or add `xcrun simctl` device discovery in the next cycle.
+- **N2 (nit, NEW) — XCUITest harness flakiness.** `WebRosterScrollUITests.open()` matches
+  `safari.textFields.firstMatch`, which can bind the inactive tab-bar address field and fail
+  `typeText` with "Neither element nor any descendant has keyboard focus" (run #2). The Safari-driving
+  path is nondeterministic. This is in the **Cycle-15** XCTest (out of Cycle-17 scope), so it is a
+  system finding, not a plan-v30 fidelity defect — but it must be hardened before the lane can reliably
+  produce a PASS.
+
+### Why 96 and not 98
+
+D1 is cleanly fixed and regression-guarded, and plan v30 is fully implemented — that is a solid ≥95. It is
+not higher because (a) the default device is stale (N1) and (b) the on-device lane is not yet deterministic
+(N2 harness flakiness). Neither is a plan-v30 fidelity gap; both are next-cycle work.
+
+### Path to 100 (next cycle — RA #14 is now genuinely actionable)
+
+1. **Investigate & fix RA #14 on device.** Run #1 reached the scroll oracle and `scrollTop` stayed 0 — the
+   Cycle-15 CSS transform-removal fix is now, for the first time, **on-device evidence of insufficiency**
+   (the plan's own trigger: "unless a real-device failure later proves it insufficient"). The next cycle
+   must determine whether the roster genuinely doesn't touch-scroll (fix CSS/DOM/overflow) or the drag
+   mechanics are wrong, then produce a real `status:"passed"` JSON.
+2. **Harden the XCUITest harness (N2)** so the Safari address-bar automation is deterministic (bind the
+   keyboard-focused address field; add settle/retry) — otherwise the lane can't reliably PASS or FAIL.
+3. **Refresh the stale default device (N1)** or add `xcrun simctl`-based discovery.
+4. **Reconcile the CI guard vs. the pre-critique plan commit** (open backlog item) — scope
+   `check:cycle-artifacts` to PRs / default-branch pushes, or exempt plan-only commits.
+
+### Summary
+
+The State-3 fix is faithful and effective: D1 (probe env never reaching the runner) is **resolved and
+proven on a real iOS 26.4 Simulator** (failure moved from the line-15 unwrap to the line-35 scroll oracle),
+with a launch-env regression assertion. Plan v30 is fully implemented; 100/100 unit, 15/15 e2e,
+deterministic build, honest docs, zero `src/`/`native/` drift. **Implementation Score 96/100 — ≥95 gate
+CLEARED → Cycle 17 COMPLETE (State 4).** The now-working lane's first real evidence is that **RA #14 does
+not pass on device** (roster `scrollTop` stayed 0; harness also flaky) — a system finding that makes RA #14
+genuinely actionable and drives the next cycle. Do NOT mark RA #14 resolved: no `status:"passed"` exists.
+
+---
+
 ## Implementation Verification — v23
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v30 (Cycle 17) @ approved commit `bd9af4e` (approved score 96/100)

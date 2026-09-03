@@ -3,19 +3,19 @@
 Improvement opportunities beyond the current plan's scope. Unchecked items reduce the audit
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
-> **Cycle 17 implemented (audit v64, State 3):** `IMPLEMENTATION_PLAN.md` v30 (**APPROVED 96/100**) landed
-> in `a845f70`. **Implementation Verification v23 = 90/100 → below the ≥95 gate → State 3 (fix the
-> implementation).** RA #16 (empty-critique recurrence) is **durably RESOLVED** by the new
-> `check-cycle-artifacts` guard (execution-verified). But the first real iOS 26.4 Simulator run exposed a
-> **blocking defect (D1/F-19/RA #18):** the automated iOS lane can never emit `status:"passed"` because the
-> probe URL never reaches the XCUITest runner (`CHECKIN007_IOS_PROBE_URL` set in the `xcodebuild` subprocess
-> env but not injected into the runner — needs the `TEST_RUNNER_` prefix); `xcodebuild test` XCTUnwrap-fails
-> at `WebRosterScrollUITests.swift:15` (exit 65) regardless of scroll behavior. Fix is wrapper-only (do NOT
-> edit the XCTest or revise the plan). Gates otherwise green (98/98 unit, 15/15 e2e, deterministic build
-> `15d6647afdf4`, prettier clean on tracked files, guard works, fail-closed works). The CI-guard
-> reconciliation *improvement* stays a deferred Path-to-100 item below. System health flat 83 (decay reset +
-> RA #16 fix offset by below-gate impl + new D1). See `CONSOLIDATED_AUDIT.md` v64 and
-> `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v23.
+> **Cycle 17 COMPLETE (audit v65, State 4):** `IMPLEMENTATION_PLAN.md` v30 (**APPROVED 96/100**) is
+> implemented and **VERIFIED** — the State-3 blocking defect (D1/F-19/RA #18, iOS probe-env propagation) is
+> **FIXED and execution-proven** in `c669930` (`testRunnerEnvironment()` injects the `TEST_RUNNER_`-prefixed
+> vars; a launch-env regression assertion added). **Implementation Verification v24 = 96/100 → ≥95 gate
+> cleared.** RA #16 stays durably RESOLVED (guard). Gates green: 100/100 unit (+2), 15/15 e2e, deterministic
+> build `15d6647afdf4`, prettier clean on tracked files, fail-closed proven. **The now-functional lane's
+> first real iOS 26.4 Simulator run is on-device evidence that RA #14 does NOT pass:** the roster loaded,
+> the drag ran, and `scrollTop` stayed 0 (`WebRosterScrollUITests.swift:35`) → the Cycle-15 CSS fix is
+> evidenced insufficient, and a re-run also exposed XCUITest harness flakiness (N2/RA #19). **Cycle 18 must
+> actually fix the iPad roster scroll (RA #14) and harden the flaky harness (RA #19).** System health 83 →
+> 84 (D1 fixed + cycle complete + decay reset, tempered by the confirmed-unfixed flagship feature + new
+> harness-flakiness finding). See `CONSOLIDATED_AUDIT.md` v65 and `IMPLEMENTATION_PLAN_CRITIQUE.md`
+> Implementation Verification v24.
 
 ## Cycle-artifact guard polish (opened audit v63)
 - [ ] Reconcile the CI `check-cycle-artifacts` guard with the pre-critique planning window (plan v30
