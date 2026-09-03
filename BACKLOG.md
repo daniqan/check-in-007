@@ -3,14 +3,19 @@
 Improvement opportunities beyond the current plan's scope. Unchecked items reduce the audit
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
-> **Cycle 17 opened (audit v63):** `IMPLEMENTATION_PLAN.md` v30 **APPROVED at 96/100** (Cycle 17
-> Rev 1) but **NOT yet implemented** (State 2 — none of the §5 NEW files exist). It targets the two
-> code-actionable audit findings (RA #14 verification-lane hardening; RA #16 cycle-artifact guard),
-> which are tracked as Required Actions in `CONSOLIDATED_AUDIT.md`, **not** duplicated here. The
-> backlog is otherwise fully closed. One genuine deferred *improvement* the plan leaves as
-> Path-to-100 is captured below (CI cycle-artifact guard vs. the pre-critique plan commit). System
-> health 84 → 83 (first idle-code cycle since the Cycle-16 `43663ee` work → decay −1). See
-> `CONSOLIDATED_AUDIT.md` v63 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 17 Rev 1.
+> **Cycle 17 implemented (audit v64, State 3):** `IMPLEMENTATION_PLAN.md` v30 (**APPROVED 96/100**) landed
+> in `a845f70`. **Implementation Verification v23 = 90/100 → below the ≥95 gate → State 3 (fix the
+> implementation).** RA #16 (empty-critique recurrence) is **durably RESOLVED** by the new
+> `check-cycle-artifacts` guard (execution-verified). But the first real iOS 26.4 Simulator run exposed a
+> **blocking defect (D1/F-19/RA #18):** the automated iOS lane can never emit `status:"passed"` because the
+> probe URL never reaches the XCUITest runner (`CHECKIN007_IOS_PROBE_URL` set in the `xcodebuild` subprocess
+> env but not injected into the runner — needs the `TEST_RUNNER_` prefix); `xcodebuild test` XCTUnwrap-fails
+> at `WebRosterScrollUITests.swift:15` (exit 65) regardless of scroll behavior. Fix is wrapper-only (do NOT
+> edit the XCTest or revise the plan). Gates otherwise green (98/98 unit, 15/15 e2e, deterministic build
+> `15d6647afdf4`, prettier clean on tracked files, guard works, fail-closed works). The CI-guard
+> reconciliation *improvement* stays a deferred Path-to-100 item below. System health flat 83 (decay reset +
+> RA #16 fix offset by below-gate impl + new D1). See `CONSOLIDATED_AUDIT.md` v64 and
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v23.
 
 ## Cycle-artifact guard polish (opened audit v63)
 - [ ] Reconcile the CI `check-cycle-artifacts` guard with the pre-critique planning window (plan v30
