@@ -52,6 +52,44 @@ required success evidence.
 
 ## Cycle 11 — External Execution Closure
 
-Cycle 11 targets the installed iOS 26.4 simulator runtime and the linked
-`daniqan/check-in-007` GitHub repository. The immutable target SHA is this commit; native and CI
-results are intentionally finalized only after both external executions pass against it.
+- Target commit: `845116d41375cd6422f49bb2a53f23bcec3109e9`
+- Branch/repository: `master`; `daniqan/check-in-007`
+- Recorded at: `2026-09-03T03:50:37Z`
+
+### Local Web Gates — PASS
+
+- Environment: Node `v26.3.0`; npm `11.16.0`.
+- Guard status: sanctioned direct-tool path; only the Node 24 version guard was bypassed. The
+  exact-SHA CI run remains the authoritative pinned-Node-24 gate.
+- Commands/results: `npm ci` (exit 0, 0 vulnerabilities), `npx prettier --check .` (exit 0),
+  `node --test tests/unit/*.test.mjs` (78/78 passed), `npx playwright test` (13/13 passed), and
+  `node scripts/build.mjs` (exit 0; 26,315 gzip bytes).
+- Local artifact: `dist/index.html`; 70,584 bytes; SHA-256
+  `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744`.
+
+### Native iOS Simulator — FAIL
+
+- Environment: Xcode 26.4 (`17E192`); iOS 26.4; iPad (A16)
+  `A155995F-EC83-41BE-95B2-1A5F390ABF59`.
+- Command/result: the isolated scheme-level `xcodebuild test` command started both
+  `CheckIn007Tests` and `CheckIn007UITests`, but the unit target failed before completion.
+  `CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` expected two parsed rows and received
+  one, after which the test process crashed on an out-of-range array access. The runner restarted,
+  but was terminated after it subsequently stalled in
+  `CameraPrivacyTests.testStartOnSimulatorDoesNotCrashAndStaysNonRunning`; no valid result bundle was
+  produced.
+- Disposition: the plan's native success gate is not met. No source or test was changed to bypass
+  the failure, and the required six suites/32 unit methods/four UI tests/zero failures cannot be
+  claimed.
+
+### GitHub Actions CI — FAIL
+
+- Run: `https://github.com/daniqan/check-in-007/actions/runs/33711898714`; workflow `CI`; push event;
+  branch `master`; exact head SHA `845116d41375cd6422f49bb2a53f23bcec3109e9`.
+- Result: the workflow concluded `failure`; its `Web gate (Node 24 LTS)` job did not start because
+  the account was locked due to a billing issue. No required step succeeded.
+- Artifact: `dist-index-html` was not produced, so CI hash/size and exact local parity remain
+  unavailable.
+
+Cycle 11 remains incomplete. Neither failed external run is represented as `PASS`, and all §14
+completion boxes remain open pending a code-fix/re-audit cycle and a successful exact-SHA CI run.
