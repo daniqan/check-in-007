@@ -17,6 +17,8 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [x] Add a CI workflow (e.g. GitHub Actions) running `npm ci` + `npm run lint`/`test`/`build` on the pinned Node 24 line, with Playwright browser install/cache — done in `61c456b`: `.github/workflows/ci.yml` (ubuntu-latest, Node 24 via `setup-node@v4` `node-version-file: .nvmrc`, npm cache + `~/.cache/ms-playwright` cache keyed on the lockfile, `npx playwright install --with-deps chromium`, least-privilege `permissions: contents: read`, `cancel-in-progress` concurrency, dist artifact upload). Coupled to the Node 24 pin. Implementation Verification v7 = 97/100 VERIFIED. First live CI run lands on first push (§10, the definitive parse check).
 - [x] Add both `apple-mobile-web-app-capable` and the modern `mobile-web-app-capable` meta tags (done: present in `index.html` and built `dist/index.html`)
 - [x] axe-core accessibility pass wired into the e2e suite (done: `tests/e2e/checkin.spec.mjs` runs `axe.run` and asserts zero serious/critical)
+- [/] HTTPS helper `--bind` flag documented + directly `parseArgs`-tested (Cycle 9, audit v32 Next Step #1) — in progress: approved plan v20 (Cycle 9 Rev 1 = 96/100) adds `--bind=<v>`/`--bind <v>` coverage + a README flag table; not yet implemented
+- [/] HTTPS helper `startServer().url` returns the effective advertised endpoint instead of hard-coded `127.0.0.1` (Cycle 9, audit v32 Next Step #2) — in progress: approved plan v20 adds `advertisedUrls`/`httpsUrl` (wildcard→LAN/localhost, explicit→bracket-safe host), additive `urls` array with `url===urls[0]`, explicit bind folded into cert SAN; not yet implemented
 
 ## Documentation
 - [x] Resolve/hard-default the six §10 open questions inline so the plan is fully self-contained (done in plan v2 — §10 "Defaults & Revisit Triggers")
@@ -177,6 +179,25 @@ cert dir (and/or deny dotfiles) + assert `GET /.certs/key.pem`→404, and auto-a
 LAN IPv4s to the cert SAN (or make `--host` mandatory + warn). Strict-unchecked `[ ]` = 0 (this
 item is `[/]`, everything else `[x]`) → backlog −0; first idle cycle since the v29 landing →
 decay −1. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 1 and `CONSOLIDATED_AUDIT.md` v30.
+
+**Cycle 9 is open** (State 2 — implement the approved plan): after Cycle 8 closed VERIFIED
+(offline-HTTPS helper `[x]`, backlog fully closed at v32), a new cycle opened to pick up the two
+cosmetic non-gate polish items the v32 audit *Next Step* recorded — both now tracked `[/]` above:
+(#1) document + directly test the HTTPS helper's `--bind` flag; (#2) return the effective
+advertised endpoint from `startServer().url` instead of a hard-coded `127.0.0.1`.
+`IMPLEMENTATION_PLAN.md` was replaced with **v20** (commit `12857d2`) and critiqued at **96/100 —
+APPROVED** (Cycle 9 Rev 1), clearing the ≥95 gate first review. v20 keeps `--bind` as the
+listen-interface selector distinct from repeatable `--host` SAN additions, adds pure
+`advertisedUrls`/`httpsUrl` helpers (wildcard → sorted LAN IPv4 or localhost fallback; explicit →
+bracket-safe host), an additive `urls` array with the `url===urls[0]` invariant (`lanUrls`
+retained), and folds the explicit non-wildcard bind into the cert SAN. Held at 96 (not higher) by
+one flaw of omission: the existing default-wildcard live-request test
+(`tests/unit/serve-https.test.mjs:53-67`) becomes unreachable under the new contract and must be
+rebound to an explicit `127.0.0.1` (with the wildcard case demoted to assertion-only) — the plan
+describes the correct end state but never flags the rebind. **Next action: implement approved plan
+v20** — landing the endpoint helpers + `--bind` tests/docs flips both polish items `[/]` → `[x]`
+and resets the (now −1) inactivity decay. Strict-unchecked `[ ]` = 0 → backlog −0. See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 9 Rev 1 and `CONSOLIDATED_AUDIT.md` v33.
 
 **Cycle 8 plan APPROVED (Rev 2, audit v31):** `IMPLEMENTATION_PLAN.md` was revised v18 → v19
 (commit `dfd2909`) and re-critiqued at **98/100 — APPROVED** (Cycle 8 Rev 2). v19 closes
