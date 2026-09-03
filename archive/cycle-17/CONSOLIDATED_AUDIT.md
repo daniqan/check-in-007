@@ -202,3 +202,93 @@
 >
 > **Required Actions status.** **#17** (P2, red CI lint gate) — OPEN new, staleness 0, **−0**; drives the fix. **#16** (P3, empty-critique recurrence) — OPEN, staleness 1, **−0** (not recurred this cycle). **#14** (P0/HIGH, iPad roster scroll) — **BLOCKED (env / device)**, code-complete, staleness 4, **−0**. **#10** (P2, CI external billing) — `BLOCKED`, external, **−0**. **#15** (flaky e2e) RESOLVED. **#11** (CSV) DONE. **#12** (`mark007`) RESOLVED. **#13** (check-in flow) RESOLVED. Camera DONE.
 
+<!-- audit-entry v60 -->
+> **CYCLE 16 OPENED — plan v29 (web app manifest / standalone `start_url`) drafted & APPROVED at 96/100 (State 2 — implement the approved plan). NOT YET IMPLEMENTED → Implementation Score N/A. Empty critique (F-15) restored again. Score 82 → 81 (first idle-code cycle since the `f551d4a` reset → decay −1).**
+> `06d9bc5` ("plan: v29 — web app manifest start url cycle") replaced the completed Cycle-15 plan with a fresh Cycle-16 plan for the **last open backlog item** — a web app manifest with a build-generated, content-hashed `start_url` so iPadOS standalone (Add-to-Home-Screen) installs launch a fresh artifact instead of a stale `index.html`. Per the staleness rule the newer plan is reviewed fresh: **Plan Critique Cycle 16 Rev 1 = 96/100 — APPROVED** (`IMPLEMENTATION_PLAN_CRITIQUE.md`).
+>
+> **Nothing is implemented yet (trust nothing — verified against the tree):**
+> - The plan's NEW files do **not** exist: `manifest.webmanifest`, `assets/icons/check-in-007-icon.svg`, `check-in-007-icon-192.png`, `check-in-007-icon-512.png` all report **MISSING**.
+> - `grep -n "manifest" index.html` → **0 hits** (no `<link rel="manifest">` yet); `grep "createWebAppManifest|writeWebAppManifestArtifacts|webmanifest" scripts/build.mjs` → **0 hits**; `.webmanifest` is genuinely absent from the `static-server.mjs` MIME map.
+> - `git diff --name-only 06d9bc5..HEAD` is **empty**; `git show --stat 06d9bc5` = **2 files** (`IMPLEMENTATION_PLAN.md` +271/−255, `BACKLOG.md` +2/−2) — a plan/backlog commit only. Zero code drift.
+>
+> **Plan v29 factual claims independently verified against source (all accurate):**
+> - `index.html:6-9` carries the existing `mobile-web-app-capable` / `apple-mobile-web-app-*` / `theme-color` metadata — the manifest link is placeable after it, meta tags stay (§2/§6).
+> - `scripts/build.mjs:121-144` emits `dist/index.html` + `dist/check-in-007.<hash>.html` + `dist/check-in-007.manifest.json` `{artifact,sha256,gzipSize,byteSize}`; `artifactNameFor(html)` hashes the HTML (`:122-123`), built HTML is the single `<head>` template at `:172`. §4.2's "keep the machine manifest separate" is correct — tests/README/CI depend on that JSON shape.
+> - `static-server.mjs:5-22` already maps `.svg`→`image/svg+xml` and `.png`→`image/png` but **not** `.webmanifest`; Phase 3.1 ("add if not already present") is exactly right. `safeResolve` (`:28-44`) rejects dot-leading segments only — the new served paths contain none, and the cert-cache/realpath guards (`:82-94`) are untouched (§7.3 honored).
+>
+> **Baseline reproduced this cycle (trust nothing):** `node --test tests/unit/*.test.mjs` → **84/84**; `npx playwright test` → **15/15** (previously-flaky test reliably green — RA #15 fix holds); `node scripts/build.mjs` → deterministic SHA `83a98b13250d`, **26858 gzip bytes** (one extra `<link>` will not threaten the 750 KB budget); `npx prettier --check .` clean on tracked files (only the untracked `Claude outputs/` scratch dir warns).
+>
+> **Plan held at 96 (not 97):** three minor omission nits — (1) the bake-before-hash ordering and why the *fixed* `check-in-007.webmanifest` filename avoids a hash cycle is not spelled out; (2) icon-generation recipe/dimensions-assertion unspecified for the committed PNGs; (3) `purpose:"any maskable"` on an un-padded icon risks a clipped home-screen mark (safe-zone). None blocking; the install/A2HS lane is validated by deterministic metadata unit/e2e tests rather than a flaky install-UI gate — the right call. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 16 Rev 1.
+>
+> **Scope check — passes.** The manifest / `start_url` item is the **only** open backlog line (`BACKLOG.md:19`, `[/]`); the plan addresses exactly it and no other in-scope item → no scope cap. It correctly does **not** touch or over-claim RA #14 (§2 Out of scope). Alternatives (§4.1–4.4) and integration points (§7) are genuinely analyzed.
+>
+> **Score computation.**
+> - **Base Score: 82/100.** Unchanged from v59 — Cycle 15 healthy and gates green, but feature completeness on the primary iPad stays 6/10 until RA #14 is device-verified (8-criteria sum 66/80).
+> - **Required Actions: −0.** RA #14 (P0/HIGH) **reclassified `BLOCKED (env / device)`** — code done, device verification impossible here, 4th cycle passing (RA #10 precedent; honors the v59 "consider a bounded disposition" directive). New RA #16 (P3, empty-critique recurrence) staleness 0 → −0. RA #10 external/`BLOCKED` (−0).
+> - **Backlog: −0.** 0 strict-unchecked `- [ ]`; the sole remaining item is `[/]` (in progress, driven by approved plan v29).
+> - **Inactivity decay: −1.** 1st idle-code audit since the `f551d4a` reset — only the archive + plan/backlog commit since v59, no `src/`/`scripts/`/`native/`/`tests/` change. Resets when plan v29's code lands.
+> - **Final: 82 − 0 − 0 − 1 = 81/100.** Net −1 vs v59: plan approved on paper, code idle.
+>
+> **F-15 recurred (4th time).** The `06d9bc5` new-cycle commit left `IMPLEMENTATION_PLAN_CRITIQUE.md` at 0 bytes; re-authored this cycle (v29 APPROVED 96 + State-2 disposition). Raised as **RA #16 (P3)** to stop the recurrence.
+>
+> **Disposition — Cycle 16, State 2 (implement approved plan v29).** Next action: land Phases 1–5 — source `manifest.webmanifest` + committed icons, build-generated `dist/check-in-007.webmanifest` with content-hashed `start_url`, `.webmanifest` MIME entry, unit/e2e coverage, README/evidence — then run Implementation Verification. Landing code resets the −1 decay. RA #14's real-iPad PASS remains separately required and must not be claimed by this cycle; RA #10 stays outside the code loop.
+>
+> **Required Actions status.** **#16** (P3, empty-critique recurrence) — OPEN new, staleness 0, **−0**. **#14** (P0/HIGH, iPad roster scroll) — **BLOCKED (env / device)**, code-complete, staleness 4, **−0**. **#10** (P2, CI external billing) — `BLOCKED`, external, **−0**. **#15** (flaky e2e) RESOLVED. **#11** (CSV) DONE. **#12** (`mark007`) RESOLVED. **#13** (check-in flow) RESOLVED. Camera DONE.
+
+<!-- audit-entry v59 -->
+> **CYCLE 15 STATE-3 FIX LANDED & VERIFIED — the blocking defect (RA #15) is RESOLVED. Implementation Verification v20 = 97/100 → ≥95 gate CLEARED → Cycle 15 implementation COMPLETE (State 4). Score 78 → 82.**
+> Fix commit `f551d4a` ("fix(audit): stabilize non-roster entrance transition") touches **exactly** `src/styles.css` + `tests/e2e/checkin.spec.mjs` (`git show --stat f551d4a`) — both in the §5 manifest, **no out-of-manifest drift**. It resolves the v19 blocking defect (RA #15 / the flaky e2e gate + the non-roster entrance-snap regression).
+>
+> **The fix (source-verified):** the non-roster `transform` transition moves out of the `#app:not(.is-ready) .screen:not(.roster-screen)`-only block into `.screen:not(.roster-screen)` (`src/styles.css:70-74`) — a selector present in **both** ready and not-ready states → the non-roster scale entrance animates again (repairs the v19 minor regression vs Phase 1.2 / §4.1). `.roster-screen { transform: none }` preserved (`:158-161`). The e2e test adds `await expect(page.locator('#app')).toHaveClass(/is-ready/)` before sampling (`tests/e2e/checkin.spec.mjs:174`), so `transitionProperty` no longer races the rAF `is-ready` toggle.
+>
+> **Independently reproduced by the discriminator this cycle (trust nothing):**
+> - `node --test tests/unit/*.test.mjs` → **84/84 pass**.
+> - `npx playwright test` → **two full-suite runs, 15/15 each**; `npx playwright test -g "roster has no transform ancestor" --repeat-each=12` → **12/12** → the previously-flaky test is now deterministic.
+> - `node scripts/build.mjs` (×2) → deterministic SHA `83a98b13250d` (changed from v19's `9cda955cf0fb` because the CSS fix changed the emitted HTML bytes — correct content-addressing); `dist/index.html` byte-identical to the hashed twin (`diff -q`); manifest `{gzipSize:26858, byteSize:72817}` well-formed.
+> - `CHECKIN007_IOS_SCROLL_REQUIRED=1 node scripts/ios-scroll-smoke.mjs` → **exit 1** (fails closed); unset → `SKIPPED …` **exit 0**. Fail-closed contract intact.
+> - `npx prettier --check src/styles.css tests/e2e/checkin.spec.mjs` → clean.
+>
+> **Implementation Verification v20 = 97/100 (VERIFIED).** All five phases COMPLIANT (§4.1 upgraded DEVIATED→COMPLIANT). −3: the iOS touch-scroll lane (`ios-scroll-smoke.mjs`, `WebRosterScrollUITests.swift`, `ios-scroll.yml`) — the cycle's central real-device deliverable — is installed and source-verified but **never execution-proven here** (no iPadOS simulator/device), matching the env-blocked 96-97 precedent of prior native cycles. Non-blocking and plan-sanctioned (§4.3, Phase 5.2).
+>
+> **RA #14 stays IN PROGRESS at the system-health level.** The implementation faithfully executes the plan's honest "unverified gate awaiting the provisioned runner" disposition — but the implementation-fidelity score being ≥95 does **not** mark the underlying iPad bug proven-fixed on device. No real iPad / iOS-Simulator touch PASS exists in this environment. Feature completeness stays 6/10 → this is why system health is 82, not higher.
+>
+> **Score computation.**
+> - **Base Score: 82/100.** Blocking defect fixed, gates reliably green, entrance regression repaired (8-criteria sum 66/80) — but the headline iPad fix is still device-unverified (feature completeness 6/10).
+> - **Required Actions: −0.** RA #14 (P0/HIGH) IN PROGRESS — full code fix landed, sole remaining step (device touch verification) env-blocked with active progress each cycle; staleness 3, flagged but not a stall (precedent: RA #10). RA #15 RESOLVED. RA #10 external/`BLOCKED` (−0).
+> - **Backlog: −0.** 1 unchecked `- [ ]` (web app manifest / `start_url`, deferred per plan §13 Q4) → round down to 0.
+> - **Inactivity decay: −0.** Reset — `f551d4a` touches `src/`+`tests/`.
+> - **Final: 82 − 0 − 0 − 0 = 82/100.** Net +4 vs v58: the blocking defect is gone and the gate is stable.
+>
+> **Disposition — Cycle 15, State 4 (implementation COMPLETE).** Plan v28 (96) implemented at 97/100 (≥95 cleared). The code matches the contract and the only blocking defect is fixed. System health holds at 82 because RA #14's real-device verification is not code-actionable here. Next real-world step: run `CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll` on a provisioned iPad/simulator (or the manual fallback) and record the PASS in `docs/IPAD_SCROLL_BUG.md` — only then can RA #14 be marked RESOLVED. Do not bundle further speculative scroll fixes unless the isolated transform removal is proven insufficient on device.
+>
+> **Required Actions status.** **#15** (P1, flaky e2e gate) — **RESOLVED** (`f551d4a`, verified). **#14** (P0/HIGH, iPad roster scroll) — IN PROGRESS (full fix landed, env-blocked on device), staleness 3, **−0**. **#10** (P2, CI external billing) — `BLOCKED`, external, **−0**. **#11** (CSV) DONE. **#12** (`mark007`) RESOLVED. **#13** (check-in flow) RESOLVED. Camera DONE.
+
+<!-- audit-entry v58 -->
+> **CYCLE 15 IMPLEMENTED — plan v28 landed in `85854be`. Implementation Verification v19 = 91/100 → below the ≥95 gate → State 3 (FIX THE IMPLEMENTATION). One blocking defect: a flaky e2e gate (RA #15). Score 75 → 78 (decay reset −5→0, tempered by a new flaky-gate defect + still-device-unverified fix).**
+> `85854be` ("feat(§6): implement iPad scroll robustness") implements approved plan v28 across exactly the §5 manifest files (`git diff --name-only c86bf3e..85854be` = 17 files, **no out-of-manifest drift**). All five phases landed and the implementation is faithful.
+>
+> **Independently reproduced by the discriminator this cycle (trust nothing):**
+> - `node scripts/build.mjs` → emits `dist/index.html`, `dist/check-in-007.9cda955cf0fb.html`, `dist/check-in-007.manifest.json`; `diff -q` confirms `index.html` ≡ hashed twin (byte-identical); a second build reproduces the **same hash** `9cda955cf0fb` (deterministic); manifest `{artifact, sha256, gzipSize:26851, byteSize:72784}` matches §4.4 shape; budget check precedes writes (`scripts/build.mjs:118-201`). **Phase 3 COMPLIANT.**
+> - `node --test tests/unit/*.test.mjs` → **84/84 pass** (+6 new: runtime-flag exact activation, probe inert-by-default, probe append/update/dispose, malformed-list `TypeError`, build hash/manifest, `no-store` for both artifacts). **Phases 2/3 unit COMPLIANT.**
+> - `npx playwright test` (full suite) → **1 failed / 14 passed on a clean run**, then green on re-runs and in isolation → **flaky** (see RA #15). `npx prettier --check` clean for tracked sources.
+> - `node scripts/ios-scroll-smoke.mjs` (not required) → `SKIPPED: iOS runner unavailable …`, **exit 0**; with `CHECKIN007_IOS_SCROLL_REQUIRED=1` it fails closed. **Phase 4 fail-closed/skip contract COMPLIANT.**
+>
+> **Plan compliance (source-verified) — see Implementation Verification v19 for the full table:**
+> - **§4.1/Phase 1 — DEVIATED.** `.roster-screen { transform: none }` and base `.screen` no longer transforms (`src/styles.css:66-82,156`) — roster correctly computes to `transform:none`. But the non-roster `transform` transition is declared only under `:not(.is-ready)` → the ready-state entrance transform snaps and the paired e2e assertion races the rAF toggle (**RA #15**).
+> - **§4.2/Phase 2 — COMPLIANT.** `readRuntimeFlags` exact `scrollProbe=1` (`src/app.mjs:15-21`); `createScrollProbe` appends `#scroll-probe-status` to `list.parentElement`, updates from real `scrollTop`, throws on bad list, `dispose()` wired into `mountRoster` cleanup (`src/screens/roster.mjs:5-40,205,217`). Closes critique issues #2/#3.
+> - **§4.3/Phase 4 — COMPLIANT.** `WebRosterScrollUITests.swift` pins the critique's open sub-decisions (reads probe via `safari.webViews.staticTexts` `MATCHES`/`CONTAINS`; drives `com.apple.mobilesafari`; drags at right-edge `(0.92,0.78)→(0.92,0.22)`, off any `.guest-row`). File placed in the existing UI-test target (a `PBXFileSystemSynchronizedRootGroup`, `project.pbxproj:39-42`) → auto-compiled without a pbxproj edit (plan-sanctioned §4.3/Phase 4.2). `.github/workflows/ios-scroll.yml` on `[self-hosted, macOS, ios-touch]`, `timeout-minutes: 20`, uploads xcresult on failure. `ci.yml` upload widened to `dist/`.
+> - **Phase 5 — COMPLIANT/HONEST.** `docs/IPAD_SCROLL_BUG.md` records the iOS touch result as "skipped/unverified, not as a PASS" (Phase 5.2 honored) and is now **git-tracked** (F-16 resolved).
+>
+> **The one blocking defect (RA #15).** The e2e test `roster has no transform ancestor while other screens keep scale entrance` is nondeterministic: on a clean full-suite run it failed at `tests/e2e/checkin.spec.mjs:179`, passing on re-run/isolation. Root cause: the non-roster `transform` transition lives only in `#app:not(.is-ready) .screen:not(.roster-screen)`, so in the ready state `transitionProperty` is just `opacity` and the entrance transform snaps (minor regression vs Phase 1.2 / §4.1). `npm run test:e2e` (the Phase 5.1 gate) is therefore intermittently red. Fix in code (declare the transition in a ready-state selector; harden the test) — do NOT revise the plan.
+>
+> **Score computation.**
+> - **Base Score: 78/100.** Code landed and the five-phase implementation is faithful, but a flaky web gate (RA #15) and a device-unverified iPad fix hold code correctness / testing rigor / feature completeness down (8-criteria sum 60/80).
+> - **Required Actions: −0.** RA #14 (P0/HIGH) IN PROGRESS — code landed this cycle, staleness 2 (<3), active progress → no stall. RA #15 (P1) new, staleness 0 → no stall yet. RA #10 external/`BLOCKED` (−0).
+> - **Backlog: −0.** 1 unchecked `- [ ]` (web app manifest / `start_url`, deferred per plan §13 Q4) → round down to 0. Both iPad items marked `[x]` by the implementation (cache-busting done; iOS regression test wired into CI, device-verification pending).
+> - **Inactivity decay: −0.** **Reset** from −5 — `85854be` touches `src/`/`scripts/`/`native/`/`tests/`, ending the 5-cycle idle streak.
+> - **Final: 78 − 0 − 0 − 0 = 78/100.** Net +3 vs v57: the +5 decay reset is tempered by the honest cost of a new flaky-gate defect and a still-device-unverified fix.
+>
+> **Disposition — Cycle 15, State 3 (FIX THE IMPLEMENTATION).** Plan v28 (96) is the contract; the implementation scores 91 < 95. Next action: fix RA #15 (make `npm run test:e2e` reliably green + restore the non-roster entrance animation), then verify RA #14's fix on a real iPad / iOS Simulator. Do NOT revise the plan to pass the audit.
+>
+> **Required Actions status.** **#15** (P1, flaky e2e gate) — OPEN new, staleness 0, **−0**; drives the fix. **#14** (P0/HIGH, iPad roster scroll) — IN PROGRESS (code landed, device-unverified), staleness 2, **−0**. **#10** (P2, CI external billing) — `BLOCKED`, external, **−0**. **#11** (CSV) DONE. **#12** (`mark007`) RESOLVED. **#13** (check-in flow) RESOLVED. Camera DONE.
+
