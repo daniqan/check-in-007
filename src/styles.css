@@ -67,15 +67,18 @@ input {
   transition: opacity var(--transition-ms) ease;
 }
 
+.screen:not(.roster-screen) {
+  transition:
+    opacity var(--transition-ms) ease,
+    transform var(--transition-ms) ease;
+}
+
 #app.is-ready .screen {
   opacity: 1;
 }
 
 #app:not(.is-ready) .screen:not(.roster-screen) {
   transform: scale(0.985);
-  transition:
-    opacity var(--transition-ms) ease,
-    transform var(--transition-ms) ease;
 }
 
 #app.is-ready .screen:not(.roster-screen) {

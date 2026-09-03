@@ -171,6 +171,7 @@ test('roster has no transform ancestor while other screens keep scale entrance',
   await page.evaluate(() => {
     window.CheckIn007.setState('LOADING');
   });
+  await expect(page.locator('#app')).toHaveClass(/is-ready/);
   const scanTransform = await page.locator('.loading-screen').evaluate((element) => ({
     initial: getComputedStyle(element).transform,
     transition: getComputedStyle(element).transitionProperty,
