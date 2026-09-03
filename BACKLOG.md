@@ -236,3 +236,14 @@ targets are audit Next Steps, not backlog improvements. Because no code has land
 Recommended lever: revise v23 to add a bounded withdrawal disposition (or grant the two
 authorizations). See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v2 and
 `CONSOLIDATED_AUDIT.md` v39.
+
+**Audit v43 update (sixth idle cycle):** approved plan v23 remains **NOT IMPLEMENTED** — Implementation
+Verification v6 = **N/A** (no Cycle-11 target commit; evidence still Native `BLOCKED` / CI `BLOCKED`; §14
+all `[ ]`). The tree is byte-identical to v2–v5; every commit since the plan landed (`d8a9949`) is
+doc/audit-only. Implementation stays blocked on two operator authorizations unavailable in this
+environment (`xcodebuild -downloadPlatform iOS`; exact GitHub `owner/repo` + push). The backlog remains
+**fully closed** (strict-unchecked `[ ]` = 0 / 15 `[x]` → backlog −0); Cycle 11 still adds no backlog item
+— its two targets are audit Next Steps, not backlog improvements. No code has landed since the v37 reset,
+so inactivity decay is pinned at its **−5 cap (sixth idle cycle)** and the score holds at 89. Recommended
+lever: revise v23 to add a bounded withdrawal disposition (or grant the two authorizations). See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v6 and `CONSOLIDATED_AUDIT.md` v43.
