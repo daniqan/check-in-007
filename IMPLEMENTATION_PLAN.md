@@ -1,7 +1,7 @@
-# Check-In 007 — Implementation Plan v18
+# Check-In 007 — Implementation Plan v19
 
 > **Cycle 8 — On-device static-HTTPS helper for the offline-iPad live camera.** This is a
-> NEW cycle started from `BACKLOG.md`. It addresses the **single remaining unchecked**
+> NEW cycle started from `BACKLOG.md`. It addresses the **single remaining**
 > Deferred-Features item:
 >
 > - "On-device static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)"
@@ -54,8 +54,8 @@ boundary explicitly and §13 records the standalone-single-device limitation.
    (RSA-2048 + SHA-256, `serverAuth` EKU, ≤825-day validity) and an on-disk cache
    (`ensureCert`).
 3. `scripts/lib/static-server.mjs` (NEW) — a transport-agnostic hardened static request
-   handler (correct MIME map, path-traversal rejection, `GET`/`HEAD` only, no directory
-   listing, a certificate-download route).
+   handler (correct MIME map, path-traversal rejection, dotfile/cache denial, `GET`/`HEAD`
+   only, no directory listing, a certificate-download route).
 4. `scripts/serve-https.mjs` (NEW) — the CLI: parse flags, ensure the cert, start an
    `node:https` server bound to `0.0.0.0`, print LAN URL(s) + the certificate-download URL +
    the iPad trust-install steps. Exports a testable `startServer(...)`; the CLI tail is
@@ -64,13 +64,13 @@ boundary explicitly and §13 records the standalone-single-device limitation.
    `http-server -S` invocation. **No new dependency; no dependency removed** (`http-server`
    stays for plain `serve`, which the e2e suite uses).
 6. Unit + integration tests: `tests/unit/der.test.mjs`, `tests/unit/dev-cert.test.mjs`,
-   `tests/unit/static-server.test.mjs`, `tests/unit/serve-https.test.mjs`.
+   `tests/unit/static-server.test.mjs`, `tests/unit/serve-https.test.mjs`, plus a real
+   browser ES-module load in `tests/e2e/https-server.spec.mjs`.
 7. `README.md` (MOD) — rewrite the iPad-HTTPS section: the offline helper, the iPad
    cert-trust walkthrough, the offline ad-hoc/hotspot setup, and an honest secure-context
    matrix. Prettier-clean.
 8. `.gitignore` (MOD) — ensure the generated certificate cache directory (`.certs/`) is
    ignored (existing `*.pem`/`*.key` already cover the files; add the directory for clarity).
-9. `BACKLOG.md` (MOD) — mark the offline-HTTPS item `[ ]` → `[/]`.
 
 ### Out of scope
 
@@ -210,16 +210,20 @@ aborts startup with a clear message (never a silent insecure fallback); a per-re
    (`node:https`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url` — all
    long-stable); no bleeding-edge API is used.
 
-8. **Cache the cert on disk (`.certs/`) and regenerate on missing/expired.** Re-minting per
+8. **Cache the cert on disk (`.certs/`) and regenerate on missing/expired/SAN mismatch.** Re-minting per
    start is wasteful and would force the iPad to re-trust a new cert each launch. Caching keeps
-   the trusted cert stable across restarts; regeneration triggers only when the file is absent
-   or `notAfter` is in the past. `.certs/` is git-ignored (keys never committed).
+   the trusted cert stable across restarts. Regeneration triggers only when a file is absent,
+   `notAfter` is in the past, or the cached SAN does not cover every currently requested host
+   (including automatically discovered LAN IPv4s). This makes a DHCP address change explicit:
+   a new cert is minted and the operator must install/trust it before using the new URL.
+   `.certs/` is git-ignored, `key.pem` is mode `0600`, and the static handler rejects both
+   dot-prefixed path segments and every path inside the resolved certificate-cache directory.
+   The certificate is downloadable only through the dedicated cert route; the key never is.
 
 ## 5. File Manifest
 
 ```text
-BACKLOG.md                          (MOD) — Offline-HTTPS item [ ] → [/].
-IMPLEMENTATION_PLAN.md              (MOD) — Replace cycle-7 plan with this cycle-8 plan.
+IMPLEMENTATION_PLAN.md              (MOD) — Revise cycle-8 plan v18 → v19 after critique.
 .gitignore                          (MOD) — Add `.certs/` (files already covered by *.pem/*.key).
 package.json                        (MOD) — Repoint `serve:https` to scripts/serve-https.mjs.
 scripts/lib/der.mjs                 (NEW) — Minimal pure ASN.1/DER TLV encoder.
@@ -230,6 +234,7 @@ tests/unit/der.test.mjs             (NEW) — TLV encoder correctness (lengths, 
 tests/unit/dev-cert.test.mjs        (NEW) — Generated cert parses & satisfies iOS TLS rules.
 tests/unit/static-server.test.mjs   (NEW) — MIME, traversal, methods, 404/405, cert route.
 tests/unit/serve-https.test.mjs     (NEW) — TLS integration: handshake + GET over https.
+tests/e2e/https-server.spec.mjs     (NEW) — Browser loads an ES module over the HTTPS helper.
 README.md                           (MOD) — Offline iPad-HTTPS section + trust walkthrough.
 ```
 
@@ -269,6 +274,10 @@ export function explicit(tagNumber, inner) {}  // 0xA0|tagNumber, inner (already
 export function implicit(tagNumber, buf) {}     // context-primitive [tagNumber] over raw bytes
 export function raw(buf) { return buf; }         // passthrough for pre-encoded DER (e.g. SPKI)
 ```
+
+`utcTime` is deliberate for this 820-day certificate because every emitted date is before
+2050; if validity is ever extended across 2050, the encoder and certificate builder must use
+ASN.1 `GeneralizedTime` for those dates instead of silently wrapping the two-digit year.
 
 **Acceptance criteria**
 - `encodeLength(127)`=`[7f]`; `encodeLength(128)`=`[81 80]`; `encodeLength(256)`=`[82 01 00]`.
@@ -314,10 +323,13 @@ export function generateSelfSignedCert({ hosts = ['localhost', '127.0.0.1'],
   ...
 }
 
-/** Return cached {keyPem, certPem} from `dir`, regenerating when absent or expired. */
+/** Return cached {keyPem, certPem} from `dir`, regenerating when absent, expired,
+ *  malformed, or missing any requested SAN. key.pem is always written mode 0600. */
 export function ensureCert({ dir, hosts } = {}) {
-  // if key.pem & cert.pem exist and new X509Certificate(certPem).validTo is in the future → reuse
-  // else generateSelfSignedCert({hosts}) and write both (dir created 0700 if needed)
+  // Reuse only when both files exist, cert parses/is current, private key matches,
+  // and every normalized requested host is represented in subjectAltName.
+  // Else generateSelfSignedCert({hosts}); mkdir dir mode 0700; write key.pem mode 0600
+  // and cert.pem mode 0644 using restrictive explicit modes (chmod reused key to 0600).
   ...
 }
 ```
@@ -326,20 +338,23 @@ export function ensureCert({ dir, hosts } = {}) {
 - `new X509Certificate(certPem)` parses without throwing.
 - `.subject` contains `CN=CheckIn007 Offline Kiosk`; `.issuer` equals `.subject` (self-signed).
 - `.subjectAltName` contains `DNS:localhost`, `IP Address:127.0.0.1`, and any extra host passed.
-- `.keyUsage` includes `serverAuth` (EKU) [Node surfaces EKU here]; the cert has
+- `.keyUsage` includes the exact server-auth OID string `1.3.6.1.5.5.7.3.1` (Node surfaces
+  ExtendedKeyUsage OIDs here); the cert has
   basicConstraints CA:FALSE (assert via `.ca === false`).
 - `(new Date(cert.validTo) - new Date(cert.validFrom)) / 86400000 <= 825`.
 - `cert.verify(publicKeyObjectFromCert)` returns `true` (self-signature valid) — i.e.
   `cert.checkPrivateKey` / `cert.publicKey` round-trip and `cert.verify(cert.publicKey)`.
-- `ensureCert` writes exactly `key.pem` + `cert.pem`; a second call with the same dir reuses
-  them (file mtimes unchanged / identical bytes).
+- `ensureCert` writes exactly `key.pem` + `cert.pem`; `stat(key.pem).mode & 0o777 === 0o600`;
+  a second call with the same dir/hosts reuses them (file mtimes unchanged / identical bytes).
+- A valid cached cert missing a newly requested LAN IP is regenerated and the new SAN covers
+  it; malformed, expired, or key/cert-mismatched cache entries are likewise replaced.
 
 ### Phase 3: Static handler (`scripts/lib/static-server.mjs`)
 
 ```js
 // scripts/lib/static-server.mjs
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { normalize, join, extname, resolve, sep } from 'node:path';
 
 export const MIME = {
@@ -353,19 +368,21 @@ export const MIME = {
 };
 
 /** Resolve a URL path to an absolute file path strictly under `root`.
- *  Returns null on any traversal escape (decoded `..`, absolute, NUL). */
+ *  Returns null on traversal, absolute/NUL input, or any dot-prefixed path segment. */
 export function safeResolve(root, urlPath) { ... }
 
 export function contentTypeFor(path) { ... }   // MIME[ext] || 'application/octet-stream'
 
 /** Build a (req,res) handler serving files under `root`.
- *  Options: { root, certPath, certRoute='/checkin007-cert.pem' }.
+ *  Options: { root, certPath, forbiddenRoots=[], certRoute='/checkin007-cert.pem' }.
  *  - Only GET/HEAD (else 405, Allow: GET, HEAD).
  *  - certRoute streams certPath as application/x-pem-file (Content-Disposition attachment).
+ *  - Ordinary static resolution rejects dot segments and any file at/under a resolved
+ *    forbidden root (startServer always passes the certificate-cache directory).
  *  - '/' → '/index.html'.
  *  - traversal / missing file → 404 (no directory listing, no path echoed).
  *  - HEAD → headers only, no body. */
-export function createStaticHandler({ root, certPath, certRoute } = {}) { ... }
+export function createStaticHandler({ root, certPath, forbiddenRoots = [], certRoute } = {}) { ... }
 ```
 
 **Acceptance criteria**
@@ -375,6 +392,9 @@ export function createStaticHandler({ root, certPath, certRoute } = {}) { ... }
   `safeResolve('/srv', '/index.html')` → `/srv/index.html`.
 - `GET /` → 200 `text/html`; `GET /missing` → 404; `POST /` → 405 with `Allow: GET, HEAD`.
 - `GET <certRoute>` → 200 `application/x-pem-file` with the exact cert bytes.
+- With `.certs/{key.pem,cert.pem}` beneath the served root and `.certs` supplied in
+  `forbiddenRoots`, `GET /.certs/key.pem` and `GET /.certs/cert.pem` both → 404; the dedicated
+  `certRoute` remains 200 and there is no route that can return key bytes.
 - `HEAD /` → 200, `Content-Type` set, empty body.
 
 ### Phase 4: HTTPS CLI (`scripts/serve-https.mjs`)
@@ -383,19 +403,26 @@ export function createStaticHandler({ root, certPath, certRoute } = {}) { ... }
 // scripts/serve-https.mjs
 import { createServer } from 'node:https';
 import { networkInterfaces } from 'node:os';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ensureCert } from './lib/dev-cert.mjs';
 import { createStaticHandler } from './lib/static-server.mjs';
 
 export function parseArgs(argv) { ... }  // --host (repeatable), --port=8443, --root=., --cert-dir=.certs
-export function lanUrls(port) { ... }    // https://<non-internal IPv4>:<port> for each iface
+/** Sorted, deduplicated, non-internal IPv4 addresses; injectable snapshot keeps tests deterministic. */
+export function lanIpv4Addresses(interfaces = networkInterfaces()) { ... }
+export function lanUrls(port, addresses = lanIpv4Addresses()) { ... }
 
 /** Start the server. Returns { server, port, url, certPath, close() }.
  *  Does NOT print (so tests stay quiet); the CLI tail prints. */
 export function startServer({ host = '0.0.0.0', port = 8443, root = process.cwd(),
-                             certDir = '.certs', hosts = [] } = {}) {
-  // const { keyPem, certPem } = ensureCert({ dir: certDir, hosts: dedupe(['localhost','127.0.0.1', ...hosts]) });
-  // const handler = createStaticHandler({ root, certPath: <written cert.pem>, certRoute });
+                             certDir = '.certs', hosts = [],
+                             interfaces = networkInterfaces() } = {}) {
+  // const lanAddresses = lanIpv4Addresses(interfaces);
+  // const certHosts = dedupe(['localhost','127.0.0.1', ...lanAddresses, ...hosts]);
+  // const { keyPem, certPem } = ensureCert({ dir: resolve(certDir), hosts: certHosts });
+  // const handler = createStaticHandler({ root: resolve(root), certPath: <cert.pem>,
+  //   forbiddenRoots: [resolve(certDir)], certRoute });
   // const server = createServer({ key: keyPem, cert: certPem }, handler);
   // listen on port/host; resolve when 'listening'
   ...
@@ -414,7 +441,10 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 - `parseArgs(['--port=9000','--host=cabinet.local'])` → `{ port:9000, hosts:['cabinet.local'], … }`;
   bad `--port` (non-numeric / out of 1–65535) throws a clear error.
 - `startServer` on an ephemeral port (`port:0`) resolves with a usable `url` and a working
-  `close()`; SAN includes any `hosts` passed.
+  `close()`; SAN includes any explicit `hosts` plus all discovered non-internal LAN IPv4s.
+- Given an injected interface snapshot containing `192.168.50.7`, the default cert SAN contains
+  `IP Address:192.168.50.7`, and `lanUrls` prints `https://192.168.50.7:<port>`; no optional flag
+  is required for the URL the iPad is told to open.
 - Running directly on this Node-26 machine starts and serves (helper is unguarded); Ctrl-C
   shuts down cleanly.
 
@@ -431,9 +461,12 @@ unchanged; `http-server` dependency retained for `serve`.)
 by the existing `*.pem`).
 
 `README.md`: replace the current `mkcert` block under "Open `http://localhost:8080`…" with:
-- A "Live camera on an offline iPad" subsection: `npm run serve:https` (optionally
-  `-- --host <lan-ip-or-name>`), connect the iPad to the host's ad-hoc Wi-Fi / Personal
-  Hotspot / a travel router (no internet needed), open `https://<host-lan-ip>:8443/`.
+- A "Live camera on an offline iPad" subsection: run `npm run serve:https`; the helper
+  automatically discovers non-internal LAN IPv4s, puts them
+  in the certificate SAN, and prints matching URLs. `-- --host <name-or-extra-ip>` remains an
+  optional override for a resolvable custom name/additional address. Connect the iPad to the
+  host's ad-hoc Wi-Fi / Personal Hotspot / a travel router (no internet needed), then open one
+  of the printed `https://<host-lan-ip>:8443/` URLs.
 - The **iPad trust walkthrough** (download `checkin007-cert.pem` → install profile → enable
   full trust under Certificate Trust Settings → reload → camera prompt appears).
 - An honest **secure-context matrix** table: `https://` (trusted) ✓ · `http://localhost`
@@ -473,20 +506,25 @@ by the existing `*.pem`).
    - Contract: serving repo root (or `dist/` via `--root dist`) returns the same bytes the
      browser expects; MIME for `.mjs`/`.css`/`.woff2`/`.svg`/`.json` is correct so ES modules
      and fonts load.
-   - Failure mode: a wrong MIME for `.mjs` would break module loading → covered by a unit test.
+   - Failure mode: a wrong MIME for `.mjs` would break module loading → covered by a real
+     Chromium dynamic-import e2e test, not only a MIME-string assertion. A request for a
+     dotfile or anything inside the certificate cache returns 404; only `certRoute` may expose
+     `cert.pem`, and no route exposes `key.pem`.
    - Migration: n/a.
 
 4. **`dev-cert.mjs` ↔ iOS Safari trust**
    - Contract: the cert satisfies iOS 13+ TLS trust (SAN, serverAuth EKU, ≤825 days,
      RSA-2048/SHA-256), so once installed+trusted, the origin is a secure context.
-   - Failure mode: a missing SAN/EKU/over-long validity → Safari refuses the secure context;
-     each is asserted in `dev-cert.test.mjs` against `X509Certificate`.
+   - Failure mode: a missing current LAN-IP SAN/EKU/over-long validity → Safari refuses the
+     secure context; discovered LAN IPv4s are included by default, cached SAN coverage is
+     checked on every start, and each property is asserted against `X509Certificate`.
    - Migration: on iOS trust-model changes, adjust the extension set and re-assert.
 
 5. **`.gitignore` ↔ secret hygiene**
-   - Contract: `key.pem`/`cert.pem`/`.certs/` never enter version control.
-   - Failure mode: an accidentally-committed key → `git status` shows nothing under `.certs/`
-     (verified in Phase 5).
+   - Contract: `.certs/` never enters version control; `key.pem` is mode 0600 and is denied by
+     both dot-segment and forbidden-root checks even when the cache lives under the served root.
+   - Failure mode: version-control leakage is caught by `git status`; HTTP leakage is caught by
+     explicit 404 tests for both cached PEM files while `certRoute` stays available.
    - Migration: n/a.
 
 ## 8. Error Handling & Edge Cases
@@ -500,13 +538,20 @@ by the existing `*.pem`).
   listening.
 - **Malformed/partial cached cert:** `new X509Certificate(certPem)` throws → treated as
   missing → regenerated.
+- **Cached cert no longer covers a discovered/requested host or its key does not match:** SAN
+  normalization/coverage and `checkPrivateKey` fail validation → regenerate before listen;
+  operator output explains that a regenerated cert must be reinstalled/trusted.
+- **Private cache requested as static content:** dot-prefixed path segments and all paths under
+  the resolved cache directory return 404 before `stat`/streaming. This holds even if a caller
+  chooses a non-dot custom `--cert-dir`; only the dedicated cert route can stream `cert.pem`.
 - **Path traversal (`..`, encoded `%2e%2e`, absolute paths, NUL byte):** `safeResolve`
   returns `null` → 404 with no path echoed (no information leak).
 - **Non-GET/HEAD method:** 405 with `Allow: GET, HEAD`.
 - **Directory request / missing index:** `/` → `/index.html`; a directory without index → 404
   (no listing).
-- **Symlink escape:** `safeResolve` compares the `resolve()`d path against `root + sep`; a
-  file whose real path escapes root is rejected (defense in depth alongside the string check).
+- **Symlink escape:** after lexical `safeResolve`, the handler resolves the existing target
+  with `realpath()` and compares it against the real root and real forbidden roots; a symlink
+  escaping the root or entering the certificate cache returns 404 before streaming.
 - **iPad connects before trusting the cert:** the download route still works over the
   untrusted origin (Safari blocks secure-context *APIs*, not the file download), so the
   operator can fetch and install the cert, then reload — documented in README.
@@ -530,6 +575,8 @@ by the existing `*.pem`).
 - **Stability:** per-request errors are isolated (4xx, stream error handlers) and never crash
   the listener; the server refuses to start rather than serve insecurely; `0.0.0.0` bind is
   the only network exposure and it serves read-only static files with a locally-trusted cert.
+  Host/SAN discovery is O(number of interface addresses), normally single digits, and happens
+  once at startup; generated-key permissions are forced to 0600 on creation and cache reuse.
 - **Browser bundle:** unaffected — none of these files are included in `dist/index.html`; the
   ≤750 KB gzip / ≤1.2 MB raw budget is untouched (artifact remains ≈26,315 gzip bytes).
 
@@ -538,29 +585,42 @@ by the existing `*.pem`).
 **`tests/unit/der.test.mjs`** — encoder correctness: `encodeLength` short/long form; `int`
 minimal encoding + leading-zero rule; `oid` for `sha256WithRSAEncryption`, `commonName`
 (`2.5.4.3`), `serverAuth` (`1.3.6.1.5.5.7.3.1`), `subjectAltName` (`2.5.29.17`); `utcTime`
-byte layout; `bitString` unused-bits prefix; a `readTlvLength` helper round-trips each
-primitive.
+byte layout plus rejection/guarding of dates at or beyond 2050; `bitString` unused-bits prefix;
+a `readTlvLength` helper round-trips each primitive.
 
 **`tests/unit/dev-cert.test.mjs`** — `generateSelfSignedCert({ hosts:['localhost',
 '127.0.0.1','cabinet.local'] })` then, via `crypto.X509Certificate`: parses; subject/issuer
-equal and contain the CN; SAN contains all three hosts (DNS + IP); EKU includes `serverAuth`;
+equal and contain the CN; SAN contains all three hosts (DNS + IP); `.keyUsage` includes exact
+OID string `1.3.6.1.5.5.7.3.1`;
 `ca === false`; validity span ≤ 825 days and `validFrom` ≤ now ≤ `validTo`; self-signature
 verifies (`cert.verify(cert.publicKey)` === true). `buildSanExtension` maps IPv4 → iPAddress
 (4 bytes) and names → dNSName. `ensureCert` in a temp dir: first call writes `key.pem` +
-`cert.pem`; second call reuses (identical bytes); a hand-expired cert triggers regeneration.
+`cert.pem`; key mode is exactly 0600; second call reuses (identical bytes/mtime); expired,
+malformed, key-mismatched, and requested-SAN-missing cache fixtures each trigger regeneration.
 
 **`tests/unit/static-server.test.mjs`** — mount `createStaticHandler` on a plain
 `node:http` server (ephemeral port) and `fetch` it: `GET /` 200 text/html; `GET /src/app.mjs`
 200 `text/javascript`; `GET /nope` 404; `POST /` 405 + `Allow`; `GET <certRoute>` 200
 `application/x-pem-file`; `HEAD /` 200 empty body; traversal (`/..%2f..%2fpackage.json`,
-`/../../etc/hosts`) → 404. Pure-unit `safeResolve`/`contentTypeFor` assertions too.
+`/../../etc/hosts`) → 404. With a real `.certs` under root, both `/.certs/key.pem` and
+`/.certs/cert.pem` → 404 while `certRoute` returns only the certificate. Repeat with a
+non-dot `private-cache` passed as a forbidden root to prove custom cache paths are also denied.
+Pure-unit `safeResolve`/`contentTypeFor` assertions too.
 
 **`tests/unit/serve-https.test.mjs`** — TLS integration: `startServer({ port:0,
 root:process.cwd(), certDir:<temp> })`; read the generated `cert.pem`; `fetch(url, {
 dispatcher/agent trusting that CA })` — using `https.request` with `ca: certPem` (Node
 client, no browser) — asserts a successful TLS handshake, `GET /` 200 text/html, and a
 traversal request 404 over TLS. `parseArgs` unit cases (port/host/root parsing + invalid
-port throwing). Always `close()` in `after`/`finally`.
+port throwing). Inject an interface snapshot with `192.168.50.7`; assert the cert SAN and
+printed URL inputs both contain that IP without `--host`. Always `close()` in `after`/`finally`.
+
+**`tests/e2e/https-server.spec.mjs`** — create a temporary static root with `index.html` and
+`probe.mjs`; start the HTTPS helper on an ephemeral port with the deterministic interface
+snapshot; open Chromium with `ignoreHTTPSErrors: true`; navigate to the page and execute a real
+browser `import('./probe.mjs')`; assert the exported sentinel value. This proves end-to-end
+module loading and the server's JavaScript MIME behavior rather than merely comparing a string.
+Close browser/server and remove the temp tree in `finally` even on assertion failure.
 
 **Regression:** `node --test tests/unit/*.test.mjs` keeps the existing suites green;
 `npx playwright test` unchanged; `npx prettier --check .` clean incl. new files + README;
@@ -604,12 +664,12 @@ camera permission prompt appears and the front feed shows (secure context achiev
    - Needed to confirm: whether any operator truly has *only* one iPad and *cannot* use the
      native app.
 
-2. **SubjectAltName should include the operator's LAN IP for a warning-free first load?**
-   - Proposed resolution: the CLI already accepts `--host <lan-ip>`; the README instructs
-     operators to pass their host IP so the SAN matches the URL the iPad opens. A DHCP-changed
-     IP means re-running with the new `--host` (regenerates the cert). Documented in §5/README.
-   - Needed to confirm: whether to auto-add all discovered LAN IPv4s to the SAN by default
-     (convenience vs. a broader-scoped cert). Deferred to a future polish item if requested.
+2. **How are LAN-IP SAN changes handled?**
+   - Resolution: all discovered non-internal IPv4s are included by default, so every printed
+     LAN URL matches the cert without a flag. `ensureCert` regenerates when requested SANs are
+     absent (for example after DHCP changes), and startup output tells the operator to install
+     and trust the newly generated certificate. `--host` is only for additional IPs/names.
+   - Needed to confirm: none; this is a hard default in this plan.
 
 3. **EC P-256 instead of RSA-2048 for a smaller cert/faster handshake?**
    - Proposed resolution: RSA-2048 this cycle for the broadest Safari compatibility and the
