@@ -17,9 +17,11 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
   scroll issue and forced new filenames / manual "Clear Website Data" between tests. A cache-bust
   (hashed asset name, `Cache-Control`, or a version query) would make kiosk redeploys reliable.
 - [/] Web app manifest / `start_url` for reliable standalone Add-to-Home-Screen installs. Plan v28
-  §13 Q4 explicitly defers this: Cycle 15 ships content-hashed URLs + existing meta tags first, and
-  a `manifest.json` with `start_url`/`display:standalone` is only warranted in a later cycle *if*
-  fresh hashed URLs do not fully solve stale standalone loads. Deferred pending Cycle-15 real-iPad results.
+  §13 Q4 explicitly deferred this; **Cycle 16 now picks it up** — `IMPLEMENTATION_PLAN.md` v29 adds a
+  source `manifest.webmanifest` + committed icons and a build-generated `dist/check-in-007.webmanifest`
+  whose `start_url` points at the current content-hashed HTML artifact, plus a `.webmanifest` MIME
+  entry and unit/e2e coverage. **Plan v29 is APPROVED at 96/100** (Plan Critique Cycle 16 Rev 1) but
+  **NOT yet implemented** — item stays `[/]` until the code lands and passes discriminator audit.
 
 > **Cycle 15 implementation:** both items above are `[x]` in this implementation commit. `IMPLEMENTATION_PLAN.md`
 > v28 (Cycle 15) fixes **RA #14** (iPad roster touch-scroll) plus both items and is **APPROVED at
@@ -35,6 +37,13 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 > PROGRESS** — the iPad fix is code-complete but not yet verified on a real iPad / iOS Simulator (no device
 > in this environment), so system health holds at 82. See `CONSOLIDATED_AUDIT.md` v59 and
 > `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v20.
+>
+> **Cycle 16 opened (audit v60):** the manifest / `start_url` item (below) is now `[/]` — `IMPLEMENTATION_PLAN.md`
+> v29 **APPROVED at 96/100** (Cycle 16 Rev 1) but **NOT yet implemented** (none of the §5 NEW files exist).
+> State 2 — implement the approved plan. **RA #14 reclassified `BLOCKED (env / device)`** (code-complete, real-iPad
+> verification impossible in this environment, 4th cycle passing — RA #10 precedent). System health 82 → 81
+> (first idle-code cycle since the `f551d4a` reset → decay −1). See `CONSOLIDATED_AUDIT.md` v60 and
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 16 Rev 1.
 
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
