@@ -1,3 +1,64 @@
+### Implementation Verification — v8
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
+**Code:** `master` @ HEAD `845116d` audited on 2026-09-03
+
+**Verdict: STILL NOT COMPLETE — one Phase-0 step now done; the now-executable native gate was NOT run.**
+Since v7 the generator landed **exactly one** new plan-relevant commit — `845116d` *"chore(§6.0): mint
+Cycle 11 verification target"* — which appends a 6-line "Cycle 11 — External Execution Closure" placeholder
+to `docs/VERIFICATION_EVIDENCE.md`. That satisfies **§6 Phase 0 step 5 / §4.5 (mint the docs-only target
+commit)** and nothing else. Every completion gate is still open: **Native `BLOCKED`, CI `BLOCKED`, §14 =
+0/6.** Implementation Score remains **N/A** — no PASS surface exists to verify — but the disposition tightens:
+**the native gate is now fully executable with zero environment excuse, and it was still not run.**
+
+#### Environment (re-verified this cycle)
+
+- **Native — UNBLOCKED and idle-ready.** `xcrun simctl list devices available` shows the **six iOS 26.4
+  iPad simulators**; the **iPad (A16) `A155995F-EC83-41BE-95B2-1A5F390ABF59` is already Booted**. 48 GiB
+  free, Xcode 26.4 (`17E192`). `xcodebuild … test` could run against a UDID immediately.
+- **Target commit minted but NOT pushed.** HEAD `845116d` is **2 commits ahead of `origin/master`
+  (`1f7d589`)** — the target and the v44 audit commit are local-only. Phase 2 cannot even begin against the
+  target until it is pushed.
+- **CI — still billing-blocked.** The only run remains `33710152352` (event `push`, branch `master`,
+  `headSha 1f7d589`, **conclusion `failure`**, job "Web gate (Node 24 LTS)" completed in ~2 s with **zero
+  steps executed** — `--log-failed` returns "log not found", the billing-lock signature). No run exists for
+  target `845116d`. Per §2/§8 this failed non-target run is **not** a PASS.
+
+#### Section-by-section compliance (approved plan v23 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 0 — Authorization, local gates, target | **PARTIAL** | Target commit **minted** (`845116d`, docs-only, changes only `docs/VERIFICATION_EVIDENCE.md` — COMPLIANT with §4.5/§5). But no Phase-0 preflight inventory or **fresh local-gate run recorded for the target SHA** — the "Local Web Gates" evidence block still holds Cycle-10 counts (Node 26; 78 unit / 13 e2e). The new Cycle-11 section is a pure placeholder. |
+| §6 Phase 1 — Native iPad execution | **MISSING** | `xcodebuild … test` **never run**, though a booted iOS 26.4 iPad is available. No `.xcresult`, no counts, no exit code. **No environment excuse remains.** |
+| §6 Phase 2 — Exact-SHA CI execution | **MISSING / BLOCKED** | Target `845116d` **not pushed**; the only CI run failed on a billing lock against the `ignore` commit. No `dist-index-html` parity. |
+| §6 Phase 3 — Finalize evidence | **MISSING** | Native `BLOCKED` (evidence L29) and CI `BLOCKED` (L43) unchanged; README status unchanged. |
+| §14 Completion Checklist | **0 / 6 checked** | Every box `[ ]`. |
+
+Base tree re-verified unchanged: native inventory still six suites / **32** methods (6+3+8+6+5+4) / **4** UI
+— matching §6 Phase 1 step 5. No regressions; backlog 0 unchecked.
+
+#### Directive (State 2 — implement the native half NOW; there is no excuse left)
+
+1. **Run §6 Phase 1 against the booted iPad (RA #9) — this is the single highest-value action.** Optionally
+   re-run the local web gates for the target SHA first (§6 Phase 0 step 4), then:
+   `xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination
+   'platform=iOS Simulator,id=A155995F-EC83-41BE-95B2-1A5F390ABF59' -derivedDataPath <TEMP>
+   -resultBundlePath <TEMP>/CheckIn007.xcresult test`. Inspect the `.xcresult` with `xcresulttool`; require
+   the exact §6 Phase 1 step-5 counts (six named suites, **32** unit methods, **four** UI tests, exit 0,
+   zero failures); flip Native `BLOCKED → PASS` in the evidence file. Minting a placeholder without running
+   the tests is **not** progress on this gate.
+2. **Push the target `845116d`, then pursue the CI PASS (RA #10).** The target is currently local-only —
+   push it so a Cycle-11-target CI run can exist. Then clear the GitHub Actions billing lock, observe the
+   exact-`headSha` `CI` run to success, and prove `dist-index-html` byte parity (§6 Phase 2). **Do not** bank
+   run `33710152352` as CI evidence (§2/§8).
+3. **If billing cannot be cleared**, the Rev-1 primary gap (Remaining issue #1 / Path-to-100 #1) has a live
+   trigger: revise v23 to add a **bounded terminal disposition** accepting native-PASS +
+   CI-permanently-environment-blocked, so full closure is not held hostage to billing.
+
+**Implementation Score:** N/A
+
+---
+
 ### Implementation Verification — v7
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
