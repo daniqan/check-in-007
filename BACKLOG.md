@@ -177,3 +177,23 @@ cert dir (and/or deny dotfiles) + assert `GET /.certs/key.pem`→404, and auto-a
 LAN IPv4s to the cert SAN (or make `--host` mandatory + warn). Strict-unchecked `[ ]` = 0 (this
 item is `[/]`, everything else `[x]`) → backlog −0; first idle cycle since the v29 landing →
 decay −1. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 1 and `CONSOLIDATED_AUDIT.md` v30.
+
+**Cycle 8 plan APPROVED (Rev 2, audit v31):** `IMPLEMENTATION_PLAN.md` was revised v18 → v19
+(commit `dfd2909`) and re-critiqued at **98/100 — APPROVED** (Cycle 8 Rev 2). v19 closes
+**both** Rev-1 must-fix items — the private-key-on-the-wire flaw of commission (now three
+layered guards: dot-segment rejection in `safeResolve`, a `forbiddenRoots` cert-cache denial
+that `startServer` always passes, and a `realpath()` symlink-escape check — with tests
+asserting `GET /.certs/key.pem` **and** `/.certs/cert.pem` → 404) and the out-of-the-box
+SAN/LAN-IP mismatch (`startServer` now seeds discovered LAN IPv4s into the cert SAN by
+default, so the printed URL always matches — injected-snapshot test covers it) — plus all
+four Rev-1 nits (`key.pem` 0600, exact EKU OID `1.3.6.1.5.5.7.3.1`, UTCTime<2050 note, real
+browser `import()` e2e). The offline-HTTPS item stays `[/]` (in progress) — **the plan is
+approved but NOT yet implemented** (`scripts/lib/der.mjs`, `dev-cert.mjs`, `static-server.mjs`,
+`scripts/serve-https.mjs` all absent; `package.json:11` still the mkcert line). **Next action:
+implement approved plan v19** — landing the four scripts + tests + `package.json`/`README`/
+`.gitignore` edits flips this **last** item `[/]` → `[x]` and **closes the backlog entirely**,
+and is the only thing that resets the accruing inactivity decay (now −2, second idle cycle).
+Strict-unchecked `[ ]` = 0 → backlog −0. Three non-blocking Path-to-100 items to carry into
+implementation: a golden-byte KeyUsage-extension `der.test.mjs` assertion; a pinned IPv4
+predicate in `buildSanExtension`; explicit IPv6 `--host` handling. See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 2 and `CONSOLIDATED_AUDIT.md` v31.
