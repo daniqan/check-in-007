@@ -1,3 +1,168 @@
+# Cycle-14 Evidence & Plan-Consistency Closure Plan Critique — Revision 1
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `53a9c48`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v27 (Cycle 14 — Cycle-13 Evidence and Plan-Consistency Closure)
+**Score:** **97 / 100** (previous: v26 Cycle-13 Rev 2 = 96 | this is a NEW plan — v27 supersedes the completed v26 cycle)
+**Status:** **APPROVED** (clears the ≥95 gate)
+
+Plan v27 is a fresh, documentation-only plan that opens Cycle 14 to close the two `BACKLOG.md`
+follow-ups that Audit v53 tracked out of the completed Cycle-13 cycle: (1) back-port the already-landed
+`sheet.swipeUp()` lazy-`Form` navigation into the authoritative plan contract, and (2) durably prove the
+Cycle-13 RA #13 hit-region root cause by reproducing `testFirstCheckInFlow` at the exact pre-fix commit and
+capturing a sanitized accessibility hierarchy. It ships **zero** source/test/dependency/build/dist changes
+(§2). Every factual claim I could check against git is accurate, and the plan is fail-closed throughout.
+The loop advances **State 1 → State 2 — implement approved plan v27.**
+
+## Version check
+
+The critique's prior `Plan Under Review` was v26; the plan file is now **v27** (`53a9c48` rewrote
+`IMPLEMENTATION_PLAN.md` only). Per the staleness rule a newer plan is reviewed fresh regardless of the
+prior score — this is that full critique. v27 is not a revision of v26's subject (native UI repair, now
+complete and VERIFIED at Implementation Score 97) but a new, narrower cycle whose only deliverables are the
+two manifest files in §5.
+
+## Ground-truth verification (independently confirmed against git)
+
+1. **Pre-fix commit is correct.** `50b4357` is the approved-plan/audit commit immediately before
+   implementation `5e80c8b` (`git log 7c51af4..8db9fd6`: `50b4357` → `5e80c8b` → `8db9fd6`). At `50b4357`
+   the source is genuinely pre-fix: `RosterView.swift` has **no** `.frame(maxWidth: .infinity …)` (the
+   full-width hit target added at current `:68`), and `CheckIn007UITests.swift:61,80` still query
+   `app.otherElements[A11yId.mark007]`. §4.1/§6-Phase-0's "detached source lacks the full-width
+   frame/content shape" is therefore precise — the inner `.contentShape(Rectangle())` at pre-fix `:42`
+   is a different element and does not contradict the claim.
+2. **Reproduction premise holds.** At `50b4357`, `testFirstCheckInFlow` already taps `firstRow` (`:27`)
+   and then waits on `scan.status` (`:29–30`, `XCTAssertTrue(scan.waitForExistence(timeout: 5))`). With the
+   pre-fix dead hit region the tap does not fire `selectGuest`, so `:30` fails — exactly the assertion §4.1
+   targets. The plan's temporary attachment hook has a real insertion point.
+3. **Current source matches the back-port claim.** `CheckIn007UITests.swift:106` performs `sheet.swipeUp()`
+   before requiring `admin.clearLog` (`:108`) and `admin.clearLog.confirm` (`:112–113`) in order — the
+   §4.3/§7.3 contract v27 back-ports is byte-accurate to the shipped code. `RosterView.swift:68–69` carries
+   the full-width fix v27 references.
+4. **Inventory and environment consistent.** §6-Phase-3/§10 "two targets, six unit suites, 33 unit + 4 UI
+   = 37" matches the verified Cycle-13 native suite; §10/§11 "78 unit, 13 Playwright", Node 24.20.0 pin,
+   Xcode 26.4 (`17E192`), iOS 26.4 (`23E244`), iPad UDID `A155995F-…` all agree with audit v52/v53.
+5. **CI disposition honest.** §2/§13-Q4 keep run `33711898714` as terminal `BLOCKED (external billing)`;
+   nothing is claimed as PASS.
+
+## Scope Check
+
+- **Audit findings:** the only open items are RA #10 (external CI billing — correctly kept `BLOCKED`,
+  non-code-actionable) and the two backlog follow-ups. v27 addresses **both** backlog items and correctly
+  leaves RA #10 external. No in-scope finding ignored → **no scope cap.**
+- **Backlog:** `BACKLOG.md` = **2 unchecked** (swipeUp back-port + §4.1 diagnostic capture). v27 targets
+  **exactly these two** — the plan's scope is the backlog's open surface, no more, no less.
+- **Integration points:** §7 gives four contracts (git identity ↔ reproduction; XCTest attachment ↔ durable
+  evidence; lazy admin Form ↔ clear-log test; evidence status ↔ audit consumers) covering every seam the
+  work touches.
+- **Alternatives considered:** §4.1 rejects memory-only description / main-tree reverts / HEAD-only capture /
+  full-hierarchy commit; §4.3 rejects timeout inflation / coordinate taps / moving the danger section /
+  optional assertions. Tradeoffs stated.
+
+## Flaws of Commission
+
+No flaws of commission identified. The pre-fix commit, the reproduction assertion target, the back-ported
+navigation contract, the inventory, and the CI disposition are all verified correct against source. The
+evidence invariants are computed over the **complete** exported attachment (roster.row. ≥ 1 **and**
+scan.status = 0), not a hand-picked excerpt (§4.2, §6-Phase-1.5) — the right way to avoid selection bias.
+
+## Flaws of Omission
+
+1. **§14 couples the two independent follow-ups into an all-or-nothing completion gate (minor).** The
+   swipeUp back-port (item 1) is pure plan text — already present in v27 §4.3/§7.3 — and cannot fail; the
+   historical reproduction (item 2) genuinely can STOP if the pre-fix tree no longer reproduces on iOS 26.4
+   (§13-Q1). Because "every checkbox is required," a STOP on item 2 blocks recording item 1 as done. A
+   sentence permitting the back-port to land independently of the reproduction outcome would decouple a
+   trivially-completable item from a risk-bearing one. *Non-blocking.*
+2. **Temporary instrumentation is specified in prose only (minor).** §4.1/§6-Phase-1 describe the throwaway
+   attachment hook ("immediately after the existing wait for `scan.status` fails … attach
+   `app.debugDescription` with `.keepAlways`") without a concrete snippet or exact insertion line. For
+   uncommitted, discard-after-use instrumentation this is acceptable, but a named snippet would remove the
+   last ambiguity about what runs. *Non-blocking.*
+3. **Residual feasibility risk on the historical reproduction (managed, not eliminated).** The whole of
+   item 2 depends on the pre-fix method still failing at `scan.status` under the current simulator runtime.
+   The plan handles an unexpected pass by STOPping and leaving the item open (§8, §13-Q1) — fail-closed and
+   honest — but the risk that Phase 1 cannot complete, leaving one backlog item open after the cycle, is
+   real. *Non-blocking; correctly dispositioned.*
+
+## Regressions
+
+No regressions identified. §2 forbids any committed change under `native/`, `src/`, `tests/`, `scripts/`,
+`.github/`, `package.json`, lockfiles, Xcode settings, or `dist/`; the two deliverables are additive plan
+text and an append-only evidence subsection (§5, §7.2/§7.4 "existing evidence remains append-only"). Test
+coverage, runtime behavior, and the byte-for-byte web/native artifacts are untouched. All reproduction
+mutations live in a `mktemp` detached worktree that is deleted before the final diff (§3, §9).
+
+## Why 97 and not 99
+
+Every diagnosis and commit reference is verified against source, scope equals the open backlog exactly, and
+the plan is fail-closed — that is 97-grade. It is held below 99 by the three omissions above, chiefly the
+§14 all-or-nothing coupling (which lets a certain-to-succeed doc edit be blocked by a risk-bearing
+reproduction) and the prose-only instrumentation spec. None is a feasibility failure; they are
+specificity/decoupling gaps, so 97, not the 72–91 band of prior first-draft plans, and not 99.
+
+## Path to ≥95
+
+Already cleared (97). No blocking items.
+
+## Path to 100
+
+1. **Decouple §14.** State that the swipeUp back-port (item 1) may be recorded complete independently of the
+   Phase-1 reproduction outcome, so a fail-closed STOP on item 2 does not strand a trivially-completable item.
+2. **Pin the temporary hook.** Give the exact insertion point and a one-line snippet of the uncommitted
+   `.keepAlways` attachment helper so the throwaway instrumentation is unambiguous and self-documenting.
+3. **Name the reproduction fallback.** If the pre-fix method unexpectedly passes on iOS 26.4, cite the
+   already-captured Rev-1 execution (`CheckIn007UITests.swift:30` `scan.status` not found) as the
+   documentary fallback rather than only STOPping — so the RA #13 cause is still recorded from the historical
+   run even if a fresh capture is not reproducible.
+
+## Summary
+
+Plan v27 is approval-grade (**97/100**). It is a tightly-scoped, documentation-only cycle whose scope equals
+the two open backlog items exactly; every commit SHA, source line, and count I checked is accurate; and it is
+fail-closed with a thorough error table (§8). Its residual gaps are the §14 completion coupling and the
+prose-only instrumentation spec — genuine but non-blocking. The loop advances **State 1 → State 2 — implement
+approved plan v27.** Implementation Score is **N/A** — nothing is built yet (`53a9c48` rewrote
+`IMPLEMENTATION_PLAN.md` only; `docs/VERIFICATION_EVIDENCE.md` has no Cycle-14 subsection and the working tree
+is clean).
+
+**Plan Score:** 97/100
+
+**Implementation Score:** N/A
+
+---
+
+### Implementation Verification — v17
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v27 @ commit `53a9c48` (approved Cycle 14 Rev 1 = 97/100)
+**Code:** `master` @ HEAD `53a9c48` audited on 2026-09-03
+
+**Verdict: N/A — approved plan v27 NOT YET IMPLEMENTED (State 2, unstarted).** `53a9c48` changed only
+`IMPLEMENTATION_PLAN.md` (`git show --stat`: 1 file); the second manifest deliverable
+`docs/VERIFICATION_EVIDENCE.md` has **no Cycle-14 subsection** (`grep -n "Cycle-14" docs/VERIFICATION_EVIDENCE.md`
+= 0 hits) and the working tree is clean. No detached-worktree reproduction has been run and no pre-fix
+hierarchy has been captured. There is nothing to audit for execution fidelity yet.
+
+The **prior** cycle's implementation remains VERIFIED and unchanged: `git diff --name-only 8db9fd6..HEAD --
+native/ src/ tests/` is empty, so the Cycle-13 native (37/37) + web (78/13) result recorded at Implementation
+Verification v16 = 97/100 still stands byte-for-byte. Cycle 14 does not touch code.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.3/§6-P2 swipeUp back-port | **NOT STARTED** | Plan text present in v27; `docs/VERIFICATION_EVIDENCE.md` not yet updated to record it as required lazy-Form navigation. |
+| §4.1/§6-P1 pre-fix hierarchy capture | **NOT STARTED** | No detached-worktree run; no sanitized excerpt in evidence doc. |
+| §6-P3 current-tree re-verification | **NOT STARTED** | No fresh native/web re-run recorded for this cycle. |
+
+**Implementation Score:** N/A
+
+## Defects
+
+None to enumerate — implementation has not begun. **Next action: implement approved plan v27** (documentation
+only). Landing the two §5 manifest files closes the two `BACKLOG.md` follow-ups (recovering the −1 backlog
+deduction); note that because v27 changes no `native/`/`src/`/`tests/` file, it will **not** reset the
+mechanical inactivity decay — the residual verification work is inherently documentation-only.
+
+---
+
 # Native UI Interaction & Accessibility Repair Plan Critique — Cycle 13, Revision 2
 
 **Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `7c51af4`

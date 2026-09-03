@@ -24,6 +24,14 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [ ] Back-port the `testClearLogRequiresTwoConfirmations` `sheet.swipeUp()` scroll (`CheckIn007UITests.swift:106`, reaching the below-viewport `AdminSheet.swift:97` `dangerSection` clear button) into `IMPLEMENTATION_PLAN.md` §4.3 / §6 Phase 2 — the plan text still implies the clear-log workflow is "unchanged." Documented as a DEVIATION (improvement) at Implementation Verification v15/v16; no assertion is weakened, but plan and code should agree.
 - [ ] Record the §4.1 post-tap diagnostic capture (archive the `app.debugDescription` showing the roster still present with no `scan.status` before the full-width `contentShape` fix) in `docs/VERIFICATION_EVIDENCE.md`, so the RA #13 hit-region root cause is proven rather than inferred (Cycle-13 plan Path-to-100 item #1).
 
+> **Cycle 14 status (audit v54):** both items above are the sole scope of `IMPLEMENTATION_PLAN.md` v27
+> (Cycle 14), **APPROVED at 97/100** (Plan Critique Cycle 14 Rev 1). The plan is **not yet implemented** —
+> `53a9c48` rewrote the plan text only; `docs/VERIFICATION_EVIDENCE.md` has no Cycle-14 subsection yet — so
+> both items stay `[ ]` (backlog −1). The discriminator closes them after the implementation audit. Note: v27
+> is documentation-only (no `native/`/`src/`/`tests/` change), so landing it recovers this −1 backlog
+> deduction but does **not** reset the mechanical inactivity decay. See `CONSOLIDATED_AUDIT.md` v54 and
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 14 Rev 1.
+
 ## Documentation
 - [x] Resolve/hard-default the six §10 open questions inline so the plan is fully self-contained (done in plan v2 — §10 "Defaults & Revisit Triggers")
 - [x] Redraw the §3.1 state-machine diagram so ADMIN's entry/exit edges are unambiguous (done in plan v2; a cosmetic top-border box remains — see critique Rev 6 nit #3)

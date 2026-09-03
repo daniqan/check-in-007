@@ -1,13 +1,73 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 95/100
-**Audit Version:** v53
-**Audited:** HEAD `0f8a230` (re-audit of completed Cycle 13) on 2026-09-03 (Cycle 13 — Native UI Interaction and Accessibility Repair. Plan v26 **APPROVED (96/100)**, **IMPLEMENTED & INDEPENDENTLY VERIFIED** (Implementation Score 97/100). Re-audit of the State-4 complete cycle: `git diff --name-only 8db9fd6..HEAD -- native/ src/ tests/` is **empty** — the code tree is byte-identical to the v52-reproduced commit `8db9fd6`; the only commits since are the v52 audit/critique docs. This cycle the discriminator **re-verified all four plan edits in source** (RosterView §4.1, ResultView §4.2, UITests §4.3/§4.4) and **re-ran the web gates itself** (78/78 unit, 13/13 Playwright, prettier clean, build 26,315 gzip bytes, `dist/index.html` SHA-256 `8d5a9c65…` / 70,584 bytes — byte-for-byte vs `docs/VERIFICATION_EVIDENCE.md`). The native 37/37 was independently reproduced against this identical tree in v52 and is not re-run for byte-identical code. RA #12 + RA #13 remain **RESOLVED**; RA #11 + camera **DONE**; RA #10 still `BLOCKED (external billing)`. Two minor plan↔code / evidence-capture follow-ups moved into `BACKLOG.md`.)
-**Stage:** Cycle 13, **State 4 — implementation verified, cycle COMPLETE** (Implementation Score 97/100 ≥ 95). The native suite is fully green for the first time across the 13-cycle saga, independently reproduced by the discriminator (native in v52, web re-reproduced in v53). Only open **code** items are two minor backlog follow-ups (swipeUp plan back-port + §4.1 diagnostic capture); the only open runtime item is RA #10 (external CI billing block), non-code-actionable and documented as `BLOCKED`. RA #11 (CSV) and the camera work remain DONE.
+<!-- score:plan 97 -->
+<!-- score:implementation N/A -->
+<!-- score:current 94 -->
 
-**Plan Score:** 96/100
-**Implementation Score:** 97/100
-**Current Score**: 95/100
+**Current Score**: 94/100
+**Audit Version:** v54
+**Audited:** HEAD `53a9c48` (Cycle 14 opened — plan v27 review) on 2026-09-03 (Cycle 14 — Cycle-13 Evidence and Plan-Consistency Closure. Plan v27 **APPROVED (97/100)**, **NOT YET IMPLEMENTED** — Implementation Score **N/A**, State 2 unstarted. `53a9c48` rewrote `IMPLEMENTATION_PLAN.md` only; the second manifest deliverable `docs/VERIFICATION_EVIDENCE.md` has no Cycle-14 subsection and the working tree is clean. The **prior** Cycle-13 implementation remains VERIFIED and byte-identical — `git diff --name-only 8db9fd6..HEAD -- native/ src/ tests/` is empty — so the 37/37 native + 78/13 web result stands. Cycle 14 is documentation-only: it back-ports the shipped `sheet.swipeUp()` lazy-Form navigation into the plan contract and reproduces the pre-fix RA #13 hierarchy at exact commit `50b4357`. Every v27 commit SHA and source line checked verifies. RA #12 + RA #13 remain **RESOLVED**; RA #11 + camera **DONE**; RA #10 still `BLOCKED (external billing)`. The two `BACKLOG.md` follow-ups remain **open** pending v27 implementation.)
+**Stage:** Cycle 14, **State 2 — implement approved plan v27** (Plan Score 97/100 ≥ 95; nothing built yet). The Cycle-13 native suite remains fully green (independently reproduced native in v52, web in v53); Cycle 14 changes no code. Open items: the two documentation-only backlog follow-ups (swipeUp plan back-port + §4.1 pre-fix hierarchy capture) that plan v27 will close, plus RA #10 (external CI billing block, non-code-actionable, `BLOCKED`). RA #11 (CSV) and camera remain DONE.
+
+**Plan Score:** 97/100
+**Implementation Score:** N/A
+**Current Score**: 94/100
+
+<!-- audit-entry v54 -->
+> **CYCLE 14 OPENED — PLAN v27 APPROVED (97/100), NOT YET IMPLEMENTED (State 2). Implementation Score N/A. Score 95 → 94 (2nd idle code cycle; backlog still 2 open).**
+> `53a9c48` ("plan: v27 — close Cycle 13 evidence gaps") replaced the completed Cycle-13 plan (v26) with a new,
+> documentation-only Cycle-14 plan targeting the two `BACKLOG.md` follow-ups Audit v53 tracked. Per the
+> staleness rule the newer plan is reviewed fresh: **Plan Critique Cycle 14 Rev 1 = 97/100 — APPROVED**
+> (`IMPLEMENTATION_PLAN_CRITIQUE.md`). `git show --stat 53a9c48` = **1 file** (`IMPLEMENTATION_PLAN.md`); the
+> second §5 deliverable `docs/VERIFICATION_EVIDENCE.md` has **no Cycle-14 subsection** (`grep "Cycle-14"` = 0)
+> and the tree is clean → **nothing is implemented yet.**
+>
+> **v27 factual claims independently verified against git (trust nothing):**
+> - **Pre-fix commit correct.** `git log 7c51af4..8db9fd6`: `50b4357` → `5e80c8b` → `8db9fd6`, so `50b4357`
+>   is the approved-plan commit immediately before implementation `5e80c8b`. At `50b4357` `RosterView.swift`
+>   has **no** `.frame(maxWidth: .infinity …)` (the full-width hit target now at current `:68`) and
+>   `CheckIn007UITests.swift:61,80` still query `app.otherElements[A11yId.mark007]` — genuinely pre-fix.
+> - **Reproduction premise holds.** At `50b4357` `testFirstCheckInFlow` taps `firstRow` (`:27`) then asserts
+>   `scan.waitForExistence(timeout: 5)` (`:29–30`); with the pre-fix dead hit region that assertion fails —
+>   exactly the target §4.1 names.
+> - **Back-port is byte-accurate.** Current `CheckIn007UITests.swift:106` `sheet.swipeUp()` precedes required
+>   `admin.clearLog` (`:108`) and `admin.clearLog.confirm` (`:112–113`); current `RosterView.swift:68–69`
+>   carries the full-width fix. The §4.3/§7.3 contract v27 back-ports matches shipped code.
+> - **Inventory/env consistent.** 33 unit + 4 UI = 37; 78 web unit / 13 Playwright; Node 24.20.0; Xcode 26.4
+>   (`17E192`), iOS 26.4 (`23E244`), iPad `A155995F-…` — all agree with v52/v53.
+>
+> **Prior Cycle-13 implementation unchanged & still VERIFIED.** `git diff --name-only 8db9fd6..HEAD --
+> native/ src/ tests/` is **empty**; the v52-reproduced 37/37 native and v53-reproduced 78/13 web
+> (build 26,315 gzip bytes; `dist/index.html` 70,584 bytes, SHA-256 `8d5a9c65…`) stand byte-for-byte.
+> Implementation Verification v16 = 97/100 (Cycle 13) remains VERIFIED. Cycle 14 does not touch code.
+>
+> **Score computation.**
+> - **Base Score: 97/100.** Fully-green, independently-verified Cycle-13 health + a clean, accurate,
+>   approved Cycle-14 plan. The −3 from 100 is the intrinsic **external CI verification gap** (RA #10):
+>   the deployment path cannot be confirmed end-to-end while billing is locked.
+> - **Required Actions: −0.** RA #12 + RA #13 RESOLVED & verified; RA #11 + camera DONE. RA #10 is MODERATE,
+>   **external (billing) / non-code-actionable** — honestly `BLOCKED`, not a stalled code P0/P1, so no stall
+>   deduction (precedent-consistent v45–v53).
+> - **Backlog: −1.** 2 unchecked `[ ]` (swipeUp plan back-port + §4.1 diagnostic capture) / 15 `[x]` →
+>   1 point per 2 items → −1. These are still open; plan v27 is approved to close them but **not yet
+>   implemented**, so the deduction stands.
+> - **Inactivity decay: −2.** Second consecutive audit cycle with **no** `native/`/`src/`/`tests/` change
+>   (only audit + plan commits since v52's code landed). v53 was −1; this increments to −2. Note: because
+>   the remaining Cycle-14 work is documentation-only, implementing v27 will close the backlog (recovering
+>   −1) but will **not** reset this code-movement decay.
+> - **Final: 97 − 0 − 1 − 2 = 94/100.**
+>
+> **Disposition — Cycle 14, State 2 (implement approved plan v27).** The loop advanced State 4 (Cycle 13
+> complete) → new cycle → plan approved → **implement**. Next action: land the two §5 manifest files
+> (documentation only) — back-port the swipeUp scroll into the plan/evidence and capture the sanitized
+> pre-fix hierarchy at `50b4357`, then re-verify current native/web gates and mark §14. Closing both backlog
+> items recovers the −1; the −2 decay persists until a `native/`/`src/`/`tests/` commit lands (none is
+> planned this cycle, by design). RA #10 remains outside the code loop (operator must clear billing, then
+> push/rerun `33711898714`).
+>
+> **Required Actions status.** **#10** (P2/MODERATE, CI external billing) — external / non-code-actionable;
+> honestly `BLOCKED`, **−0**. **#11** (P1, CSV) — DONE. **#12** (P1, `mark007` query) — RESOLVED & verified.
+> **#13** (P1, check-in flow) — RESOLVED & verified. Camera — DONE.
 
 <!-- audit-entry v53 -->
 > **STATE 4 — CYCLE-13 RE-AUDIT: STILL COMPLETE & VERIFIED (Implementation Score 97/100). Web gates re-reproduced, source re-verified. Score 96 → 95 (onset of inactivity decay + 2 newly-tracked backlog items).**
