@@ -197,3 +197,56 @@ critique Path-to-100 items (href assertion, `start_url`↔artifact unit assertio
 assertion, dropping `maskable`) were folded in. Fixing D1 is a one-line format pass; resubmit for
 re-verification. This is **State 3 — fix the implementation** (impl 93 < 95). RA #14's real-iPad
 verification remains separately required and is correctly not claimed by this cycle.
+
+---
+
+### Implementation Verification — v22 (re-verification after D1 fix)
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v29 (Cycle 16) @ approved score 96/100
+**Code:** `43663ee` ("fix(audit): format Cycle 16 evidence per RA #17") audited on 2026-09-03 (Node 26.3.0 in-env)
+
+The State-3 defect (D1 / F-18 / RA #17) is **RESOLVED.** Fix commit `43663ee` touches **only**
+`docs/VERIFICATION_EVIDENCE.md` (`git show --stat` = 1 file, +5/−3) — the exact file that carried the
+Prettier violation. It de-indents the recorded prettier-command continuation lines so
+`prettier --check` passes, **and** corrects the file's previously-**false** "prettier … passed"
+claim to reflect reality ("a full `npx prettier --check .` now reports only the pre-existing
+untracked `Claude outputs/` scratch file; tracked Cycle 16 files are formatted"). H4 satisfied:
+written evidence now matches the observed gate result. No source/test/build code was touched, so
+every §4 compliance verdict from v21 stands unchanged and the feature remains faithful to the
+approved plan.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.1 / Phase 1 — source manifest + icons | COMPLIANT | `manifest.webmanifest` carries `id`,`name`,`short_name`, dev `start_url:"./index.html"`,`scope`,`display:"standalone"`,`orientation`, theme/background colors, 192/512/SVG icons; `index.html` links exactly one `rel="manifest"` (grep = 1); existing meta tags preserved. |
+| §4.1 / Phase 2 — generated dist webmanifest | COMPLIANT | `createWebAppManifest()`/`writeWebAppManifestArtifacts()`; rebuilt ×2 → deterministic hash `15d6647afdf4`; `dist/check-in-007.webmanifest.start_url === "./"+manifest.json.artifact` (verified true); `dist/index.html` byte-identical to hashed twin (`diff -q` IDENTICAL); built HTML carries exactly one `./check-in-007.webmanifest` link. |
+| §4.2 — machine manifest kept separate | COMPLIANT | `dist/check-in-007.manifest.json` still `{artifact,sha256,gzipSize,byteSize}`; two manifest files coexist under distinct names. |
+| §4.3 — commit icons, copy to dist | COMPLIANT + improved | 192/512 PNGs at verified `IHDR` dimensions (192×192 / 512×512) + editable SVG; copied to `dist/assets/icons/`. Icons use `purpose:"any"` (not `"any maskable"`), resolving critique nit #3. |
+| §4.5 / Phase 3 — serving & MIME | COMPLIANT | `static-server.mjs:11` adds `.webmanifest → application/manifest+json`; `.svg`/`.png` already present; live-server test asserts 200 + content-type + `Cache-Control: no-store`; cert/traversal guards untouched. |
+| Phase 4 — verification coverage | **COMPLIANT** (was PARTIAL) | Unit **85/85**, e2e **15/15**, `node scripts/build.mjs` all pass, **and `prettier --check` is now clean on every tracked file** (D1 fixed) → the Phase 4 acceptance criterion "`npm run lint` … pass" is now MET on the CI Node-24 lane. In-env `npm run lint` stops only at the Node-version guard (Node 26 ≠ 24), which fails **closed** by design; prettier itself is directly proven clean. |
+| Phase 5 — docs & evidence | COMPLIANT | README A2HS install/reinstall + `start_url`↔hash guidance present; `docs/VERIFICATION_EVIDENCE.md` now Prettier-clean and its formatting claim is truthful; RA #14 correctly **not** claimed resolved. |
+
+**Independently reproduced this cycle (trust nothing):**
+- `node --test tests/unit/*.test.mjs` → **85/85 pass**.
+- `npx playwright test` → **15/15 pass**.
+- `node scripts/build.mjs` ×2 → deterministic SHA `15d6647afdf4`, **26898 gzip bytes** (well under 750 KB); `start_url === "./"+artifact` = **true**; `dist/index.html` ≡ hashed twin.
+- `npx prettier --check docs/VERIFICATION_EVIDENCE.md` → **"All matched files use Prettier code style!"**; `npx prettier --check .` → only the untracked `Claude outputs/` scratch dir warns (not a tracked project file; `git ls-files "Claude outputs/"` = empty).
+- `.webmanifest` MIME entry present (`static-server.mjs:11`); icon PNGs at 192×192 / 512×512.
+
+**Implementation Score:** 97/100
+
+## Defects
+
+None blocking. D1 is resolved; the implementation clears the ≥95 gate. **VERIFIED — Cycle 16
+implementation COMPLETE (State 4).**
+
+The **−3 from 100** is an honest env-blocked execution residual, not a code defect:
+1. The full `npm run lint` chain (`check-node-version && prettier --check .`) cannot be run green
+   end-to-end in this environment — the Node-24 guard fails closed on the in-env Node 26. Only
+   `prettier --check` is directly execution-proven; the composed gate's green result is inferred for
+   the CI Node-24 lane. (Same env-blocked precedent as Cycle 15 v20 = 97.)
+2. The real iPadOS **standalone launch** of the hashed `start_url` (Add-to-Home-Screen) is validated
+   by deterministic metadata unit/e2e tests, not on a device — plan-sanctioned (§7.4), but a genuine
+   coverage residual on the least-testable surface.
+
+RA #14's real-iPad roster-scroll verification remains separately required and is correctly **not**
+claimed by this cycle.

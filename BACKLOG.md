@@ -16,12 +16,14 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
   installed web-apps cache `index.html` aggressively; stale loads were observed while debugging the
   scroll issue and forced new filenames / manual "Clear Website Data" between tests. A cache-bust
   (hashed asset name, `Cache-Control`, or a version query) would make kiosk redeploys reliable.
-- [/] Web app manifest / `start_url` for reliable standalone Add-to-Home-Screen installs. Plan v28
-  §13 Q4 explicitly deferred this; **Cycle 16 now picks it up** — `IMPLEMENTATION_PLAN.md` v29 adds a
-  source `manifest.webmanifest` + committed icons and a build-generated `dist/check-in-007.webmanifest`
-  whose `start_url` points at the current content-hashed HTML artifact, plus a `.webmanifest` MIME
-  entry and unit/e2e coverage. **Plan v29 is APPROVED at 96/100** (Plan Critique Cycle 16 Rev 1) but
-  **NOT yet implemented** — item stays `[/]` until the code lands and passes discriminator audit.
+- [x] Web app manifest / `start_url` for reliable standalone Add-to-Home-Screen installs — done in
+  `f410d95` (feature) + `43663ee` (D1 fix): source `manifest.webmanifest` + committed 192/512 PNG +
+  SVG icons, a build-generated `dist/check-in-007.webmanifest` whose `start_url` points at the current
+  content-hashed HTML artifact (`start_url === "./"+artifact` unit-asserted), a `.webmanifest`
+  `application/manifest+json` MIME entry with `no-store`, and unit/e2e coverage. **Plan v29 APPROVED at
+  96/100** (Cycle 16 Rev 1); **Implementation Verification v22 = 97/100 VERIFIED** — ≥95 gate cleared,
+  Cycle 16 COMPLETE (State 4). Gates reproduced green (unit 85/85, e2e 15/15, deterministic build
+  `15d6647afdf4`, prettier clean on tracked files). See `CONSOLIDATED_AUDIT.md` v62.
 
 > **Cycle 15 implementation:** both items above are `[x]` in this implementation commit. `IMPLEMENTATION_PLAN.md`
 > v28 (Cycle 15) fixes **RA #14** (iPad roster touch-scroll) plus both items and is **APPROVED at
