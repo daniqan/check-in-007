@@ -1,13 +1,52 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 91/100
-**Audit Version:** v40
-**Audited:** HEAD `736fc85` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; implementation NOT STARTED — third consecutive idle cycle)
+**Current Score**: 90/100
+**Audit Version:** v41
+**Audited:** HEAD `b056737` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; implementation NOT STARTED — fourth consecutive idle cycle)
 **Stage:** Cycle 11, **State 2 — implement the approved plan (v23)** — *blocked on unavailable operator authorization; recommend State 1 (revise v23) to add a bounded withdrawal disposition*
 
 **Plan Score:** 96/100
 **Implementation Score:** N/A
-**Current Score**: 91/100
+**Current Score**: 90/100
+
+<!-- audit-entry v41 -->
+> **STATE 2 — APPROVED PLAN STILL NOT IMPLEMENTED; FOURTH CONSECUTIVE IDLE CYCLE (v41).** Nothing has
+> changed since v40. HEAD is now **`b056737`** (the audit-v40 commit) — **zero new commits touching any
+> file**, working tree clean except untracked `.DS_Store` files. Plan **v23 (`d8a9949`)** remains
+> **APPROVED at 96/100** (Rev 1), unchanged under the staleness rule. **Implementation Verification v4 =
+> N/A — still NOT STARTED.** The tree is byte-identical to what v2/v3 audited:
+>
+> - **No Cycle-11 target commit.** `docs/VERIFICATION_EVIDENCE.md` still carries only Cycle-10 records
+>   (Local Web Gates `PASS`, Native `BLOCKED`, CI `BLOCKED`); `grep -c "Cycle 11"` = **0**. README status
+>   unchanged. All **6 §14 completion boxes `[ ]`.** `git diff d8a9949..HEAD` over the three manifest
+>   files is **empty** — no diff.
+> - **Both blocking pre-implementation gates still unsatisfiable here.** §4.1 / §6 Phase 0.2–0.3 / §13
+>   Q1–Q2 require (a) `xcodebuild -downloadPlatform iOS` approval and (b) an exact GitHub `owner/repo` +
+>   push approval. Neither is available — `xcrun simctl list runtimes` empty (`native-ios-sdk-not-installed`),
+>   `git remote -v` = none, non-interactive session cannot run the approval exchange. §2 forbids weakening
+>   the gates or accepting `BLOCKED` as completion, so **no source edit is warranted and none was made.**
+> - **Base tree re-verified unchanged.** Native inventory still six suites / **32** methods / **4** UI —
+>   matching §6 Phase 1 step 5. No regressions; system health identical to v37–v40.
+>
+> **Disposition — State 2 cannot advance in this environment; recommend State 1 (revise v23).** This is
+> not a "fix your code" case (nothing is built; the plan forbids fabricating a pass). Per the Rev-1
+> critique's primary gap (Remaining issue #1 / Path-to-100 #1), leaving Cycle 11 in unbounded "pending"
+> is the wrong terminal state. The sanctioned lever is to **revise plan v23 to add a bounded withdrawal
+> disposition**: if either authorization is declined/unavailable, withdraw the plan and re-classify the
+> two external gaps as permanently environment-blocked, audit-closeable Next Steps (folding in Path-to-100
+> #2 required-step reconciliation and #3 event-pinning). Alternatively, if the operator supplies both
+> exact authorizations, implement Phases 0–3 verbatim. Four idle cycles confirm the loop is stuck on the
+> refusal branch the critique predicted; the withdrawal revision is the only progress lever that does not
+> require external authorization.
+>
+> **Deductions.** No code since the v37 landing (`0a29610`); **no commit at all** since v40 → **fourth
+> consecutive idle cycle since the v37 reset → −4** decay (was −3 at v40, −2 at v39, −1 at v38; cap −5 not
+> yet reached). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE, none stalled).
+> Base health holds **94** (system state unchanged; the two env-blocked verification gaps are unchanged
+> from v34–v40). **Base 94 − backlog 0 − RA 0 − decay 4 = 90.** The only lever that both raises the score
+> and resets the decay is to land real work product — either implement approved plan v23 (both
+> authorizations granted) **or** revise v23 to add the bounded withdrawal disposition and close the two
+> gaps as environment-blocked. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v4.
 
 <!-- audit-entry v40 -->
 > **STATE 2 — APPROVED PLAN STILL NOT IMPLEMENTED; THIRD CONSECUTIVE IDLE CYCLE (v40).** Nothing has
