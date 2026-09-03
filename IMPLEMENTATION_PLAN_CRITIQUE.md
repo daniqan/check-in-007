@@ -142,6 +142,64 @@ full-width `contentShape`).
 
 ---
 
+### Implementation Verification — v16
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v26 @ commit `7c51af4` (approved Cycle 13 Rev 2 = 96/100)
+**Code:** `master` @ HEAD `0f8a230` (impl `5e80c8b` + docs `8db9fd6`; no code change since) re-audited on 2026-09-03
+
+**Verdict: VERIFIED (re-audit) — cycle remains complete.** This is a re-audit of the State-4 cycle. `git diff
+--name-only 8db9fd6..HEAD -- native/ src/ tests/` is **empty** — the code tree is byte-identical to the commit
+`8db9fd6` that Implementation Verification v15 / audit v52 independently reproduced at 37/37. All four plan
+edits re-verified in source this cycle; the web half of the gate independently re-reproduced byte-for-byte.
+
+**Independent re-verification this cycle:**
+- **Source re-read (all four changes present & correct).**
+  - §4.1 — `RosterView.swift:68–69` `.frame(maxWidth: .infinity, alignment: .leading)` + `.contentShape(Rectangle())`
+    after `.padding(.vertical, …)` on the row label; `.buttonStyle(.plain)` (`:20`), `.isButton` (`:45`),
+    `.frame(minHeight:)` (`:22`) all preserved.
+  - §4.2 — `ResultView.swift`: child `Text(displayName)` (`:19`) carries **no** identifier; the VStack applies
+    `.accessibilityElement(children: .combine)` (`:34`) → `.accessibilityLabel` (`:35–37`) → `.accessibilityIdentifier(A11y.resultTitle)` (`:38`). Combined `StaticText` queryable; label byte-for-byte.
+  - §4.3 — `CheckIn007UITests.swift:81,101` both `app.buttons[A11yId.mark007]`; **zero** `otherElements[…mark007]`
+    (the 3 residual `otherElements` uses are unrelated non-`mark007` queries).
+  - §4.4 — `requireExists` (`:22–38`) matches the §4.4 spec verbatim (failure-only `app.debugDescription`
+    attachment, same timeout, `#filePath`/`#line` caller attribution, no retry/tap); applied to `scan.status`,
+    `result.title`, `mark007`, admin-sheet, and roster-return; audio-toggle branch kept optional.
+- **Web gates re-run (discriminator's own hardware, this cycle):** `node --test tests/unit/*.test.mjs` = **78/78**;
+  `npx prettier --check .` clean; `npx playwright test` = **13/13**; `node scripts/build.mjs` = **26,315 gzip
+  bytes**; `dist/index.html` = **70,584 bytes**, SHA-256 `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744`, untracked — **matches `docs/VERIFICATION_EVIDENCE.md` byte-for-byte.**
+- **Native suite:** not re-run this cycle. The Swift tree is identical (`git diff` empty) to `8db9fd6`, which
+  the discriminator independently reproduced at **37/37 (0 fail / 0 skip, exit 0)** in v15/v52. Re-running
+  byte-identical code would reproduce the identical `.xcresult`; the prior independent reproduction stands.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.1 Full-row hit target (RA #13) | **COMPLIANT** | Re-verified `RosterView.swift:68–69`. |
+| §4.2 Combined result identity (RA #13) | **COMPLIANT** | Re-verified `ResultView.swift:34→38`; child `Text` unidentified. |
+| §4.3 Admin query alignment (RA #12) | **COMPLIANT** | Re-verified 2 `app.buttons[mark007]`, 0 `otherElements[mark007]`. |
+| §4.4 Failure-only diagnostics | **COMPLIANT** | Re-verified `requireExists` verbatim + call sites. |
+| §4.5 CI truth | **COMPLIANT** | Evidence retains `BLOCKED (external billing)`; no PASS inferred. |
+| §6 Phase 3 Native regression | **COMPLIANT** | 37/37 (independently reproduced at identical tree in v15/v52). |
+| §6 Phase 3 Web regression | **COMPLIANT** | 78 unit / 13 e2e / prettier clean / deterministic build — **re-reproduced this cycle.** |
+| §6 Phase 4 Evidence & status | **COMPLIANT** | Cycle-13 evidence section exact; README PASS; CI `BLOCKED`. |
+| Clear-log scroll | **DEVIATED (improvement)** | `sheet.swipeUp()` (`CheckIn007UITests.swift:106`) reaches below-viewport `dangerSection`; weakens no assertion; **still not back-ported to plan text** (now tracked in `BACKLOG.md`). |
+| §14 Completion Checklist | **7 / 7 checked** | All re-verified true. |
+
+**Implementation Score:** 97/100
+
+## Defects
+
+None blocking — the ≥95 gate remains cleared; **cycle complete.** Two non-blocking, unchanged notes (both now
+tracked as backlog items so they do not rot):
+
+1. **Plan↔code drift (−2, polish).** `sheet.swipeUp()` in `testClearLogRequiresTwoConfirmations` is still absent
+   from the plan text (§4.3 / §6 Phase 2 imply the clear-log workflow is "unchanged"). Back-port the scroll into
+   the plan. This remains the only reason the score is not 99+.
+2. **§4.1 diagnostic capture unrecorded (Path-to-100).** The post-tap `app.debugDescription` proving the
+   hit-region cause is still inferred, not archived in the durable evidence. Non-blocking; captured on the next
+   failing run by `requireExists`.
+
+---
+
 ### Implementation Verification — v15
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v26 @ commit `7c51af4` (approved Cycle 13 Rev 2 = 96/100)

@@ -20,6 +20,10 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [x] HTTPS helper `--bind` flag documented + directly `parseArgs`-tested (Cycle 9, audit v32 Next Step #1) — done in `28dc5b6`: `--bind`→`options.host` kept as the listen-interface selector distinct from repeatable `--host` SAN additions; direct `parseArgs` tests for `--bind=127.0.0.1` and `--bind ::1`; README flag table + bind/SAN prose. Implementation Verification v9 = 98/100 VERIFIED.
 - [x] HTTPS helper `startServer().url` returns the effective advertised endpoint instead of hard-coded `127.0.0.1` (Cycle 9, audit v32 Next Step #2) — done in `28dc5b6`: `advertisedUrls`/`httpsUrl` (wildcard→sorted LAN IPv4 or localhost fallback; explicit→bracket-safe host via `isIP()===6`), additive `urls` array with `url===urls[0]` invariant (`lanUrls` retained), explicit non-wildcard bind folded into cert SAN. Implementation Verification v9 = 98/100 VERIFIED.
 
+## Plan↔Code Consistency (Cycle 13 follow-ups)
+- [ ] Back-port the `testClearLogRequiresTwoConfirmations` `sheet.swipeUp()` scroll (`CheckIn007UITests.swift:106`, reaching the below-viewport `AdminSheet.swift:97` `dangerSection` clear button) into `IMPLEMENTATION_PLAN.md` §4.3 / §6 Phase 2 — the plan text still implies the clear-log workflow is "unchanged." Documented as a DEVIATION (improvement) at Implementation Verification v15/v16; no assertion is weakened, but plan and code should agree.
+- [ ] Record the §4.1 post-tap diagnostic capture (archive the `app.debugDescription` showing the roster still present with no `scan.status` before the full-width `contentShape` fix) in `docs/VERIFICATION_EVIDENCE.md`, so the RA #13 hit-region root cause is proven rather than inferred (Cycle-13 plan Path-to-100 item #1).
+
 ## Documentation
 - [x] Resolve/hard-default the six §10 open questions inline so the plan is fully self-contained (done in plan v2 — §10 "Defaults & Revisit Triggers")
 - [x] Redraw the §3.1 state-machine diagram so ADMIN's entry/exit edges are unambiguous (done in plan v2; a cosmetic top-border box remains — see critique Rev 6 nit #3)

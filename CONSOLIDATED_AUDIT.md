@@ -1,13 +1,68 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 96/100
-**Audit Version:** v52
-**Audited:** HEAD `8db9fd6` (impl of plan v26) on 2026-09-03 (Cycle 13 — Native UI Interaction and Accessibility Repair. Plan v26 **APPROVED (96/100)** and now **IMPLEMENTED & INDEPENDENTLY VERIFIED**. Commits `5e80c8b` (source) + `8db9fd6` (docs) landed exactly the six-file manifest — no out-of-manifest drift (`git diff --name-only 50b4357..8db9fd6` = the 6 planned files). The discriminator **re-ran the full native scheme itself** (`xcodebuild test` on iPad A16 `A155995F-…`, fresh temp DerivedData/result bundle, exit 0) and inspected the `.xcresult` with `xcresulttool`: **37 total / 37 passed / 0 failed / 0 skipped**, both bundles Passed, all four UI methods (`testFirstCheckInFlow`, `testRepeatGuestDoesNotDuplicateOneScan`, `testAdminOpensToggleAudioAndCloses`, `testClearLogRequiresTwoConfirmations`) green. Web gates re-run independently: 78/78 unit, 13/13 Playwright, `dist/index.html` build SHA-256 `8d5a9c65…` and 26,315 gzip bytes match `docs/VERIFICATION_EVIDENCE.md` byte-for-byte. RA #12 + RA #13 both **RESOLVED**. CI still honestly `BLOCKED (external billing)` (RA #10, external).)
-**Stage:** Cycle 13, **State 4 — implementation verified, cycle COMPLETE** (Implementation Score 97/100 ≥ 95). The native suite is fully green for the first time across the 13-cycle saga, independently reproduced by the discriminator. Only open item is RA #10 (external CI billing block), which is non-code-actionable and documented as `BLOCKED`. RA #11 (CSV) and the camera work remain DONE.
+**Current Score**: 95/100
+**Audit Version:** v53
+**Audited:** HEAD `0f8a230` (re-audit of completed Cycle 13) on 2026-09-03 (Cycle 13 — Native UI Interaction and Accessibility Repair. Plan v26 **APPROVED (96/100)**, **IMPLEMENTED & INDEPENDENTLY VERIFIED** (Implementation Score 97/100). Re-audit of the State-4 complete cycle: `git diff --name-only 8db9fd6..HEAD -- native/ src/ tests/` is **empty** — the code tree is byte-identical to the v52-reproduced commit `8db9fd6`; the only commits since are the v52 audit/critique docs. This cycle the discriminator **re-verified all four plan edits in source** (RosterView §4.1, ResultView §4.2, UITests §4.3/§4.4) and **re-ran the web gates itself** (78/78 unit, 13/13 Playwright, prettier clean, build 26,315 gzip bytes, `dist/index.html` SHA-256 `8d5a9c65…` / 70,584 bytes — byte-for-byte vs `docs/VERIFICATION_EVIDENCE.md`). The native 37/37 was independently reproduced against this identical tree in v52 and is not re-run for byte-identical code. RA #12 + RA #13 remain **RESOLVED**; RA #11 + camera **DONE**; RA #10 still `BLOCKED (external billing)`. Two minor plan↔code / evidence-capture follow-ups moved into `BACKLOG.md`.)
+**Stage:** Cycle 13, **State 4 — implementation verified, cycle COMPLETE** (Implementation Score 97/100 ≥ 95). The native suite is fully green for the first time across the 13-cycle saga, independently reproduced by the discriminator (native in v52, web re-reproduced in v53). Only open **code** items are two minor backlog follow-ups (swipeUp plan back-port + §4.1 diagnostic capture); the only open runtime item is RA #10 (external CI billing block), non-code-actionable and documented as `BLOCKED`. RA #11 (CSV) and the camera work remain DONE.
 
 **Plan Score:** 96/100
 **Implementation Score:** 97/100
-**Current Score**: 96/100
+**Current Score**: 95/100
+
+<!-- audit-entry v53 -->
+> **STATE 4 — CYCLE-13 RE-AUDIT: STILL COMPLETE & VERIFIED (Implementation Score 97/100). Web gates re-reproduced, source re-verified. Score 96 → 95 (onset of inactivity decay + 2 newly-tracked backlog items).**
+> This is a re-audit of the already-complete Cycle 13. No code has landed since the v52 audit: HEAD is still
+> `0f8a230` (the v52 audit commit), and `git diff --name-only 8db9fd6..HEAD -- native/ src/ tests/` is **empty**.
+> The working tree is clean.
+>
+> **Independent re-verification this cycle (trust nothing / re-check, not re-cite):**
+> - **Source re-read — all four plan edits present & correct:**
+>   - **§4.1** `RosterView.swift:68–69` — `.frame(maxWidth: .infinity, alignment: .leading)` + `.contentShape(Rectangle())` after the row-label padding; `.buttonStyle(.plain)`, `.isButton`, 44-pt `minHeight` preserved. **COMPLIANT.**
+>   - **§4.2** `ResultView.swift` — child `Text(displayName)` (`:19`) carries no identifier; VStack applies
+>     `.accessibilityElement(children: .combine)` (`:34`) → label (`:35–37`) → `.accessibilityIdentifier(A11y.resultTitle)` (`:38`). Combined `StaticText` queryable; label byte-for-byte. **COMPLIANT.**
+>   - **§4.3** `CheckIn007UITests.swift:81,101` — both `app.buttons[A11yId.mark007]`; **0** `otherElements[…mark007]`. **COMPLIANT.**
+>   - **§4.4** `requireExists` (`:22–38`) matches the plan spec verbatim; applied to `scan.status`, `result.title`,
+>     `mark007`, admin-sheet, roster-return; audio-toggle branch kept optional. **COMPLIANT.**
+> - **Web gates re-run on the discriminator's own hardware, this cycle:** `node --test tests/unit/*.test.mjs`
+>   = **78/78 pass, 0 fail**; `npx prettier --check .` clean; `npx playwright test` = **13/13**;
+>   `node scripts/build.mjs` = **26,315 gzip bytes**; `dist/index.html` = **70,584 bytes**, SHA-256
+>   `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744`, untracked — **byte-for-byte vs
+>   `docs/VERIFICATION_EVIDENCE.md`.**
+> - **Native suite (37/37):** not re-run this cycle — the Swift tree is byte-identical to `8db9fd6`, which the
+>   discriminator independently reproduced at 37/37 (0 fail / 0 skip, exit 0) in v52. Re-running identical code
+>   would reproduce the identical `.xcresult`; the prior independent reproduction stands.
+>
+> **Implementation Verification v16 = 97/100 (VERIFIED, re-audit).** Unchanged from v15 — cycle remains complete.
+> The one non-blocking DEVIATION (`testClearLogRequiresTwoConfirmations` `sheet.swipeUp()` to reach the
+> below-viewport `dangerSection`) still weakens no assertion (both confirm identifiers required in order) and is
+> still absent from the plan text — now tracked in `BACKLOG.md` so it cannot rot.
+>
+> **Score computation (restructured vs v52 to avoid double-counting the swipeUp drift, now a backlog line item).**
+> - **Base Score: 97/100.** Fully-green native (37/37, reproduced v52) + web (re-reproduced v53) + clean,
+>   plan-compliant source. The −3 from 100 is the intrinsic **external CI verification gap** (RA #10): the
+>   deployment path cannot be confirmed end-to-end while billing is locked. (The swipeUp plan↔code drift and the
+>   §4.1 diagnostic-capture gap are no longer folded into base — they are the two backlog items below.)
+> - **Required Actions: −0.** RA #12 + RA #13 ADDRESSED & verified. RA #10 is MODERATE **and external
+>   (billing) / non-code-actionable** — honestly `BLOCKED`, not a stalled code P0/P1, so no stall deduction
+>   (precedent-consistent with v45–v52). RA #11 + camera DONE.
+> - **Backlog: −1.** 2 unchecked `[ ]` (swipeUp plan back-port + §4.1 diagnostic capture) / 15 `[x]`
+>   → 1 point per 2 items → −1.
+> - **Inactivity decay: −1.** First audit cycle with **no code change** since the code landed in v52
+>   (`git diff native/ src/ tests/` empty). The code cycle is complete, but the mechanical decay tracks code
+>   movement; a −1 nudge is honest now that the project sits idle with two small doc/evidence items open.
+> - **Final: 97 − 0 − 1 − 1 = 95/100.**
+>
+> **Disposition — Cycle 13 remains COMPLETE (State 4).** Plan v26 approved (96) and implemented at 97/100
+> (≥95 gate cleared), re-verified. No fix cycle required. To recover to ≥96 and toward 100, the generator can
+> close the two `BACKLOG.md` items (back-port the swipeUp scroll into the plan text; archive the §4.1 post-tap
+> hierarchy capture) — both are pure documentation/evidence work, no product-code change. The only runtime
+> residual is RA #10 (external CI billing), which requires operator action (clear billing, then push/rerun
+> `33711898714`) and is outside the code loop.
+>
+> **Required Actions status.** **#10** (P2/MODERATE, CI external billing) — external / non-code-actionable;
+> honestly `BLOCKED`, **−0**. **#11** (P1, CSV) — DONE. **#12** (P1, `mark007` query) — **RESOLVED & verified**
+> (0 old queries, 2 button queries). **#13** (P1, check-in flow) — **RESOLVED & verified** (methods 1–2 reach
+> `scan.status`/`result.title`). Camera — DONE.
 
 <!-- audit-entry v52 -->
 > **STATE 4 — CYCLE-13 IMPLEMENTATION VERIFIED & COMPLETE: FULL NATIVE SUITE GREEN (independently reproduced). Implementation Score 97/100. Score 87 → 96.**
