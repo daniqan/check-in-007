@@ -1,3 +1,270 @@
+# Native CSV Parity Repair Plan Critique — Cycle 12, Revision 1
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `a6ca9b7`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v24 (Cycle 12 — Native CSV Parity and External-Gate Disposition)
+**Score:** **96 / 100** (previous: v23 Cycle-11 Rev 1 = 96; this is a **new** plan → first review of v24)
+**Status:** APPROVED (clears the ≥95 gate)
+
+Plan v24 is the correct State-1 response to Audit v47 / Implementation Verification v10: it opens a
+dedicated fix-cycle for the proven `CSVCodec.parseRows` data-loss defect (RA #11), folds in the camera
+characterization and the bounded terminal CI disposition (RA #10), and does so without weakening any web
+expectation or laundering the billing-blocked run into a PASS. The root-cause diagnosis is not just
+plausible — it is **independently verifiable and exactly correct**. The plan is implementation-ready.
+
+## Issues resolved in revision 1
+
+First review of v24 — no prior revision. v24 supersedes the success-only v23 (which hit its designed STOP
+state when the native gate ran and failed) with an actual product fix plus an honest CI disposition,
+addressing Implementation Verification v10's two directives and Audit v47 RA #11.
+
+## Ground-truth verification (all load-bearing claims confirmed)
+
+1. **Root cause (§4.1) is exactly right.** `parseRows` builds `let characters = Array(source)` →
+   `[Character]`. Swift renders `"\r\n"` as a **single** extended grapheme cluster, so the two delimiter
+   tests at `CSVCodec.swift:55` (`character == "\n"`) and `:60` (`character != "\r"`) both miss it and the
+   combined CRLF is appended into the field via `field.append(character)` — collapsing the two-row fixture
+   into one row, after which the test's unconditional `rows[1]` (`CSVCodecTests.swift:10`) crashes
+   index-out-of-range. Traced by hand on `"\u{FEFF}name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n"`
+   → 1 row, matching the reproduced failure verbatim.
+2. **The proposed fix is provably parity-preserving.** Web `src/lib/csv.mjs` indexes UTF-16 code units:
+   standalone `\r` is dropped (`char !== '\r'` false → ignored), `\n` breaks the row, and inside quotes both
+   are appended. §4.1's rule — "treat standalone LF and combined CRLF as delimiters, ignore standalone CR,
+   preserve quoted CR/LF" — yields byte-identical grids for CRLF, lone LF, lone CR, `\r\n\r\n` blank rows
+   (both graphemes break; empty row filtered), and quoted embedded newlines (`"\r\n"` grapheme appended =
+   web's `"\r" + "\n"`). No case diverges.
+3. **Web source-of-truth is protected.** §2/§4.2 forbid changing web behavior or the expected 2-row result;
+   `tests/unit/csv.test.mjs:5` (78/78 green) remains the contract. §4.3 fixes the secondary crash by asserting
+   row count before conditionally unwrapping `rows[1]`.
+4. **Inventory exact.** Six suites (`CSVCodecTests` 6, `CameraPrivacyTests` 3, `CheckInStoreTests` 8,
+   `GuestCatalogTests` 6, `LogMergerTests` 5, `ScanAudioPlayerTests` 4) = **32** unit methods; **4** UI —
+   matching §6 Phase 3 step 4 ("32 baseline plus new regressions", "four UI methods").
+5. **Environment §11 accurate.** `xcrun simctl list runtimes` = iOS 26.4 (23E244) installed; `git remote -v`
+   = `origin https://github.com/daniqan/check-in-007.git`; iPad (A16) UDID `A155995F-EC83-41BE-95B2-1A5F390ABF59`.
+6. **CI disposition honest (§4.5).** Run `33711898714` (`head_sha 845116d`, `push`, `master`, `failure` on
+   billing lock) is recorded as terminal `BLOCKED (external billing)`, not banked as PASS; no repush/poll.
+
+## Remaining issues
+
+1. **Post-fix unit-method count not pre-committed (specificity nit).** §6 Phase 3 step 4 requires "the 32
+   baseline unit methods plus new regressions" without stating the exact post-fix total. Phase 1 step 5 adds
+   a table-driven regression (LF/CRLF/terminal/quoted-embedded/blank/BOM). Naming the exact expected count
+   (e.g. "≥33 unit methods, of which the new CSV cases are N") would let the xcresult inventory gate assert a
+   precise number rather than a floor. *Non-blocking.*
+2. **Conditional camera-fix branch is under-specified (§4.4 / Phase 2 step 4).** If the stall reproduces, the
+   plan prescribes "move session operations to one private serial queue, return state to `MainActor`, make
+   stop idempotent" but does not identify which current `CameraPreviewModel` operations block or how state
+   republishes — reasonable, since the more-likely branch is non-reproduction after the CSV-crash removal,
+   but the reproduce branch would benefit from naming the specific `start()`/authorization/`configureSession`
+   calls to relocate. *Non-blocking; conditional.*
+3. **"Combined CRLF is the only compound delimiter grapheme" left implicit.** §4.1 is correct but a naive
+   implementer could over-generalize. Stating that the ONLY combined-grapheme delimiter is exactly
+   `Character("\r\n")` (all other CR/LF permutations remain single graphemes handled by the existing LF/CR
+   rules) removes any ambiguity. *Cosmetic.*
+
+## Scope Check
+
+- **Audit findings:** Audit v47 open RAs are **#11** (P1, CSV parity data-loss) and **#10** (CI billing,
+  external). v24 addresses **#11** directly (the CSV fix + regression, §4.1–§4.3, Phase 1) and **#10** via
+  the §4.5 bounded terminal disposition. RA #9 was discharged (gate run). No in-scope finding is ignored.
+- **Backlog:** `BACKLOG.md` has **0 unchecked** items. Nothing in scope skipped.
+- **Second v47 issue folded in:** the `CameraPrivacyTests` stall is characterized/bounded in Phase 2.
+- **Integration points:** §7 gives four contracts (Swift↔web parser, rows↔normalization, camera↔simulator,
+  git-tree↔evidence) with failure/recovery each.
+- **Alternatives considered:** §4.1 (grapheme fix vs new CSV library vs line-splitting), §4.4 (fix vs
+  characterize camera), §4.5 (BLOCKED disposition vs poll/repush). Tradeoffs stated.
+
+**No score cap applies** — scope is exactly adequate for the phase.
+
+## Flaws of Commission
+
+No flaws of commission identified. The grapheme diagnosis is correct, the fix preserves O(n) single-pass
+parsing and full web parity, the crash-safe assertion ordering is right, and the CI disposition does not
+convert a failed run into a pass. The one internal-consistency softness is the floor-vs-exact test count
+(Remaining issue #1), not an incorrect decision.
+
+## Flaws of Omission
+
+1. Exact post-fix test count not pinned (Remaining issue #1).
+2. Reproduce-branch camera design not tied to specific current call sites (Remaining issue #2).
+3. The plan does not state what happens if, after the CRLF fix, a *different* parity case is discovered by
+   the new table-driven matrix (e.g. a quoted-CRLF cell mismatch) — presumably it fails the regression and
+   is fixed in-cycle, but the plan could say so. Minor; the acceptance criteria implicitly cover it.
+
+## Regressions
+
+No regressions identified. The manifest (§5) touches `CSVCodec.swift` (delimiter recognition only),
+`CSVCodecTests.swift` (additive regressions + safe assertion), conditional camera files, and docs. §2
+forbids changing web behavior, guest normalization/export semantics, dependencies, lockfiles, workflow YAML,
+or `dist/`. Quoted-newline preservation, blank-row dropping, and `unterminatedQuote` behavior are retained;
+no test coverage shrinks.
+
+## Why 96 and not 97
+
+The diagnosis and fix are 98-grade — correct, verified, parity-proven. The score is held at 96 by two real
+specificity gaps: the post-fix inventory gate asserts a floor rather than an exact count (#1), and the
+conditional camera-fix branch is described at the design level without binding to the current
+`CameraPreviewModel` call sites (#2). Neither blocks implementation; both are the difference between "a
+competent developer can execute this" (true now) and "the plan leaves zero micro-decisions" (not quite).
+
+## Path to ≥95
+
+Already cleared (96). No blocking items.
+
+## Path to 100
+
+1. **Pin the exact post-fix unit-method count** in §6 Phase 3 step 4 and §10 (e.g. "33 unit methods; the new
+   table-driven CSV regression contributes cases A–F"), so the xcresult inventory gate checks an exact number.
+2. **Bind the reproduce-branch camera fix to specific call sites** (§4.4) — name the `start()` /
+   authorization / `configureSessionInputs()` operations to relocate onto the serial queue.
+3. **State the compound-grapheme invariant explicitly** (§4.1): only `Character("\r\n")` is a combined
+   delimiter; all other CR/LF forms are single graphemes handled by the existing rules.
+4. **Add a "new parity case discovered mid-cycle" note** — if the table-driven matrix surfaces a second
+   divergence, it fails the regression and is fixed in-cycle without scope expansion.
+5. **Micro-precision:** restate the expected fixture result inline in the acceptance line of Phase 3 as well
+   as Phase 1, so the full-suite gate and the unit gate cite the same literal grid.
+
+## Summary
+
+Plan v24 is approval-grade (96/100): a precise, ground-truth-verified repair whose root-cause analysis I
+independently confirmed and whose fix I confirmed preserves exact web parity across every CR/LF permutation.
+It addresses the one open in-scope P1 defect (RA #11) plus the camera stall and the bounded CI disposition
+(RA #10), with no scope gaps, no regressions, and no laundering of the billing-blocked run. It clears the
+≥95 gate and becomes the contract for implementation. The loop advances **State 1 → State 2 — implement
+approved plan v24.** Implementation Score is **N/A** — nothing is built yet (`CSVCodec.swift` still carries
+the buggy delimiter logic, no commits since the plan landed, §14 boxes all unchecked).
+
+**Plan Score:** 96/100
+
+**Implementation Score:** N/A
+
+---
+
+### Implementation Verification — v12
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v24 @ commit `a6ca9b7` (approved Cycle 12 Rev 1 = 96/100)
+**Code:** `master` @ HEAD `9072d5b` (fix `b0bdf11` + evidence `9072d5b`) audited on 2026-09-03
+
+**Verdict: IMPLEMENTED, BUT THE CENTRAL ACCEPTANCE GATE FAILS.** Cycle 12 landed real,
+verified, honestly-reported work: the RA #11 `CSVCodec.parseRows` data-loss defect is **fixed**
+and the camera stall is **fixed**. But the plan's headline deliverable — **§6 Phase 3 / §14 box 4:
+the full native scheme passes on iOS 26.4 iPad with zero failures across both targets** — is **NOT
+met**: the recorded (and code-confirmed) result is **33 unit passed, 4 UI failed**. §14 is honestly
+**4 / 6** (boxes 4 and 6 correctly left `[ ]`). The implementation is neither a fabrication nor a
+weakened gate — it is genuine progress that stops short of the cycle's own success criterion.
+Loop is in **State 3 (fix the implementation to meet the approved plan)** — but see the disposition:
+the residual failure is an *out-of-manifest* UI-harness defect, so closing it requires a **new plan
+cycle**, not an in-place code patch under v24's scope.
+
+#### Ground-truth verification (independently confirmed against the code, not just the evidence)
+
+1. **CSV fix is correct and parity-preserving (§4.1–§4.3, Phase 1) — COMPLIANT.** `CSVCodec.swift:55`
+   now reads `character == "\n" || character == "\r\n"`, recognizing Swift's combined-CRLF grapheme
+   as one delimiter while `:60` still ignores standalone `"\r"` and the quoted branch still appends
+   both. Traced on the audit fixture → exactly `[["name","table"],["Vale, Bianca","Table \"3\""]]`.
+   The web source of truth (`src/lib/csv.mjs`, `tests/unit/csv.test.mjs` 78/78) is untouched.
+2. **Crash-safe assertion + parity matrix (§4.3, Phase 1 step 5) — COMPLIANT.** `CSVCodecTests.swift`
+   now count-guards before unwrapping (`guard rows.count == 2 else { return }`) and adds a
+   7-case table-driven method (LF, CRLF, terminal CRLF, quoted LF, quoted CRLF, blank records,
+   doubled quote). Confirmed additive.
+3. **Camera fix is real (§4.4, Phase 2) — COMPLIANT.** `CameraPreviewModel` now delegates
+   configure/start/stop to a private `SessionWorker`, makes authorization providers injectable
+   (`authorizationStatus` / `requestAccess`), marks `State: Sendable`, and republishes the awaited
+   result on `MainActor`. Privacy remains preview-only (no audio input, no capture output). Evidence
+   records reproduction of the stall then two green isolated `CameraPrivacyTests` runs (~1.7 s each).
+4. **Web gates — COMPLIANT.** `npm ci` / prettier / 78 unit / 13 e2e / build (26,315 gzip;
+   `dist/index.html` 70,584 B, SHA-256 `8d5a9c65…`) all recorded PASS.
+5. **CI disposition — COMPLIANT (honest).** Run `33711898714` (`head_sha 845116d`, `failure` on
+   billing lock) recorded as terminal `BLOCKED (external billing)`, not banked as PASS.
+6. **Full native scheme — FAILED (the gate).** Evidence §"Full native result — FAIL": both targets
+   ran, all six unit suites green (**33/33** methods), but **all four UI methods failed** initial
+   element lookup, twice (one qualified infra retry gave the same 33-pass/4-fail split).
+   **Root cause independently confirmed in the code:** `RosterView.swift:43-45` gives the `roster.mark007`
+   admin control `.accessibilityAddTraits(.isButton)`, so XCUITest exposes it under `app.buttons`,
+   but `CheckIn007UITests.swift:61,80` query `app.otherElements[A11yId.mark007]` — a genuine
+   query/trait mismatch that fails `testAdminOpensToggleAudioAndCloses`,
+   `testClearLogRequiresTwoConfirmations`, and the two flows that route through the admin sheet.
+   This is a **pre-existing** harness defect that only surfaced now that the CSV crash + camera stall
+   no longer abort the run before the UI target reports.
+
+#### Section-by-section compliance (approved plan v24 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 1 — Reproduce & correct CSV parsing | **COMPLIANT** | Delimiter fix correct + parity-preserving; crash-safe assertion + 7-case matrix added; audit fixture → 2 rows. |
+| §6 Phase 2 — Characterize camera stall | **COMPLIANT** | Stall reproduced then fixed via serial `SessionWorker` + injectable auth; privacy preserved; two green isolated runs. |
+| §6 Phase 3 — Full regression & native verification | **PARTIAL / FAILED** | Web gates green; native unit target green (33/33) but **4 UI methods FAIL** → the "zero failures across both targets" acceptance is UNMET. |
+| §6 Phase 4 — Durable evidence & status | **COMPLIANT** | "Cycle 12" evidence section added; honestly records native FAIL + CI `BLOCKED (external billing)`; §14 kept at 4/6; no PASS laundered. |
+| §14 Completion Checklist | **4 / 6 checked** | Boxes 1,2,3,5 `[x]`; **box 4 (full native green)** and **box 6 (evidence records native PASS)** correctly `[ ]`. |
+
+#### Defects (fix to meet the approved plan)
+
+1. **Native suite is not green — 4 UI-test failures (violates §6 Phase 3 acceptance + §14 box 4).**
+   `CheckIn007UITests` queries `app.otherElements[roster.mark007]` while the element carries the
+   `.isButton` trait (exposed under `app.buttons`). **Fix options** (choose one, both currently
+   out of v24's manifest §5 — hence a new cycle): (a) query `app.buttons[A11yId.mark007]` in
+   `CheckIn007UITests.swift`, or (b) drop `.accessibilityAddTraits(.isButton)` from `RosterView.swift:45`
+   (weigh VoiceOver semantics). Acceptance: both targets green — six suites, 33 unit methods, 4 UI
+   methods, exit 0, zero failures — on iPad (A16) `A155995F-…`, without weakening any assertion.
+2. **§14 box 6 remains open** until box 4 is met and the evidence/README can honestly record native PASS.
+
+#### Disposition — State 3, but the remaining fix is out-of-manifest → open a new cycle
+
+Plan v24 (§5 manifest) deliberately scopes out `CheckIn007UITests.swift` and `RosterView.swift`
+(UI redesign out of scope, §2), so the residual UI-harness failure **cannot** be corrected in place
+under v24 without violating scope. The generator correctly did **not** touch the out-of-manifest UI
+files this cycle and honestly recorded the FAIL. The correct next move is a **new fix-cycle (State 1
+→ new plan)** that brings the trait/query mismatch into scope (RA #12), targeting a fully green
+native scheme. Do not weaken any UI assertion and do not mark §14 box 4/6 until the suite is green.
+
+**Implementation Score:** 84/100
+
+*(< 95: the CSV data-loss defect that drove this cycle is genuinely fixed and the camera stall
+resolved — the score is not low — but the plan's central acceptance gate (full native scheme green,
+zero failures) is unmet because of a pre-existing, now-revealed UI-harness defect. Honest reporting
+and no gate-weakening keep this well above a fabrication-grade score, but an unmet headline
+deliverable keeps it below the ≥95 completion gate.)*
+
+---
+
+### Implementation Verification — v11
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v24 @ commit `a6ca9b7` (approved Cycle 12 Rev 1 = 96/100)
+**Code:** `master` @ HEAD `a6ca9b7` audited on 2026-09-03
+
+**Verdict: NOT STARTED.** Plan v24 was approved this cycle; no implementation exists yet. `git log a6ca9b7..HEAD`
+is empty (the plan commit is HEAD), and the manifest source files are untouched: `CSVCodec.swift:55/:60` still
+test only `"\n"` and `"\r"`, so the combined-CRLF grapheme is still appended into the field and the audit
+fixture still returns **1 row instead of 2**. `CSVCodecTests.swift:10` still unconditionally reads `rows[1]`.
+This is an **unstarted** cycle, not a defective one — Implementation Score is **N/A**, and the loop is in
+**State 2 (implement the approved plan)**.
+
+#### Section-by-section compliance (approved plan v24 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 1 — Reproduce & correct CSV parsing | **MISSING** | `CSVCodec.swift` unchanged (buggy delimiter logic intact); `CSVCodecTests.swift` unchanged (6 methods, unsafe `rows[1]` unfixed). |
+| §6 Phase 2 — Characterize camera stall | **MISSING** | No isolated `CameraPrivacyTests` run recorded; conditional files untouched. |
+| §6 Phase 3 — Full regression & native verification | **MISSING** | No fresh web-gate or `xcodebuild test` run recorded for a v24 fix commit. |
+| §6 Phase 4 — Durable evidence & status | **MISSING** | No "Cycle 12" section in `docs/VERIFICATION_EVIDENCE.md`; README unchanged. |
+| §14 Completion Checklist | **0 / 6 checked** | Every box `[ ]`. |
+
+#### Directive (State 2 — implement plan v24 now)
+
+1. **Fix `CSVCodec.parseRows` (RA #11 — the score driver).** In the non-quoted branch, recognize the combined
+   `Character("\r\n")` grapheme as a row delimiter alongside standalone `"\n"`, keep ignoring standalone
+   `"\r"`, and keep appending characters (including a quoted `"\r\n"` grapheme) inside quotes. Acceptance:
+   the audit fixture yields exactly `[["name","table"],["Vale, Bianca","Table \"3\""]]`.
+2. **Make the regression crash-safe (§4.3)** and add the table-driven parity matrix (§6 Phase 1 step 5).
+3. **Characterize the camera stall (Phase 2)** on the installed iPad; fix only if it reproduces.
+4. **Run the full native scheme + all web gates (Phase 3)** on iPad (A16) `A155995F-…`; require both targets,
+   six suites, 32+ unit methods, 4 UI, zero failures, exit 0.
+5. **Record durable evidence + README status (Phase 4)**; CI stays `BLOCKED (external billing)`, run
+   `33711898714`, no artifact. Do **not** weaken any test or bank the failed run (§2/§8).
+
+**Implementation Score:** N/A
+
+---
+
 ### Implementation Verification — v10
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)

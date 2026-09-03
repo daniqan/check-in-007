@@ -1,13 +1,105 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 89/100
-**Audit Version:** v47
-**Audited:** target `845116d`, audit HEAD `7b4d681` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; NATIVE GATE FINALLY RUN and it GENUINELY FAILS — `CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` returns 1 row not 2 then crashes index-out-of-range, INDEPENDENTLY REPRODUCED; web parity source `src/lib/csv.mjs` passes the same case → real Swift-port data-loss defect. CI exact-SHA run FAILED on billing. Native `FAIL`, CI `BLOCKED`, §14 = 0/6)
-**Stage:** Cycle 11, **State 1 — revise the plan (v23)** — *native gate run + honestly recorded FAIL (RA #9 discharged); the failure is a genuine OUT-OF-SCOPE product defect (RA #11) that v23 §2 forbids fixing, so v23 cannot complete as written; a new fix-cycle is required + a bounded terminal disposition for the billing-blocked CI*
+**Current Score**: 90/100
+**Audit Version:** v49
+**Audited:** HEAD `9072d5b` (plan v24) on 2026-09-03 (Cycle 12 — Native CSV Parity Repair; plan v24 APPROVED Rev 1 = 96/100. **Implementation LANDED** (`b0bdf11` fix + `9072d5b` evidence): the v47-proven `CSVCodec.parseRows` CRLF-grapheme data-loss defect (RA #11) is **FIXED and verified** (`:55` now recognizes the combined-CRLF grapheme; 33/33 native unit methods green incl. a 7-case parity matrix), and the camera stall is **fixed** (serial `SessionWorker` + injectable auth). **But the full native scheme is STILL not green:** 33 unit passed, **4 UI methods FAILED** — a pre-existing `CheckIn007UITests` query/trait mismatch (`roster.mark007` carries `.isButton` but is queried via `otherElements`), now revealed because the run no longer aborts early. §14 = **4/6** (honest). CI still `BLOCKED (external billing)`.)
+**Stage:** Cycle 12, **State 3 — fix implementation to meet approved plan v24**, but the residual failure is **out of v24's manifest** (UI-harness) → next action is a **new fix-cycle (State 1 → new plan)** to bring the trait/query mismatch into scope so the native suite goes fully green (RA #12). CSV (RA #11) and camera are done.
 
 **Plan Score:** 96/100
-**Implementation Score:** N/A
-**Current Score**: 89/100
+**Implementation Score:** 84/100
+**Current Score**: 90/100
+
+<!-- audit-entry v49 -->
+> **STATE 3 — CYCLE-12 FIX LANDED (CSV + CAMERA GREEN), BUT NATIVE SUITE STILL RED ON 4 PRE-EXISTING UI FAILURES (v49). Score 88 → 90.**
+> Two commits since v48: `b0bdf11` (`fix(§6): restore native CSV and camera test parity`) and `9072d5b`
+> (`docs(§6): record Cycle 12 verification results`). Real, verified, honestly-reported work landed —
+> Implementation Verification **v12 = 84/100** (see `IMPLEMENTATION_PLAN_CRITIQUE.md`).
+> - **RA #11 (CSV data-loss) — FIXED and verified.** `CSVCodec.swift:55` now reads
+>   `character == "\n" || character == "\r\n"`, recognizing Swift's combined-CRLF grapheme as one row
+>   delimiter while still ignoring standalone `"\r"` and preserving quoted CR/LF. The audit fixture now
+>   yields exactly `[["name","table"],["Vale, Bianca","Table \"3\""]]`. `CSVCodecTests` is crash-safe
+>   (count-guarded before `rows[1]`) and adds a 7-case table-driven parity matrix. Evidence records the
+>   isolated native suite green and 33/33 unit methods on the full run. This closes the v47 data-loss
+>   defect against the web source of truth (`src/lib/csv.mjs`, untouched, 78/78).
+> - **Camera stall — FIXED.** `CameraPreviewModel` moved configure/start/stop onto a private
+>   `SessionWorker`, made authorization injectable, marked `State: Sendable`, and republishes on
+>   `MainActor`; privacy stays preview-only. Two green isolated `CameraPrivacyTests` runs recorded.
+> - **BUT the full native scheme is STILL not green.** Evidence §"Full native result — FAIL": both targets
+>   ran, all six unit suites green (**33 pass**), but **all 4 UI methods FAILED** initial element lookup,
+>   twice (one qualified infra retry → same 33-pass/4-fail split). **Independently confirmed in the code:**
+>   `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)` to `roster.mark007`, so XCUITest
+>   exposes it under `app.buttons`, but `CheckIn007UITests.swift:61,80` query `app.otherElements[…]` —
+>   a genuine query/trait mismatch. This is a **pre-existing** harness defect, only now revealed because
+>   the CSV crash + camera stall no longer abort the run before the UI target reports. Raised as **RA #12
+>   (P1)**. It is **out of plan v24's manifest** (§5 excludes `CheckIn007UITests.swift` / `RosterView.swift`;
+>   §2 scopes out UI redesign), so it needs a **new cycle**, not an in-place v24 patch.
+> - **§14 = 4/6 (honest).** Boxes 1,2,3,5 `[x]`; box 4 (native green) and box 6 (evidence records native
+>   PASS) correctly `[ ]`. No gate weakened, no PASS laundered, no out-of-manifest file touched.
+> - **CI unchanged.** Run `33711898714` remains `failure` on the billing lock; recorded terminal
+>   `BLOCKED (external billing)`, not banked (§2/§8).
+> - **Backlog `[ ]` = 0** / 15 `[x]`.
+>
+> **Disposition — open a new fix-cycle (State 1 → new plan) for RA #12.** The correct next move is a new
+> plan that brings the UI trait/query mismatch into scope, targeting a fully green native scheme (six
+> suites, 33 unit, 4 UI, exit 0, zero failures). Fix EITHER by querying `app.buttons[A11yId.mark007]` in
+> `CheckIn007UITests.swift` OR by dropping `.accessibilityAddTraits(.isButton)` in `RosterView.swift:45`
+> (weigh VoiceOver semantics). Do **not** weaken any UI assertion; do not check §14 box 4/6 until green.
+> RA #11 and the camera work are DONE — do not re-open them.
+>
+> **Deductions.** **Base health 92** (recovered from v47's 90: the CSV data-loss *product* defect is fixed
+> and verified — Code correctness 7 → 9 — and the camera stall resolved; but the native suite still does
+> **not** go green, so Testing rigor stays 8 and base does not return to the pre-v47 94). RA: **#11
+> ADDRESSED** (fixed) → −0; **#12** raised this cycle (P1, native UI-red) at staleness 0 → −0; **#10** (CI
+> billing) externally blocked, not stalled → tracked as the −1 CI impediment; #1–#9 DONE. Backlog `[ ]` = 0
+> → −0. **Inactivity decay resets to 0** — real code landed (`b0bdf11` touches native source). **−1** for
+> the still-open MODERATE CI-billing impediment; **−1** for the open native UI-red gate (RA #12 — the
+> native suite genuinely does not pass, even though the residual cause is a lower-severity harness/trait
+> mismatch rather than a product-logic bug). **Base 92 − 1 (CI billing) − 1 (native UI-red) − backlog 0 −
+> RA 0 − decay 0 = 90.** Score 88 → 90: landing the verified CSV fix + camera fix is genuine health
+> recovery, but verified health cannot clear the mid-90s while the native suite is red. It rises further
+> when RA #12 lands (native fully green) and the CI path is unblocked or bounded. See
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v12.
+
+<!-- audit-entry v48 -->
+> **STATE 2 — CYCLE-12 FIX PLAN (v24) APPROVED; IMPLEMENTATION NOT YET STARTED (v48). Score 89 → 88.**
+> The one change since v47 is commit `a6ca9b7` (`plan: v24 — native CSV parity repair`) — a docs-only new
+> plan that correctly answers Implementation Verification v10's State-1 directive. **Plan v24 is APPROVED at
+> 96/100** (see `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-12 Rev 1). It opens a dedicated fix-cycle for the
+> proven `CSVCodec.parseRows` data-loss defect (**RA #11**), folds in the camera characterization and the
+> bounded terminal CI disposition (**RA #10**), and does so without weakening any web expectation or banking
+> the billing-blocked run.
+> - **Root cause independently re-confirmed.** `parseRows` builds `let characters = Array(source)` →
+>   `[Character]`; Swift renders `"\r\n"` as a **single** extended grapheme cluster, so the delimiter tests at
+>   `CSVCodec.swift:55` (`== "\n"`) and `:60` (`!= "\r"`) both miss it and the combined CRLF is appended into
+>   the field — collapsing the two-row fixture into one, after which `CSVCodecTests.swift:10`'s unconditional
+>   `rows[1]` crashes index-out-of-range. §4.1's fix (recognize combined-CRLF + LF as delimiters, ignore lone
+>   CR, preserve quoted CR/LF) is **provably parity-preserving** vs `src/lib/csv.mjs` across every CR/LF case.
+> - **Implementation NOT started.** `git log a6ca9b7..HEAD` is empty; `CSVCodec.swift` still carries the buggy
+>   delimiter logic, `CSVCodecTests.swift` still has the unsafe `rows[1]`. Implementation Verification **v11 =
+>   N/A**. §14 = **0/6**. Native inventory unchanged: six suites / **32** unit methods / **4** UI.
+> - **CI unchanged.** Run `33711898714` remains `failure` on the billing lock; §2/§8 forbid banking it. v24
+>   §4.5 records it as terminal `BLOCKED (external billing)`.
+> - **Backlog `[ ]` = 0** / 15 `[x]`.
+>
+> **Disposition — implement plan v24 (State 2).** (1) Fix `CSVCodec.parseRows` so the audit fixture yields
+> `[["name","table"],["Vale, Bianca","Table \"3\""]]` (RA #11). (2) Make the regression crash-safe + add the
+> table-driven parity matrix. (3) Characterize/bound the camera stall on the installed iPad; fix only if it
+> reproduces. (4) Run the full native scheme + all web gates on iPad (A16) `A155995F-…`, zero failures. (5)
+> Record honest Cycle-12 evidence; keep CI `BLOCKED (external billing)`. Do **not** weaken any test.
+>
+> **Deductions.** **Base health holds 90** (shipped system unchanged; the CSV data-loss defect is still
+> present and unfixed — an approved plan is not a landed fix). RA: **#11 (P1)** staleness 1 (raised v47), P1
+> deduction begins at staleness 3 → **−0** (and it is now actively addressed by an approved plan, not stalled);
+> **#10** externally blocked, not stalled → tracked as the MODERATE CI impediment below; **#9** DISCHARGED.
+> Backlog `[ ]` = 0 → **−0**. **Inactivity decay −1**: no *code* landed since v47 — the only commit is the
+> docs-only plan v24. Planning is genuine loop progress (it is why this is not a −2/−3 idle spiral and why the
+> directive is "implement," not "re-plan"), but the shipped defect remains, so a single-step nudge applies.
+> **−1** for the still-open MODERATE CI-billing impediment. **Base 90 − 1 (CI billing) − 1 (decay) − backlog 0
+> − RA 0 = 88.** Score 89 → 88: the approved fix plan is real progress toward RA #11, but verified system
+> health cannot rise until the code fix lands and the native suite goes green. See
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-12 Rev 1 + Implementation Verification v11.
+
+
 
 <!-- audit-entry v47 -->
 > **STATE 1 — NATIVE GATE FINALLY RUN, AND IT GENUINELY FAILS ON A REAL PRODUCT DEFECT (v47). Score 93 → 89.**
@@ -1520,75 +1612,84 @@ by closing backlog, not by more plan/impl work.
 ## Score Breakdown
 
 Base score (8 criteria, /10 each), judged against the **verified** current system (web client through
-Cycle 9 HTTPS-helper precision + Cycle 6 native SwiftUI client; Cycle 11 is plan-only to date):
+Cycle 9 HTTPS-helper precision + Cycle 6 native SwiftUI client; Cycle 12 CSV+camera fix LANDED and verified,
+native UI harness still red):
 
 | Criterion | Score | Note |
 |-----------|-------|------|
-| Code correctness | 7/10 | Web: 78/78 unit + 13/13 e2e green. **NEW (v47): native `CSVCodec.parseRows` PROVEN-buggy** — returns 1 row not 2 for BOM+CRLF+quoted+doubled-quote CSV (independently reproduced on iPad (A16)); diverges from the byte-identical web source `src/lib/csv.mjs` (which passes) → silent data loss on native guest-import. HTTPS/audio/virtualization paths unchanged. |
-| Plan compliance | 10/10 | Cycles 1–10 all VERIFIED; Cycle 11 v23 executed faithfully — native gate run, `FAIL` recorded honestly, no PASS claimed, no gate weakened (§2/§8 honored). No compliance regression. |
-| Document coherence | 9/10 | Config/CSS/build/README agree with code; `VERIFICATION_EVIDENCE.md` now honestly records the native `FAIL` and CI billing `FAIL` (not overstated as PASS). |
-| Testing rigor | 8/10 | Web suite 78 unit + 13 e2e green. **NEW (v47): the native suite does NOT go green** — `CSVCodecTests` fails (proven) and `CameraPrivacyTests` stalls (recorded); the "native parity suites mirror web" claim is falsified for the CSV case. Coverage exists but is now demonstrably not passing on-device. |
-| Safety architecture | 10/10 | Privacy test-enforced; comprehensive error handling; HTTPS helper blocks private-key disclosure (layered dotfile/realpath guards); audio failures non-fatal |
+| Code correctness | 9/10 | Web: 78/78 unit + 13/13 e2e green. **v49: native `CSVCodec.parseRows` data-loss defect FIXED** (`:55` recognizes the combined-CRLF grapheme; audit fixture → 2 rows; 33/33 native unit methods green incl. a 7-case parity matrix; web source `src/lib/csv.mjs` untouched). Camera stall fixed (serial `SessionWorker`). Remaining native red is a UI *test-harness* query/trait mismatch, not a product-logic bug. |
+| Plan compliance | 9/10 | Cycles 1–10 VERIFIED; Cycle 11 v23 executed faithfully; **Cycle 12 v24 executed faithfully in-scope** — CSV+camera fixed, honest evidence, no gate weakened, no out-of-manifest file touched, §14 honestly 4/6. The one unmet acceptance (native green) is due to an out-of-manifest UI-harness defect, not a compliance lapse. |
+| Document coherence | 9/10 | Config/CSS/build/README agree with code; `VERIFICATION_EVIDENCE.md` honestly records Cycle-12 CSV/camera PASS, native full-run FAIL (4 UI), and CI `BLOCKED (external billing)` — not overstated. |
+| Testing rigor | 8/10 | Web suite 78 unit + 13 e2e green; native **unit** target now green (33/33) and camera resolved. **But the full native scheme still does NOT go green** — 4 `CheckIn007UITests` methods fail on a `roster.mark007` `.isButton`-vs-`otherElements` query mismatch (`RosterView.swift:43-45` ↔ `CheckIn007UITests.swift:61,80`). Coverage exists; the UI harness is demonstrably not passing on-device. |
+| Safety architecture | 10/10 | Privacy test-enforced (camera preview-only, no audio/output preserved through the Cycle-12 rework); comprehensive error handling; HTTPS helper blocks private-key disclosure; audio failures non-fatal |
 | Monitoring & observability | 9/10 | Check-in log + admin CSV/JSON export/copy + offline multi-device log merge; committed CI workflow present but exact-SHA run FAILED on a billing lock (not yet observed green) |
-| Feature completeness | 9/10 | All web flow states + admin + roster virtualization + multi-device log merge + scan audio + offline HTTPS kiosk shipped & test-proven. Native SwiftUI client ships but its guest-import CSV path is proven-defective (RA #11). |
-| Risk management | 9/10 | Deps pinned (Playwright 1.62.1 / Prettier 3.9.6 / acorn 8.18.0), artifact budget enforced (26,315 gzip), privacy test-enforced; native CSV data-loss defect open (RA #11); CI billing-blocked |
+| Feature completeness | 9/10 | All web flow states + admin + roster virtualization + multi-device log merge + scan audio + offline HTTPS kiosk shipped & test-proven. Native SwiftUI client ships; guest-import CSV path now correct (RA #11 fixed); admin-open UI path works but its UI-test verification is red (RA #12). |
+| Risk management | 9/10 | Deps pinned (Playwright 1.62.1 / Prettier 3.9.6 / acorn 8.18.0), artifact budget enforced (26,315 gzip), privacy test-enforced; native CSV data-loss defect closed; native UI-harness gate open (RA #12); CI billing-blocked |
 
-**Base Score:** 90/100 (was 94 v34–v46). **Corrected downward this cycle:** prior audits held base at 94 on
-the *unverified* assumption the native tests would pass; the native gate has now been RUN and it PROVABLY
-does not pass — `CSVCodec.parseRows` returns the wrong row count for a BOM/CRLF/quoted/doubled-quote CSV
-(independently reproduced; diverges from the passing web reference `src/lib/csv.mjs`) — a genuine data-loss
-correctness defect (Code correctness 9 → 7), and the native suite does not go green (Testing rigor 10 → 8,
-also reflecting the `CameraPrivacyTests` stall). Web system unchanged and healthy. This is a *newly-revealed*
-latent defect (the code was always this way; native tests could never run before), not a regression.
+**Base Score:** 92/100 (recovered from v47/v48's 90). **This cycle:** the Cycle-12 fix landed and was
+verified — the native `CSVCodec.parseRows` data-loss defect is **fixed** (Code correctness 7 → 9) and the
+camera stall resolved. Base does **not** return to the pre-v47 94 because the **full native scheme still does
+not go green**: 4 `CheckIn007UITests` methods fail on a pre-existing `roster.mark007` `.isButton`-vs-
+`otherElements` query mismatch (Testing rigor stays 8). Web system unchanged and healthy. The residual
+failure is a lower-severity UI *test-harness* defect (the admin control works; the test queries the wrong
+element collection), not a product-logic regression.
 
-**Deductions (v47):**
-- Required Actions: −0 (**RA #9 DISCHARGED** — native gate finally run; **RA #11** raised this cycle
-  (native CSV bug) at staleness 0 → −0; **RA #10** (CI billing) advanced — push done + exact-SHA run exists —
-  and is externally blocked on billing, not stalled → −0. Actions #1–#8 remain DONE.)
+**Deductions (v49):**
+- Required Actions: −0 (**RA #11 ADDRESSED** — CSV data-loss fixed & verified; **RA #12** raised this cycle
+  (native UI-harness red) at staleness 0 → −0; **RA #10** (CI billing) externally blocked, not stalled → −0.
+  Actions #1–#9 DONE.)
 - Backlog: −0 (`BACKLOG.md` strict-unchecked `- [ ]` count = **0**; all 15 items `[x]`)
-- Inactivity: −0 (real work landed — the native gate was executed and its honest `FAIL` committed
-  (`7b4d681`). Not a neglect cycle.)
-- New-finding drag: −1 (open MODERATE CI-billing lock — the Cycle-11-**target** Actions run `33711898714`
-  (`head_sha 845116d`) failed: *"the job was not started because your account is locked due to a billing
-  issue"*.)
+- Inactivity: −0 (real code landed — `b0bdf11` touches native source + `9072d5b` records evidence. Not a
+  neglect cycle; decay resets to 0.)
+- New-finding drag: −1 (open MODERATE CI-billing lock — target run `33711898714` (`head_sha 845116d`) failed
+  on the billing lock) **and** −1 (open native UI-red gate — the full native scheme does not pass; RA #12).
 
-**Current Score**: 89/100
+**Current Score**: 90/100
 
-Trajectory: Cycle 11's plan (v23) remains **APPROVED at 96/100** (Rev 1), but the loop moves to **State 1
-(revise the plan)** because v23 can no longer complete as written. The native gate — un-run for two idle
-cycles — was **finally executed this cycle** (RA #9 discharged) and it **genuinely FAILS**:
-`CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` gets 1 row not 2, then crashes index-out-of-range
-(**independently reproduced** on iPad (A16)). The web reference `src/lib/csv.mjs` passes the same case, so
-this is a **real Swift-port data-loss defect** (RA #11) — an *out-of-scope* product bug that v23 §2 forbids
-fixing, so v23 hits its designed STOP state. CI's exact-`headSha` run `33711898714` still FAILED on the
-billing lock (§6 Phase 2 step 5 unmet). Implementation Verification v10 = **N/A** — no PASS closure surface,
-and the failure is a proven out-of-scope defect rather than merely "not run." Net vs. v46 (93): **base
-corrected 94 → 90** (the native suite is now proven-not-green), decay stays 0 (real work landed — gate run +
-honest FAIL committed), −1 for the open CI-billing finding. **Base 90 − 1 − 0 − 0 = 89.** The levers:
-**(RA #11) open a new fix-cycle to correct `CSVCodec.parseRows`** to match the web behavior (native suite
-green) — the score-driver; and **revise v23** to add a bounded terminal disposition for the billing-blocked
-CI (Rev-1 Path-to-100 #1). Do not weaken the failing test (web 2-row behavior is the source of truth) or
-bank run `33711898714` as a PASS (§2/§8).
+Trajectory: Cycle 12's plan (v24) is **APPROVED at 96/100** (Rev 1) and its fix **landed and was verified**
+this cycle. The native `CSVCodec.parseRows` data-loss defect (**RA #11**) is **fixed** — `:55` now recognizes
+Swift's combined-CRLF grapheme, the audit fixture yields 2 rows, 33/33 native unit methods pass incl. a new
+7-case parity matrix, and the web source of truth is untouched — and the camera stall is **fixed** (serial
+`SessionWorker` + injectable auth, privacy preserved). Implementation Verification **v12 = 84/100**. The one
+unmet acceptance is the plan's headline gate: the **full native scheme is still red** — 4 `CheckIn007UITests`
+methods fail on a pre-existing `roster.mark007` `.isButton`-vs-`otherElements` query mismatch
+(`RosterView.swift:43-45` ↔ `CheckIn007UITests.swift:61,80`), revealed only now that the run no longer aborts
+early. That file is **out of v24's manifest** (§5) and UI redesign is out of scope (§2), so it needs a **new
+cycle** (**RA #12**), not an in-place v24 patch. CI's exact-`headSha` run `33711898714` still FAILED on the
+billing lock, recorded terminal `BLOCKED (external billing)` (not banked, §2/§8). Net vs. v48 (88): **base
+recovers 90 → 92** (CSV data-loss product defect fixed; native suite still not green so base does not return
+to 94), decay resets to 0 (real code landed), −1 CI-billing, −1 native UI-red. **Base 92 − 1 − 1 = 90.** The
+levers: **(RA #12) open a new fix-cycle** to correct the UI trait/query mismatch so the native scheme goes
+fully green; and unblock or bound the CI billing path (RA #10). Do not weaken any UI assertion or re-open the
+completed RA #11 / camera work.
 
 ## Findings
 
-- **HIGH (v47) — native `CSVCodec.parseRows` data-loss defect (RA #11), PROVEN by execution.**
-  `native/CheckIn007/Services/CSVCodec.swift` returns **1 row instead of 2** for
-  `"\u{FEFF}name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n"` (BOM + CRLF + quoted comma + doubled
-  quotes). I independently reproduced the failure — `xcodebuild … -only-testing:CheckIn007Tests/CSVCodecTests
-  test` on iPad (A16) `A155995F-…` → `XCTAssertEqual failed: ("1") is not equal to ("2")` then
-  `Swift/ContiguousArrayBuffer.swift:692: Fatal error: Index out of range` (the test then crashes on
-  `rows[1]`). The web reference `src/lib/csv.mjs` — a byte-identical hand-rolled state machine the Swift file
-  claims to "mirror" — PASSES the equivalent case (`tests/unit/csv.test.mjs:5`, inside the 78/78-green
-  suite), so this is a genuine **Swift-port parity divergence**, not a bad test: native guest-import silently
-  drops/merges a row for this class of CSV. The generator recorded this failure HONESTLY (`7b4d681`) and did
-  not fabricate a PASS or weaken any gate (§2/§8 honored) — but the fix is out of scope for plan v23 (§2), so
-  a new fix-cycle is required. Loop → **State 1 (revise v23)** + fix-cycle for RA #11.
-- **MODERATE (v47) — native `CameraPrivacyTests` stall (part of RA #11).** The `7b4d681` evidence records
-  that after the runner restart, `CameraPrivacyTests.testStartOnSimulatorDoesNotCrashAndStaysNonRunning`
-  stalled and the run was terminated. Not independently reproduced this session (I ran only `CSVCodecTests`),
-  so lower-confidence; must be resolved or characterized during the RA #11 fix-cycle so the full native suite
-  can be observed green.
+- **RESOLVED (v49) — native `CSVCodec.parseRows` data-loss defect (RA #11), FIXED & verified.** The v47 defect
+  (returned 1 row not 2 for `"\u{FEFF}name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n"`) is corrected in
+  `native/CheckIn007/Services/CSVCodec.swift:55` (`character == "\n" || character == "\r\n"`), recognizing
+  Swift's combined-CRLF grapheme as one row delimiter while still ignoring standalone `"\r"` and preserving
+  quoted CR/LF. The audit fixture now yields exactly `[["name","table"],["Vale, Bianca","Table \"3\""]]`;
+  `CSVCodecTests` is crash-safe (count-guarded before `rows[1]`) and adds a 7-case table-driven parity matrix;
+  evidence records 33/33 native unit methods green. The web source of truth (`src/lib/csv.mjs`,
+  `tests/unit/csv.test.mjs`, 78/78) is unchanged. Fixed in `b0bdf11`; verified against the code this cycle.
+- **RESOLVED (v49) — native `CameraPrivacyTests` stall, FIXED.** `CameraPreviewModel` now delegates
+  configure/start/stop to a private serial `SessionWorker`, makes authorization injectable, marks
+  `State: Sendable`, and republishes the awaited result on `MainActor`; privacy stays preview-only (no audio
+  input, no capture output). Evidence records reproduction of the stall then two green isolated
+  `CameraPrivacyTests` runs (~1.7 s each). Fixed in `b0bdf11`.
+- **MODERATE (v49) — full native scheme still red: 4 UI-test failures (RA #12, P1).** With the CSV crash and
+  camera stall removed, the full `xcodebuild test` run now reaches the UI target and exposes a pre-existing
+  harness defect: all **4** `CheckIn007UITests` methods fail initial element lookup (33 unit pass / 4 UI fail,
+  twice). **Root cause confirmed in code:** `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)`
+  to `roster.mark007`, so XCUITest exposes it under `app.buttons`, but `CheckIn007UITests.swift:61,80` query
+  `app.otherElements[A11yId.mark007]` — the admin-open flows (`testAdminOpensToggleAudioAndCloses`,
+  `testClearLogRequiresTwoConfirmations`, and the two that route through the admin sheet) never find the
+  control. This is a lower-severity test-harness/trait mismatch (the app control works), not a product-logic
+  regression — but it keeps the plan's native-green acceptance (§6 Phase 3 / §14 box 4) UNMET. Both candidate
+  files are **out of v24's manifest** (§5) and UI redesign is out of scope (§2), so this requires a **new
+  cycle**. Fix EITHER by querying `app.buttons[A11yId.mark007]` OR by dropping the `.isButton` trait (weigh
+  VoiceOver semantics). The generator correctly left these files untouched and recorded the FAIL honestly.
 - **APPROVED (plan v14, Cycle 5 Rev 3)** — Node 24 LTS toolchain plan scores **98/100** (≥95 gate
   cleared). Verified vs. `git show ff40b18`: v14 does exactly and only what Rev 2 asked. (1) The
   Rev-2 gate-blocker is **resolved** — the executable tail swaps `import.meta.main` for the
@@ -1807,11 +1908,13 @@ bank run `33711898714` as a PASS (§2/§8).
 
 ## Required Actions
 
-Actions #1–#8 are all DONE. **RA #9 (native gate un-run) is DISCHARGED this cycle** — the gate was finally
-run — but the run FAILED on a genuine product defect, raised as **new RA #11 (P1, native `CSVCodec.parseRows`
-data-loss bug)** at staleness 0. **RA #10** (CI billing) advanced (push done + exact-SHA run exists) and is
-externally blocked on billing, not stalled → −0. No numeric RA deductions this cycle. RA #11 is the
-score-driver going forward: it is a real correctness defect and must be fixed in a new cycle.
+Actions #1–#9 are all DONE. **RA #11 (native CSV data-loss bug) is DONE this cycle** — fixed and verified
+(`b0bdf11`; `CSVCodec.swift:55` recognizes the combined-CRLF grapheme, 33/33 native unit methods green). The
+camera stall (tracked under RA #11) is likewise fixed. **New RA #12 (P1, native UI-harness red)** is raised at
+staleness 0: the full native scheme still fails on 4 `CheckIn007UITests` methods (`roster.mark007` `.isButton`
+vs `otherElements` query mismatch) — an out-of-manifest defect needing a new cycle. **RA #10** (CI billing)
+remains externally blocked, not stalled → −0. No numeric RA deductions this cycle. RA #12 is the score-driver
+going forward: the native suite cannot be declared green until it lands.
 
 | # | Priority | Status | Raised | Resolved | Score Impact | Directive |
 |---|----------|--------|--------|----------|--------------|-----------|
@@ -1825,55 +1928,54 @@ score-driver going forward: it is a real correctness defect and must be fixed in
 | 8 | P3 | **DONE** | v8 | v9 | −0 | **D6**: `ADMIN.HOLD_MS` + `ROSTER.SEARCH_DEBOUNCE_MS` in `roster.mjs` — ADDRESSED (grep invariant holds) |
 | 9 | P1 | **DONE — gate run (v47)** | v44 | v47 | −0 | **Run plan v23 Phase 1 native tests — DONE.** The native `xcodebuild test` gate was executed against iPad (A16) `A155995F-…` (commit `7b4d681`). It RAN and recorded `FAIL` (see RA #11); the un-run gap is closed. The gate is no longer the blocker — its result is. |
 | 10 | P1 | **OPEN — push done; CI billing-blocked** | v44 | — | −0 (advanced, not stalled) | **Push half DONE; now clear the GitHub Actions billing lock.** Target `845116d` is **pushed** (`origin/master == 845116d`) and CI fires at the **exact** SHA — run `33711898714` (`head_sha 845116d`, event `push`, branch `master`) — but its conclusion is `failure`: *"the job was not started because your account is locked due to a billing issue."* The only remaining obstacle is the billing lock; clear it, re-drive the exact-`headSha` `CI` run to success + `dist-index-html` byte parity. Do not bank the failed run as a PASS (§2/§8). If billing cannot be cleared, revise v23 (Rev-1 Path-to-100 #1) to accept native-PASS + CI-permanently-environment-blocked as a bounded terminal disposition. |
-| 11 | P1 | **OPEN — raised v47 (native CSV data-loss bug)** | v47 | — | −0 (staleness 0) | **Fix `native/CheckIn007/Services/CSVCodec.swift` to match the web reference — needs a new cycle (out of v23 scope).** PROVEN by execution (independently reproduced): `CSVCodec.parseRows("﻿name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n")` returns **1 row, not 2**, causing `CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` to fail (`1 != 2`) and crash index-out-of-range on `rows[1]`. The byte-identical web parser `src/lib/csv.mjs` passes the equivalent case (`tests/unit/csv.test.mjs:5`), so the Swift port has a real parity divergence → silent data loss on native guest-import. Acceptance: `CheckIn007Tests` fully green (six suites / 32 unit / 4 UI / exit 0 / zero failures) on an iOS 26.4 iPad, **without** weakening the test (web 2-row behavior is the source of truth). Also resolve/characterize the recorded `CameraPrivacyTests.testStartOnSimulatorDoesNotCrashAndStaysNonRunning` stall. |
+| 11 | P1 | **DONE — CSV fixed & verified (v49)** | v47 | v49 | −0 | **Fix `native/CheckIn007/Services/CSVCodec.swift` to match the web reference — DONE.** `b0bdf11` changed `:55` to `character == "\n" || character == "\r\n"`, recognizing Swift's combined-CRLF grapheme as one row delimiter (standalone `"\r"` still ignored, quoted CR/LF preserved). Audit fixture now yields `[["name","table"],["Vale, Bianca","Table \"3\""]]`; `CSVCodecTests` count-guards before `rows[1]` and adds a 7-case parity matrix; 33/33 native unit methods green; web source `src/lib/csv.mjs` untouched (78/78). The `CameraPrivacyTests` stall (tracked here) is also fixed (serial `SessionWorker` + injectable auth). |
+| 12 | P1 | **OPEN — raised v49 (native UI-harness red)** | v49 | — | −0 (staleness 0) | **Fix the `CheckIn007UITests` query/trait mismatch so the full native scheme goes green — needs a new cycle (out of v24 manifest §5).** With the CSV crash + camera stall removed, the full `xcodebuild test` run now reaches the UI target and **all 4 UI methods FAIL** initial element lookup (33 unit pass / 4 UI fail, twice). Root cause: `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)` to `roster.mark007`, so XCUITest exposes it under `app.buttons`, but `CheckIn007UITests.swift:61,80` query `app.otherElements[A11yId.mark007]`. Fix EITHER by querying `app.buttons[A11yId.mark007]` in `CheckIn007UITests.swift` OR by dropping `.accessibilityAddTraits(.isButton)` in `RosterView.swift:45` (weigh VoiceOver semantics). Acceptance: `CheckIn007Tests` + `CheckIn007UITests` fully green (six suites / 33 unit / 4 UI / exit 0 / zero failures) on iPad (A16) `A155995F-…`, **without** weakening any assertion; then check §14 boxes 4 & 6. |
 
 ## Next Step
 
-Cycle 11 is at **State 2 — implement the approved plan**, and it is **now genuinely actionable**. The two
-environment blockers that stalled cycles v39–v43 are **resolved**; implementation of `IMPLEMENTATION_PLAN.md`
-v23 (commit `d8a9949`, **96/100 — APPROVED**) is **STILL NOT STARTED** (Implementation Verification v7 =
-**N/A** — the only commit since v43 is the `.gitignore` "ignore" edit; no Cycle-11 target commit;
-`docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED`; all six §14 boxes `[ ]`).
+Cycle 12 is at **State 3 — fix the implementation to meet the approved plan** (Implementation Verification
+**v12 = 84/100**), but the residual failure is **out of plan v24's manifest**, so the correct move is a
+**new fix-cycle (State 1 → new plan)**. The v24 fix (`b0bdf11` + `9072d5b`) landed and was verified: the CSV
+data-loss defect (RA #11) and the camera stall are **fixed**, all six native unit suites are green (33/33),
+web gates pass, and evidence is honest. The one unmet acceptance is the plan's headline gate — **the full
+native scheme is still red on 4 UI-test failures** (RA #12).
 
-**What changed (operator did the setup):**
-- **iOS 26.4 (23E244) runtime installed**, with six available iPad simulators (Pro 13/11-inch M5, mini
-  A17 Pro, Air 13/11-inch M4, iPad A16). The `native-ios-sdk-not-installed` block is **gone**. Xcode 26.4,
-  48 GiB free. → **§6 Phase 0–1 is fully executable now.**
-- **`origin` remote linked & authed** — `github.com/daniqan/check-in-007.git`; `gh` scopes `repo`,
-  `workflow`; HEAD pushed. → the push route works.
+**What's done (verified this cycle):**
+- **RA #11 — CSV data-loss fixed.** `CSVCodec.swift:55` recognizes the combined-CRLF grapheme; audit fixture
+  → 2 rows; crash-safe assertion + 7-case parity matrix; 33/33 native unit methods green; web parser untouched.
+- **Camera stall fixed.** Serial `SessionWorker` + injectable authorization; privacy preserved; two green
+  isolated `CameraPrivacyTests` runs.
+- **Web gates green; CI recorded honest `BLOCKED (external billing)`;** §14 honestly at 4/6; no gate weakened.
 
-**New blocker on the CI path (not authorization):** the push triggered workflow `CI` (run `33710152352`,
-`headSha 1f7d589`) which **failed in ~2 s** — *"the job was not started because your account is locked due
-to a billing issue."* GitHub Actions cannot execute until billing is cleared. That run also targets the
-`ignore` commit, not a Cycle-11 target, and it FAILED — it satisfies **nothing** in §6 Phase 2 and must not
-be banked as a PASS (§2/§8).
+**What's left (RA #12 — needs a new cycle):** the full `xcodebuild test` run now reaches the UI target and
+**all 4 `CheckIn007UITests` methods FAIL** initial element lookup, because `roster.mark007` carries
+`.accessibilityAddTraits(.isButton)` (`RosterView.swift:43-45`) — exposed under `app.buttons` — while the
+tests query `app.otherElements[…]` (`CheckIn007UITests.swift:61,80`). Both files are outside v24's manifest
+(§5) and UI redesign is out of scope (§2), so v24 cannot fix this in place.
 
-**Recommended action — implement, don't revise-to-withdraw.** This is no longer the all-blocked situation
-of v39–v43:
+**Recommended action:**
 
-1. **Do RA #9 now — the native gate has no excuse left and does not depend on billing.** The target commit
-   is already minted and pushed; run `xcodebuild … -destination 'platform=iOS Simulator,
-   id=<iPad-UDID>' … test` (e.g. iPad Pro 13-inch M5 `45CAACE4-8B3E-4358-86A8-F0BC7322303E`), inspect the
-   `.xcresult` (six suites / 32 unit methods / 4 UI / exit 0 / zero failures), and flip Native
-   `BLOCKED → PASS`. **This is the score-driver — a −2 P1 deduction triggers at v47 if it stays un-run.**
-2. **Do RA #10 for full closure — the push is done; clear the GitHub Actions billing lock.** The target
-   `845116d` is published and CI already fires at the exact SHA (run `33711898714`); the only obstacle is
-   the billing lock. Once cleared, re-drive the exact-`headSha` `CI` run to success + prove `dist-index-html`
-   byte parity. Full Cycle-11 completion (§14, both gates PASS) requires this. Do not bank the failed run.
-3. **If billing cannot be cleared**, the Rev-1 critique's still-open Path-to-100 #1 now has a concrete
-   trigger: revise v23 to add a **bounded terminal disposition** accepting native-PASS +
-   CI-permanently-environment-blocked, folding in Path-to-100 #2 (§4.6 ↔ §6 Phase 2 step-5 required-step
-   reconciliation) and #3 (pin the CI run event to `push`), so full closure is not held hostage to billing.
+1. **Open a new fix-cycle for RA #12 (the score-driver).** Plan a minimal change bringing the UI trait/query
+   mismatch into scope. Fix EITHER by querying `app.buttons[A11yId.mark007]` in `CheckIn007UITests.swift`
+   OR by dropping `.accessibilityAddTraits(.isButton)` in `RosterView.swift:45` (weigh VoiceOver semantics).
+   Acceptance: both native targets green — six suites, 33 unit, 4 UI, exit 0, zero failures — on iPad (A16)
+   `A155995F-…`, **without** weakening any assertion; then check §14 boxes 4 & 6.
+2. **RA #10 — CI billing.** Clear the GitHub Actions billing lock, then re-drive the exact-`headSha` `CI` run
+   to success + prove `dist-index-html` byte parity; else keep the bounded terminal `BLOCKED (external
+   billing)` disposition. Do not bank the failed run `33711898714`.
 
-Do not weaken any external gate and do not accept `BLOCKED`/`FAIL` as completion (§2).
+Do not weaken any gate, do not re-open the completed RA #11 / camera work, and do not accept
+`BLOCKED`/`FAIL` as completion (§2/§8).
 
-A code-adjacent commit landed and the environment materially advanced this cycle → **inactivity decay
-resets −5 → 0** (not a neglect cycle). The score moved 89 → 93 (base 94, −1 for the open CI-billing
-finding, decay 0, backlog 0, RA 0). The levers to raise it further are landing the native PASS and
-clearing the billing lock — both concrete and no longer authorization-gated.
+Real code landed this cycle → **inactivity decay stays 0**. The score moved 88 → 90 (base 92, −1 CI-billing,
+−1 native UI-red, decay 0, backlog 0, RA 0). The lever to raise it further is landing RA #12 (native fully
+green) and unblocking or bounding the CI path.
 
 ## Revision History
 
+| v49 | 2026-09-03 | 90 | **Cycle 12 fix LANDED (CSV + camera green) but native suite STILL red on 4 pre-existing UI failures — Implementation Verification v12 = 84/100; score 88 → 90.** Two commits since v48: `b0bdf11` (`fix(§6): restore native CSV and camera test parity`) + `9072d5b` (`docs(§6): record Cycle 12 verification results`). **RA #11 FIXED & verified:** `CSVCodec.swift:55` now recognizes Swift's combined-CRLF grapheme (`character == "\n" || character == "\r\n"`); audit fixture → `[["name","table"],["Vale, Bianca","Table \"3\""]]`; `CSVCodecTests` crash-safe + 7-case parity matrix; 33/33 native unit methods green; web `src/lib/csv.mjs` untouched (78/78). **Camera stall FIXED:** serial `SessionWorker` + injectable auth, privacy preserved, two green isolated runs. **BUT the full native scheme is still red:** 33 unit pass / **4 UI fail** — `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)` to `roster.mark007` (exposed under `app.buttons`) while `CheckIn007UITests.swift:61,80` query `app.otherElements[…]`; pre-existing harness/trait mismatch revealed now the run no longer aborts early. Raised **RA #12 (P1)**; out of v24's manifest (§5), so it needs a **new cycle**. §14 honestly 4/6; CI `BLOCKED (external billing)` (run `33711898714`), not banked. Backlog `[ ]` = 0. **Deductions:** base recovers 90 → **92** (CSV data-loss product defect fixed — Code correctness 7 → 9; native suite still not green so base does not return to 94, Testing rigor 8); decay resets to 0 (real code landed); RA −0 (#11 DONE, #12 staleness 0, #10 external); backlog −0; **−1 CI-billing, −1 native UI-red**. **Base 92 − 1 − 1 = 90.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v12. |
+| v48 | 2026-09-03 | 88 | **Cycle 12 fix plan v24 APPROVED (96/100); implementation NOT yet started — Implementation Verification v11 = N/A; score 89 → 88.** Only change since v47 was `a6ca9b7` (`plan: v24 — native CSV parity repair`), a docs-only new plan correctly answering Implementation Verification v10's State-1 directive. Plan v24 opens a dedicated fix-cycle for the proven `CSVCodec.parseRows` data-loss defect (RA #11), folds in camera characterization + the bounded terminal CI disposition (RA #10). Root cause independently re-confirmed. Implementation not started (`git log a6ca9b7..HEAD` empty; `CSVCodec.swift` still buggy); §14 = 0/6; CI still `BLOCKED (external billing)`; backlog `[ ]` = 0. **Deductions:** base holds 90 (shipped defect still present — an approved plan is not a landed fix); RA −0; backlog −0; **inactivity decay −1** (only a docs-only plan commit, no code) + **−1 CI-billing**. **Base 90 − 1 − 1 = 88.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v11. |
+| v47 | 2026-09-03 | 89 | **Native gate finally RUN and it genuinely FAILS on a real product defect — Implementation Verification v10 = N/A; score 93 → 89.** Commit `7b4d681` records the first-ever native `xcodebuild test` execution (RA #9 DISCHARGED), but the run FAILS — independently reproduced: `CSVCodec.parseRows("﻿name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n")` returns **1 row not 2**, then crashes index-out-of-range on `rows[1]`. The byte-identical web parser passes the equivalent case → real Swift-port data-loss defect, raised **RA #11 (P1)**; a `CameraPrivacyTests` stall also recorded. Generator handled plan-compliantly (gate run, FAIL recorded, no PASS claimed, no gate weakened) but the defect is out of v23 scope → loop to State 1 + new fix-cycle. CI run `33711898714` still FAILED on billing; §14 = 0/6; backlog `[ ]` = 0. **Deductions:** base corrected 94 → 90 (native suite proven-not-green: Code correctness 9 → 7, Testing rigor 10 → 8); RA −0 (#9 discharged, #11 staleness 0, #10 external); backlog −0; decay 0 (real work landed); **−1 CI-billing**. **Base 90 − 1 = 89.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v10. |
 | v46 | 2026-09-03 | 93 | **Cycle 11 target PUSHED + exact-`headSha` CI run now exists (FAILED on billing); native gate STILL un-run — Implementation Verification v9 = N/A; score holds 93.** Two CI-path advances since v45: (1) the target is published — `git rev-parse origin/master` = `845116d…` (§6 Phase 2 step 3 DONE); (2) the push triggered `CI` run `33711898714` whose `head_sha` is the **exact** target `845116d…` (event `push`, branch `master`) — satisfying §6 Phase 2 step 4's identity gate. **But that run's conclusion is `failure`:** its sole job "Web gate (Node 24 LTS)" was **not started** — *"account is locked due to a billing issue"* (~2 s, zero steps) → §6 Phase 2 step 5 (required-step success) **UNMET**; no `dist-index-html` artifact, no byte parity; §2/§8 forbid banking it. **Native gate STILL un-run (2nd idle cycle, RA #9):** six iOS 26.4 iPads available, 46 GiB free, Xcode 26.4 — yet `xcodebuild … test` never run; evidence Native `BLOCKED`, CI `BLOCKED`; §14 = 0/6; README unchanged. Base tree unchanged (six suites / **32** methods / **4** UI; no regressions; backlog **0** unchecked). **Disposition:** run the native half NOW (RA #9 — billing-independent, no excuse); for the CI half (RA #10, push done) clear the billing lock then re-drive the exact-SHA run + prove parity, else invoke Rev-1 Path-to-100 #1 bounded terminal disposition. **Deductions:** active progress (push + exact-SHA CI trigger) → **decay stays 0**; backlog `[ ]` = **0** → −0; RA −0 (#1–#8 DONE; #9–#10 at staleness 2 — **RA #9 −2 triggers at v47** if native stays un-run); base **94**, −1 open CI-billing finding (now demonstrated against the exact target). **Base 94 − 1 − 0 − 0 = 93.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v9. |
 | v45 | 2026-09-03 | 93 | **Cycle 11 target commit `845116d` MINTED (§4.5/§6 Phase 0.5 done); native gate un-run, target un-pushed, CI billing-locked — Implementation Verification v8 = N/A; score holds 93.** One plan-relevant commit landed since v44: `845116d` *"chore(§6.0): mint Cycle 11 verification target"* (docs-only, +6 lines to `docs/VERIFICATION_EVIDENCE.md`) — genuine Phase-0.5 progress and nothing else. Native `BLOCKED` (un-run despite a booted iPad), target 2 commits ahead of `origin/master` (un-pushed), CI still billing-locked (run `33710152352`, non-target `1f7d589`, failed); §14 = 0/6. **Deductions:** plan-relevant commit + booted iPad → decay stays 0; backlog −0; RA −0 (#9–#10 staleness 1); base 94 − 1 CI-billing = **93.** See Implementation Verification v8. |
 | v44 | 2026-09-03 | 93 | **Cycle 11 environment UNBLOCKED; plan v23 STILL NOT IMPLEMENTED — Implementation Verification v7 = N/A; inactivity decay reset −5 → 0.** The operator resolved both long-standing blockers: **iOS 26.4 (23E244) runtime + 6 iPad sims installed** (`native-ios-sdk-not-installed` gone; Xcode 26.4, 48 GiB free) and **`origin` remote linked & authed** (`github.com/daniqan/check-in-007.git`; `gh` scopes `repo`,`workflow`; HEAD pushed). So §13 Q1–Q2 pre-implementation gates are now satisfiable in principle. **But nothing of plan v23 is built:** the only commit since v43 is `1f7d589` "ignore" (a one-line `.gitignore` edit, not the §4.5 target); `git diff d8a9949..HEAD` over the three manifest files is **empty**; `docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED` (`grep -c "Cycle 11"` = 0); README unchanged; all 6 §14 boxes `[ ]`; native `xcodebuild test` never run despite the available sim. **NEW blocker (MODERATE):** the push triggered `CI` run `33710152352` (event `push`, `headSha 1f7d589`) which **FAILED in ~2 s** — *"account is locked due to a billing issue"*; Actions cannot run. That run targets the `ignore` commit, not a Cycle-11 target, and FAILED → satisfies nothing in §6 Phase 2; must not be banked as PASS (§2/§8). **Disposition:** State 2 is now genuinely actionable — **implement Phase 0–1** (native gate has no excuse; RA #9) and **clear the GitHub billing lock** for the CI PASS (RA #10); if billing can't be cleared, revise v23 per Rev-1 Path-to-100 #1 for a bounded native-PASS + CI-env-blocked disposition. **Deductions:** code-adjacent commit + material environment advance → **decay resets −5 → 0** (not a neglect cycle); backlog `[ ]` = **0** → −0; RA −0 (all #1–#8 DONE; new #9–#10 at staleness 0); base health holds **94**, −1 for the open CI-billing finding. **Base 94 − 1 − 0 − 0 = 93.** Recovery 89 → 93. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v7. |
