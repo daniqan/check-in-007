@@ -260,9 +260,11 @@ Button, identifier: 'roster.row.<redacted>', label: <redacted>
   `npm run build` stop at `scripts/check-node-version.mjs` because Node 24 is not exposed in this
   shell.
 - Formatting: `npx prettier --check README.md docs/VERIFICATION_EVIDENCE.md index.html
-  manifest.webmanifest scripts/build.mjs scripts/lib/static-server.mjs tests/unit/build.test.mjs
-  tests/unit/static-server.test.mjs tests/e2e/checkin.spec.mjs` passed. A full
-  `npx prettier --check .` is blocked by the pre-existing untracked `Claude outputs/` scratch file.
+manifest.webmanifest scripts/build.mjs scripts/lib/static-server.mjs tests/unit/build.test.mjs
+tests/unit/static-server.test.mjs tests/e2e/checkin.spec.mjs` passed. A full
+  `npx prettier --check .` now reports only the pre-existing untracked
+  `Claude outputs/check-in-007-fresh.html` scratch file in this worktree; tracked Cycle 16 files are
+  formatted.
 - Unit: `node --test tests/unit/*.test.mjs` passed 85/85.
 - E2E: `npx playwright test` passed 15/15.
 - Build: `node scripts/build.mjs` emitted `dist/check-in-007.15d6647afdf4.html` at 26,898 gzip bytes.
