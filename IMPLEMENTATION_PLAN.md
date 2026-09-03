@@ -1,4 +1,4 @@
-# Check-In 007 — External Verification Closure Plan v21 (Cycle 10)
+# Check-In 007 — External Verification Closure Plan v22 (Cycle 10)
 
 ## 1. Overview
 
@@ -117,15 +117,26 @@ file changes during implementation.
 
 1. Require a clean tracked worktree; capture HEAD, branch, Xcode/runtime/destination inventory,
    Node version, remotes, and read-only GitHub authentication status.
-2. On pinned Node 24.20.0 run `npm ci`, `npm run lint`, `npm run test:unit`,
-   `npm run test:e2e`, and `npm run build`.
+2. Treat local Node selection as an explicit decision gate. The current interpreter is Node 26.3.0
+   at `/opt/homebrew/bin/node`; pinned Node 24.20.0 is not installed, and the repository guard
+   intentionally rejects Node 26. Ask before installing or changing host tooling. Either:
+   - with approval, install/select 24.20.0 using `nvm install && nvm use`, record the resolved
+     `node --version`/`npm --version`, then run `npm ci`, `npm run lint`, `npm run test:unit`,
+     `npm run test:e2e`, and `npm run build`; or
+   - without approval, use the previously audited direct-tool path on the actual Node 26.3.0
+     interpreter: `npm ci`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`,
+     `npx playwright test`, and `node scripts/build.mjs`. This deliberately bypasses only
+     `scripts/check-node-version.mjs`; record the deviation and actual versions. It does not claim
+     pinned-local-Node verification. The exact-SHA CI run on `.nvmrc` remains the definitive Node 24
+     execution.
 3. Run `xcodebuild -list -json -project native/CheckIn007.xcodeproj`; confirm the shared scheme
    exposes app, unit-test, and UI-test targets.
 4. Create evidence and README files, initially marking external results `BLOCKED`, and commit them.
    This commit becomes the immutable target SHA.
 
-Acceptance: local gates pass; target commit changes only manifest files; no placeholder is reported
-as success. Any local failure stops work before install or push.
+Acceptance: every gate in the selected, recorded Node path passes; target commit changes only
+manifest files; no placeholder is reported as success. Any local failure stops work before install
+or push.
 
 ### Phase 1 — Native simulator verification
 
@@ -153,8 +164,12 @@ xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 \
   -resultBundlePath '<TEMP>/CheckIn007.xcresult' test
 ```
 
-Record target SHA, environment/destination, exact redacted command, exit, unit/UI totals, discovery
-of all five unit suites and four UI tests, and `PASS`, `FAIL`, or `BLOCKED` with recovery detail.
+If the installed platform exposes no available iPad destination, follow the `No iPad device` path
+in §8 and record `BLOCKED`; an iPhone is not an acceptable substitute. Record target SHA,
+environment/destination, exact redacted command, exit, unit/UI totals, discovery of all six unit
+suites (`CSVCodecTests`, `CameraPrivacyTests`, `CheckInStoreTests`, `GuestCatalogTests`,
+`LogMergerTests`, and `ScanAudioPlayerTests`; 32 test methods) and four UI tests, and `PASS`, `FAIL`,
+or `BLOCKED` with recovery detail.
 
 Acceptance: exit 0, zero failures, both `CheckIn007Tests` and `CheckIn007UITests` execute, and all
 temporary outputs remain outside the repository.
@@ -169,8 +184,9 @@ temporary outputs remain outside the repository.
    30-minute ceiling.
 5. Require the `web` job and every non-conditional gate step to succeed. Cancelled/timed-out/skipped
    required steps and neutral conclusions do not close the finding.
-6. Download `dist-index-html`; assert one expected file and compare byte/hash with local same-SHA
-   `dist/index.html`.
+6. Download `dist-index-html`; assert one expected file and compare byte/hash with a fresh local
+   same-SHA `dist/index.html` built using the same selected interpreter/path recorded in Phase 0
+   (currently Node 26.3.0 plus `node scripts/build.mjs` if host-tool installation is not approved).
 
 Acceptance: stable run URL/ID, workflow/event/branch/exact SHA, timestamps, job/step conclusions,
 artifact name/size/hash, and local parity are recorded; overall conclusion is `success`.
@@ -199,9 +215,11 @@ Use this contract:
 ```
 
 README links the record and calls only `PASS` results verified. Commit finalized evidence normally;
-do not amend the pushed target commit. If a gate blocks/fails, preserve that status and do not claim
-audit closure. Scan the final diff for secrets, absolute user paths, temporary paths, and mismatched
-SHAs.
+do not amend the pushed target commit. The finalization commit remains local in this cycle and is
+not pushed without a new, explicit publication approval. If later approved and pushed, any CI run
+for that second SHA is incidental and must not replace or be joined to the target-SHA run. If a gate
+blocks/fails, preserve that status and do not claim audit closure. Scan the final diff for secrets,
+absolute user paths, temporary paths, and mismatched SHAs.
 
 ## 7. Integration Contracts
 
@@ -226,7 +244,8 @@ SHAs.
 
 ### 7.4 CI → artifact parity
 
-- **Contract:** exact run uploads one artifact byte-identical to local Node-24 same-SHA output.
+- **Contract:** exact run uploads one artifact byte-identical to the fresh local same-SHA output
+  built with the interpreter/path recorded in Phase 0; the evidence names that interpreter.
 - **Failure:** missing/duplicate/download-denied artifact or hash mismatch.
 - **Recovery:** mark `FAIL`; diagnose nondeterminism in a later plan.
 
@@ -260,16 +279,19 @@ data; temporary directories may be discarded after summary.
 - Native output is bounded by one scheme/device, one attempt plus one boot-only retry, and one temp
   DerivedData/result bundle.
 - CI polling is read-only, at least 15 seconds apart, and bounded.
-- Evidence is O(test suites + CI steps), expected under 20 KB. Logs/artifacts do not enter history.
+- Evidence is O(test suites + CI steps). The contract records summaries, identifiers, hashes, and
+  counts—not raw logs—so growth is bounded by discovered test suites and workflow steps; no numeric
+  byte ceiling is asserted before the document exists. Logs/artifacts do not enter history.
 - Interruption recovery uses immutable SHA/run ID; simulator tests and ephemeral CI do not mutate
   production data.
 
 ## 10. Testing Strategy
 
-- **Local:** pinned Node lint, all unit tests (including native roster parity), all Playwright e2e,
-  build-size gate.
-- **Native:** scheme-level `xcodebuild test` proves compile/link, five unit suites, four UI flows,
-  persistence/privacy/accessibility contracts on a simulator.
+- **Local:** the selected §6 Phase 0 Node path, all unit tests (including native roster parity), all
+  Playwright e2e, lint, and build-size gate; record actual Node/npm versions and whether the guard was
+  bypassed. CI supplies the definitive pinned-Node-24 result when the direct path is used locally.
+- **Native:** scheme-level `xcodebuild test` proves compile/link, six named unit suites (32 methods),
+  four UI flows, and persistence/privacy/accessibility contracts on a simulator.
 - **CI:** exact-SHA run, all required steps, artifact availability, local byte parity.
 - **Evidence:** validate URLs, SHA consistency, counts, no secrets/absolute paths, no false `PASS`.
 - **Scope:** final implementation diff contains only the three manifest files.
@@ -278,18 +300,25 @@ data; temporary directories may be discarded after summary.
 
 - Xcode 26.4 (`17E192`) is installed. Current preflight has no iOS runtime and destinations report
   iOS 26.4 absent, so Phase 1 needs operator-approved installation.
-- Node 24.20.0, npm lockfile, Playwright 1.62.1, Prettier 3.9.6.
+- The current host has Node 26.3.0 at `/opt/homebrew/bin/node`; pinned Node 24.20.0 is not installed,
+  while `.nvmrc`/`.node-version` and CI require 24.20.0. Phase 0 records whether the operator approves
+  installation or the sanctioned direct-tool path is used. The npm lockfile, Playwright 1.62.1, and
+  Prettier 3.9.6 remain authoritative.
 - GitHub CLI is installed/authenticated, but no Git remote is configured. Phase 2 needs operator
   confirmation of repository and push.
 - No new dependency, secret, signing identity, paid service, or production credential.
 
-Fresh local setup remains `nvm install && nvm use && npm ci`; external phases additionally require
-approved Xcode platform availability and GitHub repository access.
+Fresh pinned setup remains `nvm install && nvm use && npm ci`, but installation is a host mutation
+requiring approval in this cycle. Without it, use and disclose the Phase 0 direct-tool path. External
+phases additionally require approved Xcode platform availability and GitHub repository access.
 
 ## 12. Deployment, Distribution, and Rollback
 
-No application code deploys. Publication is the normal Git push required to run existing CI and the
-follow-up evidence commit. Native binaries remain local; kiosk output remains a CI artifact.
+No application code deploys. Publication in this cycle is only the approved normal Git push of the
+target commit required to run existing CI. The follow-up evidence-finalization commit remains local
+unless the operator separately approves another normal push; a resulting second-SHA CI run is not
+verification evidence for the target SHA. Native binaries remain local; kiosk output remains a CI
+artifact.
 
 Rollback repository docs with `git revert <evidence-commit>`. Do not automatically remove an Apple
 platform or rewrite pushed history; use normal revert. GitHub run history remains external evidence.
@@ -300,16 +329,37 @@ platform or rewrite pushed history; use normal revert. GitHub run history remain
    and branch; nothing is guessed or created implicitly.
 2. **May iOS platform be downloaded?** Operator approves after platform/free-space report; otherwise
    native remains `BLOCKED`.
-3. **Protected branch?** Do not bypass. Ask whether to use normal PR flow; that requires explicit
+3. **May pinned Node be installed?** The host currently has Node 26.3.0 and no installed nvm Node 24.
+   Operator may approve `nvm install && nvm use`; otherwise use the disclosed direct-tool path from
+   Phase 0 and rely on exact-SHA CI for definitive Node 24 execution.
+4. **Protected branch?** Do not bypass. Ask whether to use normal PR flow; that requires explicit
    execution authority.
-4. **External failure?** Record and stop. Product/test/workflow remediation requires another plan.
+5. **External failure?** Record and stop. Product/test/workflow remediation requires another plan.
 
 ## 14. Completion Checklist
 
-- [ ] Local Node 24 gates pass at immutable target SHA.
-- [ ] Approved native unit/UI tests pass on identified iPad simulator with durable counts.
-- [ ] Operator confirms GitHub repository/branch and approves normal push.
-- [ ] Exact-SHA `CI` run and every required step succeed.
-- [ ] CI artifact is byte-identical to local same-SHA build.
-- [ ] Evidence has stable identifiers/URLs and no secrets/machine paths.
+### Plan implemented — cycle completion gate
+
+- [ ] The selected local Node path ran at the immutable target SHA; actual Node/npm versions,
+      commands, guard status, and results are recorded, and every selected local gate passed.
+- [ ] Native verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with environment, exact
+      destination/command when run, six-suite/four-UI counts when available, and rationale/recovery.
+- [ ] CI verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with operator decision, exact-SHA
+      run identity when available, required-step conclusions, and artifact/parity result or blocker.
+- [ ] Evidence has stable identifiers/URLs where available and no secrets or absolute machine paths.
 - [ ] Final implementation diff contains only the three manifest files.
+- [ ] The evidence-finalization commit is not pushed without separate approval; any second-SHA run is
+      excluded from the target-SHA join.
+
+Completing every item above is sufficient to mark this plan implemented even when an external result
+is honestly `FAIL` or `BLOCKED`.
+
+### Audit findings closed — external success gate
+
+- [ ] Native status is `PASS`: exit 0, zero failures, all six unit suites and four UI tests executed
+      on an identified iOS 26+ iPad simulator.
+- [ ] CI status is `PASS`: the target-SHA `CI` run and every required step succeeded, and its
+      `dist-index-html` is byte-identical to the recorded fresh local same-SHA build.
+
+The two audit findings close only when both external success items pass; `FAIL`/`BLOCKED` completes
+the evidence-capture cycle but does not close the corresponding finding.
