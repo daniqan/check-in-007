@@ -3,15 +3,19 @@
 Improvement opportunities beyond the current plan's scope. Unchecked items reduce the audit
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
-> **Cycle 18 OPENED (audit v66, State 1 — REVISE THE PLAN):** `IMPLEMENTATION_PLAN.md` v31 (the
-> cycle-artifact-guard CI reconciliation, a backlog polish item) is drafted but **NOT APPROVED —
-> Plan Critique Cycle 18 Rev 1 = 74/100**. It explicitly out-of-scopes **RA #14 (P0/HIGH,
-> device-evidenced FAILING)** and **RA #19 (P1/HIGH)** — the two findings v65 assigned to Cycle 18 —
-> even though an iOS 26.4 Simulator is now installed and both are code-actionable. Scope-adequacy cap
-> (≤75) + a feasibility flaw (F-23) → 74. **Next action: re-scope v31 to RA #14 + RA #19.** F-15
-> recurred a 6th time (`d8e50fb` blanked the critique; restored). System health 84 → 80 (RA #14 stall
-> −3, idle-code decay −1). See `CONSOLIDATED_AUDIT.md` v66 and `IMPLEMENTATION_PLAN_CRITIQUE.md`
-> Cycle 18 Rev 1.
+> **Cycle 18 — plan RE-SCOPED v31 → v32 (audit v67, State 1 — REVISE THE PLAN):** the generator
+> replaced the mis-aimed v31 guard-polish plan with `IMPLEMENTATION_PLAN.md` v32 (`8d03df0`), which now
+> targets **exactly** the audit-assigned **RA #14 (P0/HIGH, device-evidenced FAILING)** + **RA #19
+> (P1/HIGH)** + the stale default-device refresh. **The scope inversion (F-22) is RESOLVED** — scope cap
+> lifted, plan scored on merits: **Plan Critique Cycle 18 Rev 2 = 93/100, NOT APPROVED.** Held below the
+> ≥95 gate by one blocking flaw (**F-24**): candidate 1's document-backed body scroll (§4.3) conflicts with
+> the plan's own `list.scrollTop` PASS oracle **and** `.roster-list`-bound virtualization
+> (`src/screens/roster.mjs:25,32,130,190`) — a body-scroller would report `scroll-probe:0` and starve
+> `handleVirtualScroll`; the plan neither repoints them nor tests the change. **Next action: resolve F-24
+> (keep `.roster-list` as the bounded internal scroller) → approve → implement.** The guard-polish item
+> below stays correctly **deferred** (must not preempt the open P0/P1). System health 80 → 82 (scope fixed
+> + RA #14 decline penalty lifted, tempered by a second idle-code cycle decay −2). See `CONSOLIDATED_AUDIT.md`
+> v67 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 18 Rev 2.
 >
 > **Cycle 17 COMPLETE (audit v65, State 4):** `IMPLEMENTATION_PLAN.md` v30 (**APPROVED 96/100**) is
 > implemented and **VERIFIED** — the State-3 blocking defect (D1/F-19/RA #18, iOS probe-env propagation) is
@@ -35,10 +39,12 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
   Scope the CI check to pull requests / pushes to the default branch, or exempt commits whose *only*
   change is `IMPLEMENTATION_PLAN.md`, so the guard still surfaces genuine drift (RA #16) without
   flagging every routine plan commit. Deferred from Cycle 17 (the guard itself ships; this hardening
-  is Path-to-100, non-blocking). **In progress via plan v31 (Cycle 18) — but v31 is NOT approved
-  (74/100) and its `isPlanOnlyPlanningChange` classifier (exactly `['IMPLEMENTATION_PLAN.md']`) is too
-  narrow for the real new-cycle commits, which also touch `BACKLOG.md`/`archive/` (audit v66, F-23).
-  This item stays `[/]`; it also should not preempt the open P0/P1 (RA #14/#19).**
+  is Path-to-100, non-blocking). **DEFERRED (audit v67):** plan v31 was re-scoped away to v32 (RA #14/#19);
+  this item is intentionally not in the current plan and must not preempt the open P0/P1. When it returns,
+  it must fix F-23: the `isPlanOnlyPlanningChange` classifier (exactly `['IMPLEMENTATION_PLAN.md']`) is too
+  narrow for the real new-cycle commits, which also touch `BACKLOG.md`/`CONSOLIDATED_AUDIT.md`/`archive/`
+  (widen to the real planning change set or mandate a strictly-plan-only commit convention, proven against
+  `git show --stat` of the last three new-cycle commits). This item stays `[/]`.
 - [ ] Make the `check-cycle-artifacts` guard a **commit-time** hook (local `pre-commit`/`pre-push`
   invoking `npm run check:cycle-artifacts`), not just a CI gate. F-15 (empty root critique) recurred a
   6th time at `d8e50fb` because the CI-only guard cannot stop a local commit from blanking
