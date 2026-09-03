@@ -1,41 +1,42 @@
 # Consolidated Audit — Check-In 007
 
 <!-- score:plan 96 -->
-<!-- score:implementation N/A -->
-<!-- score:current 81 -->
+<!-- score:implementation 93 -->
+<!-- score:current 80 -->
 
-**Current Score**: 81/100
-**Audit Version:** v60
-**Audited:** HEAD `06d9bc5` on 2026-09-03. **CYCLE 16 OPENED — plan v29 (web app manifest / standalone `start_url`) drafted & APPROVED at 96/100 (State 2 — implement the approved plan). NOT YET IMPLEMENTED → Implementation Score N/A. Empty critique (F-15) restored again. Score 82 → 81 (first idle-code cycle since the `f551d4a` reset → decay −1).** `06d9bc5` ("plan: v29 — web app manifest start url cycle") replaced the completed Cycle-15 plan with a fresh Cycle-16 plan for the **last open backlog item** (web app manifest / `start_url`). Per the staleness rule the newer plan is reviewed fresh: **Plan Critique Cycle 16 Rev 1 = 96/100 — APPROVED** (`IMPLEMENTATION_PLAN_CRITIQUE.md`). **Nothing is implemented yet (trust nothing — verified against the tree):** the plan's NEW files are absent (`manifest.webmanifest`, `assets/icons/check-in-007-icon.svg`, `…-192.png`, `…-512.png` → "MISSING"); `grep -n "manifest" index.html` → 0 hits; `grep "createWebAppManifest|writeWebAppManifestArtifacts|webmanifest" scripts/build.mjs` → 0 hits; `git diff --name-only 06d9bc5..HEAD` empty; `git show --stat 06d9bc5` = 2 files only (`IMPLEMENTATION_PLAN.md` +271/−255, `BACKLOG.md` +2/−2). The Cycle-15 code tree is byte-identical and all automated gates remain green. **RA #14 (the iPad touch-scroll fix) is code-complete but device-unverified** — with a 4th cycle now passing and no device/simulator in this environment, it is **reclassified to `BLOCKED (env / device)`** (RA #10 precedent) so it does not rot as a phantom stall; the code fix is done, only a real-iPad PASS remains.
+**Current Score**: 80/100
+**Audit Version:** v61
+**Audited:** HEAD `f410d95` on 2026-09-03. **CYCLE 16 IMPLEMENTED — plan v29 (web app manifest / standalone `start_url`) landed in `f410d95`. Implementation Verification v21 = 93/100 → below the ≥95 gate → State 3 (FIX THE IMPLEMENTATION). One blocking defect: a Prettier violation in a tracked doc (`docs/VERIFICATION_EVIDENCE.md`) reddens the `npm run lint` / CI gate. Score 81 → 80 (decay reset −1→0, offset by the new red-lint-gate defect + impl below gate).** `f410d95` ("feat(§6): add web app manifest start_url") implements approved plan v29 across **exactly the §5 manifest** (14 files) plus one documented, justified `.prettierignore` deviation — **no out-of-manifest source drift**. The web-manifest feature itself is COMPLIANT and thoroughly tested (unit 85/85, e2e 15/15, deterministic build hash `15d6647afdf4`, `start_url === "./"+artifact` verified); a single self-inflicted defect (D1) holds it below ≥95. **RA #14 (the iPad touch-scroll fix) stays `BLOCKED (env / device)`** — code-complete, real-iPad PASS still required, correctly not claimed by this cycle.
 
-**Stage:** Cycle 16 **State 2 — IMPLEMENT THE APPROVED PLAN** (Plan v29 = 96 ≥ 95; Implementation = N/A, not yet built). Next action: land Phases 1–5 of plan v29 — the source `manifest.webmanifest` + committed icons, the build-generated `dist/check-in-007.webmanifest` with a content-hashed `start_url`, the `.webmanifest` MIME entry in the static helper, unit/e2e coverage, and README/evidence docs — then have the discriminator run Implementation Verification. Landing code resets the −1 decay. Do **not** revise the plan to pass a future audit; the plan is the contract.
+**Stage:** Cycle 16 **State 3 — FIX THE IMPLEMENTATION** (Plan v29 = 96 ≥ 95; Implementation = 93 < 95). Next action: fix Defect D1 — run `npx prettier --write docs/VERIFICATION_EVIDENCE.md` so `prettier --check .` (the `npm run lint` / CI gate at `.github/workflows/ci.yml:32`) is green again, and correct the file's **false** "prettier … passed" claim to match reality — then resubmit for re-verification. Do **not** revise the plan; the plan is the contract and the feature is faithful to it.
 
 **Plan Score:** 96/100 (v29 — Cycle 16, APPROVED; first review)
-**Implementation Score:** N/A (plan v29 approved but NOT yet implemented — none of the §5 NEW files exist)
-**Current Score**: 81/100
+**Implementation Score:** 93/100 (v21 — plan v29 implemented in `f410d95`; below the ≥95 gate, State 3, one blocking defect D1)
+**Current Score**: 80/100
 
 ## Score Breakdown
 
-**Base Score:** 82/100
-- Code correctness: 9/10 — the Cycle-15 State-3 fix (`f551d4a`) repairs the non-roster entrance transition and stabilizes the e2e gate; reliably green (unit 84/84 + e2e 15/15 reproduced this cycle).
-- Plan compliance: 9/10 — Cycle 15 fully faithful; Cycle 16 not yet built (N/A, not a compliance debit — the plan is approved and awaiting implementation).
-- Document coherence: 9/10 — README + `docs/IPAD_SCROLL_BUG.md` honest and git-tracked.
-- Testing rigor: 8/10 — 84/84 unit + reliably-green e2e. Not 9: the iOS touch gate is installed but cannot execute here (no simulator/device), so the iPad-scroll regression coverage is unexercised.
-- Safety architecture: 9/10 — fail-closed iOS lane; probe inert by default and query-gated.
+**Base Score:** 80/100
+- Code correctness: 9/10 — the web-manifest feature code is correct and deterministic (rebuild → same hash `15d6647afdf4`; `start_url === "./"+artifact` verified). The only correctness issue is a docs-formatting lint break, not a runtime defect.
+- Plan compliance: 8/10 — Phases 1–3 fully COMPLIANT; **Phase 4's "`npm run lint` … pass" acceptance criterion is UNMET** (impl 93 < 95, State 3). Feature is otherwise faithful to the §5 manifest with no out-of-scope drift.
+- Document coherence: 8/10 — README A2HS guidance is good, but `docs/VERIFICATION_EVIDENCE.md` is malformatted **and** makes a false "prettier … passed" claim.
+- Testing rigor: 8/10 — 85/85 unit + 15/15 e2e reproduced green with strong new manifest coverage; not higher because the `prettier --check .` gate is red on a tracked file.
+- Safety architecture: 9/10 — cert-cache/traversal guards untouched; `no-store` preserved on manifests/icons (test-asserted).
 - Monitoring & observability: 8/10.
-- **Feature completeness: 6/10 — the roster fix is code-complete but STILL NOT verified on a real iPad; RA #14 remains unproven on device. This is the honest cap.**
-- Risk management: 8/10 — the flaky-gate risk is gone; the iPad fix remains code-complete but unproven on device.
-- Sum 66/80 → base **82**.
+- **Feature completeness: 6/10 — the iPad roster-scroll fix (RA #14) is STILL NOT verified on a real iPad; unproven on device. The web-manifest feature itself is complete. This is the honest cap.**
+- Risk management: 8/10 — additive change, clean file-level rollback; but a green CI gate was turned red this cycle.
+- Sum 64/80 → base **80**.
 
 **Deductions:**
-- Required Actions: **−0** — RA #14 (P0/HIGH) **reclassified to `BLOCKED (env / device)`** this cycle: the full code fix is implemented and the follow-on gate defect fixed in Cycle 15; the sole remaining step (real-device touch verification) is **environmentally impossible here** (no iPadOS simulator/device), so — per the v59 directive and the RA #10 billing precedent — it is a bounded env-block, not a stalled code action (−0). RA #10 external/`BLOCKED` (−0).
-- Backlog: **−0** — 0 strict-unchecked `- [ ]` items. The sole remaining item (web app manifest / `start_url`) is `[/]` (in progress, driven by approved plan v29); project precedent counts only strict `- [ ]` → round down to 0.
-- Inactivity decay: **−1** — 1st audit since the `f551d4a` reset with **no** `src/`/`scripts/`/`native/`/`tests/` commit (only the `c5d3049` archive + the `06d9bc5` plan/backlog commit). Resets the moment plan v29's code lands.
-- **Final: 82 − 0 − 0 − 1 = 81/100.**
+- Required Actions: **−0** — RA #14 (P0/HIGH) stays `BLOCKED (env / device)` (code-complete, device verification impossible here — RA #10 precedent). RA #16 (P3, empty-critique recurrence) staleness 1 → −0 (P2/P3 deduct only after 5+ versions). New RA #17 (P2, red CI lint gate) staleness 0 → −0. RA #10 external/`BLOCKED` (−0).
+- Backlog: **−0** — 0 strict-unchecked `- [ ]` items. The web app manifest / `start_url` item stays `[/]` (implementation landed but has not yet cleared the ≥95 impl gate; flips to `[x]` only after D1 is fixed and re-verified). Project precedent counts only strict `- [ ]` → 0.
+- Inactivity decay: **−0** — **reset**: `f410d95` touches `scripts/`, `tests/`, `index.html`, `assets/`, ending the idle streak.
+- **Final: 80 − 0 − 0 − 0 = 80/100.** Net −1 vs v60: code landed (decay reset +1) but the new red-lint-gate defect + impl-below-gate dropped plan-compliance/testing/doc-coherence by 2.
 
 ## Findings
 
-- **HIGH / F-14 (carried, code-complete, env-BLOCKED on device):** iPadOS roster touch-momentum scroll. The plan v28 fix is fully landed (`.roster-screen { transform: none }`, base `.screen` no longer transforms; non-roster entrance animates correctly — `src/styles.css:66-86,158-161`), gates reliably green. Per plan Phase 5.2 and `docs/IPAD_SCROLL_BUG.md` the fix may NOT be marked verified on desktop/CI alone, and **no real iPad / iOS Simulator exists in this environment** (`npm run test:ios-scroll` skips honestly, fails closed when required). With a 4th cycle passing and no path to a device here, RA #14 is **reclassified `BLOCKED (env / device)`** (RA #10 precedent) — code done, only a real-iPad PASS remains. Feature completeness stays 6/10 → this is why system health is 81, not higher.
+- **MODERATE / F-18 (NEW, blocking the impl gate):** the Cycle-16 impl commit `f410d95` introduced a **Prettier violation in a tracked file** — `docs/VERIFICATION_EVIDENCE.md` fails `prettier --check` (continuation lines of the recorded prettier-command span want 0-space, not 2-space, indent). The file is **not** in `.prettierignore`; the parent commit's copy was Prettier-clean, so this is a self-inflicted regression of a previously-green gate. `npm run lint` = `check-node-version && prettier --check .` and CI runs it (`.github/workflows/ci.yml:32`), so the lint step now exits non-zero on the Node-24 lane → **Phase 4 acceptance "`npm run lint` … pass" is UNMET.** Compounding: the same file **falsely** asserts a `prettier --check … docs/VERIFICATION_EVIDENCE.md … passed`. Tracked as **RA #17 (P2)**; drives State 3. Ironically the generator correctly foresaw the SVG-parser problem and legitimately excluded `assets/icons/*.svg` (verified: `prettier --check` on the SVG errors "No parser could be inferred") — but missed its own evidence file.
+- **HIGH / F-14 (carried, code-complete, env-BLOCKED on device):** iPadOS roster touch-momentum scroll. The plan v28 fix is fully landed (`.roster-screen { transform: none }`, base `.screen` no longer transforms; non-roster entrance animates correctly — `src/styles.css:66-86,158-161`), gates reliably green. Per plan Phase 5.2 and `docs/IPAD_SCROLL_BUG.md` the fix may NOT be marked verified on desktop/CI alone, and **no real iPad / iOS Simulator exists in this environment** (`npm run test:ios-scroll` skips honestly, fails closed when required). With a 4th cycle passing and no path to a device here, RA #14 is **`BLOCKED (env / device)`** (RA #10 precedent) — code done, only a real-iPad PASS remains. Feature completeness stays 6/10 → this is why system health is 80, not higher.
 - **RECURRED / F-15:** `IMPLEMENTATION_PLAN_CRITIQUE.md` was **0 bytes** again after the `06d9bc5` plan-v29 commit (the Cycle-9 archive left it empty and the new-cycle commit did not repopulate it). Restored this cycle with the full Cycle-16 plan critique (96/100). This is the **fourth** recurrence of the empty-critique pattern on a new-cycle/archive commit (v53/F-15, v56/F-15, v57/F-15, v60/F-15) — a durable process gap (see Required Action **#16**).
 - **RESOLVED / F-17 (Cycle 15):** the flaky e2e test `roster has no transform ancestor…` is deterministic — reproduced green this cycle (unit 84/84, e2e 15/15). RA #15 closed.
 - **RESOLVED / F-16 (Cycle 15):** `docs/IPAD_SCROLL_BUG.md` is git-tracked.
@@ -44,11 +45,44 @@
 
 | # | Priority | Status | Raised | Staleness | Score Impact | Directive |
 |---|----------|--------|--------|-----------|--------------|-----------|
-| 16 | P3 / LOW | **OPEN** (new) | v60 | 0 | −0 | **Stop the empty-critique recurrence (F-15, 4th time).** Each new-cycle/archive commit that replaces `IMPLEMENTATION_PLAN.md` leaves `IMPLEMENTATION_PLAN_CRITIQUE.md` at 0 bytes. When the generator opens a cycle, it should either (a) carry the fresh plan critique in the same commit, or (b) the archive step should not blank the root critique. Low priority (the discriminator restores it each run) but it wastes a cycle's worth of the canonical approval record. |
+| 17 | **P2 / MODERATE** | **OPEN** (new) — blocks the ≥95 impl gate | v61 | 0 | −0 (new) | **Fix the red CI lint gate (F-18).** `docs/VERIFICATION_EVIDENCE.md` (tracked, not `.prettierignore`d) fails `prettier --check`, so `npm run lint` / CI (`.github/workflows/ci.yml:32`) exits non-zero — introduced by `f410d95`. Run `npx prettier --write docs/VERIFICATION_EVIDENCE.md`, then correct the file's **false** "prettier … passed" claim to reflect the real `prettier --check .` result. Re-commit; the lint gate goes green and Implementation Verification clears ≥95. Do NOT revise the plan. |
+| 16 | P3 / LOW | **OPEN** | v60 | 1 | −0 | **Stop the empty-critique recurrence (F-15, 4th time).** Each new-cycle/archive commit that replaces `IMPLEMENTATION_PLAN.md` leaves `IMPLEMENTATION_PLAN_CRITIQUE.md` at 0 bytes. When the generator opens a cycle, it should either (a) carry the fresh plan critique in the same commit, or (b) the archive step should not blank the root critique. Low priority (the discriminator restores it each run) but it wastes a cycle's worth of the canonical approval record. (Not recurred this cycle — `f410d95` is a feature commit, not a new-cycle/archive commit.) |
 | 14 | **P0 / HIGH** | **BLOCKED (env / device)** — code-complete, device verification impossible here | v56 | 4 | −0 (env-blocked, code done — not a stall) | Code fix complete and gates green. **Verify on a real iPad / iOS Simulator** — provision a matching `CHECKIN007_IOS_DEVICE`/`CHECKIN007_IOS_RUNTIME` and run `CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll`, or run the manual real-iPad fallback and record the PASS in `docs/IPAD_SCROLL_BUG.md`. May NOT be marked RESOLVED on desktop/CI evidence alone (per the bug doc / Phase 5.2). Do NOT bundle further scroll changes unless the isolated transform removal is proven insufficient on device. **Reclassified to `BLOCKED (env)` at v60** (RA #10 precedent) so a device-impossible verification does not accrue phantom stall deductions; revisit when a device/simulator becomes available. |
 | 10 | P2 / MODERATE | `BLOCKED (external billing)` | v37 | — | −0 (external / non-code-actionable) | Operator must clear GitHub billing, then push/rerun CI `33711898714`. Outside the code loop. |
 
 **DONE / RESOLVED (not re-opened):** RA #15 (flaky e2e gate) RESOLVED; RA #11 (CSV data-loss) DONE; camera DONE; RA #12 (`mark007` query) RESOLVED & verified; RA #13 (check-in flow hit region) RESOLVED & verified; RA #1–#9 DONE.
+
+<!-- audit-entry v61 -->
+> **CYCLE 16 IMPLEMENTED — plan v29 (web app manifest / standalone `start_url`) landed in `f410d95`. Implementation Verification v21 = 93/100 → below the ≥95 gate → State 3 (FIX THE IMPLEMENTATION). One blocking defect (D1/F-18): a Prettier violation in a tracked doc reddens the `npm run lint` / CI gate. Score 81 → 80 (decay reset −1→0, offset by the new red-lint-gate defect + impl below gate).**
+> `f410d95` ("feat(§6): add web app manifest start_url") implements approved plan v29 across **exactly the §5 file manifest** (14 files) plus one documented, justified `.prettierignore` deviation — `git show --stat f410d95` shows no out-of-manifest source drift.
+>
+> **Independently reproduced this cycle (trust nothing):**
+> - `node --test tests/unit/*.test.mjs` → **85/85 pass** (+1: manifest transform validates required members, empty-icons, `../`-traversal reject; build asserts hashed `start_url`, PNG dimensions 192×192/512×512, one dist manifest link, unchanged machine-manifest shape).
+> - `npx playwright test` → **15/15 pass** (asserts `link[rel=manifest]` href value **and** count = 1 — critique Path-to-100 #2 satisfied).
+> - `node scripts/build.mjs` ×2 → deterministic SHA `15d6647afdf4`, **26898 gzip bytes** (well under 750 KB); `dist/check-in-007.webmanifest.start_url === "./"+manifest.json.artifact` = **true**; `dist/index.html` byte-identical to the hashed twin; built HTML carries exactly one `./check-in-007.webmanifest` link.
+> - `npx prettier --check .` → **FAILS on `docs/VERIFICATION_EVIDENCE.md`** (tracked, not ignored). The parent `06d9bc5:docs/VERIFICATION_EVIDENCE.md` was Prettier-clean → **this commit introduced the violation.** The SVG-in-`.prettierignore` deviation is **justified** (prettier errors "No parser could be inferred" on the SVG).
+>
+> **Plan compliance (source-verified) — see Implementation Verification v21 for the full table:**
+> - **§4.1/Phase 1 — COMPLIANT.** `manifest.webmanifest` carries all required members + 192/512/SVG icons; `index.html:10` links exactly one `rel=manifest` → `./manifest.webmanifest`; existing `apple-mobile-web-app-*`/`mobile-web-app-capable` meta tags preserved.
+> - **§4.1/Phase 2 — COMPLIANT.** `createWebAppManifest()`/`writeWebAppManifestArtifacts()` (`build.mjs:151-195`); bake-before-hash ordering correct (fixed webmanifest filename → no hash cycle; critique nit #1 satisfied).
+> - **§4.2 — COMPLIANT.** machine `check-in-007.manifest.json` kept separate & unchanged in shape (unit-asserted).
+> - **§4.3 — COMPLIANT + improved.** icons committed at verified dimensions and copied to `dist/assets/icons/`; **`purpose:"any"`** used instead of `"any maskable"`, resolving critique nit #3 (maskable safe-zone clip).
+> - **§4.5/Phase 3 — COMPLIANT.** `static-server.mjs:11` adds `.webmanifest → application/manifest+json`; live-server test confirms 200 + correct content-type + `Cache-Control: no-store` for manifest and icons; cert/traversal guards untouched.
+> - **Phase 4 — PARTIAL (blocking).** unit/e2e/build pass, but the "`npm run lint` … pass" acceptance criterion is UNMET (D1).
+> - **Phase 5 — PARTIAL.** README A2HS guidance good; `docs/VERIFICATION_EVIDENCE.md` appended but is itself the D1 defect and makes a false "prettier … passed" claim; RA #14 correctly not claimed resolved.
+>
+> **The one blocking defect (D1 / F-18 / RA #17).** `docs/VERIFICATION_EVIDENCE.md` fails `prettier --check` → `npm run lint` and CI go red. Fix in code (`npx prettier --write` the file + correct the false claim), then resubmit. **Do NOT revise the plan** — the feature is faithful to it.
+>
+> **Score computation.**
+> - **Base Score: 80/100.** The web-manifest feature is correct and well-tested, but a red CI lint gate + impl below the ≥95 gate hold plan-compliance/testing/doc-coherence down, and feature completeness on the primary iPad stays 6/10 until RA #14 is device-verified (8-criteria sum 64/80).
+> - **Required Actions: −0.** RA #14 (P0/HIGH) `BLOCKED (env / device)` — code done, device verification impossible here (RA #10 precedent). RA #17 (P2, red lint gate) new, staleness 0 → −0. RA #16 (P3, empty-critique) staleness 1 → −0 (not recurred this cycle). RA #10 external/`BLOCKED` (−0).
+> - **Backlog: −0.** 0 strict-unchecked `- [ ]`; the manifest / `start_url` item stays `[/]` (impl landed but has not cleared the ≥95 impl gate; flips to `[x]` only after D1 is fixed and re-verified).
+> - **Inactivity decay: −0.** **Reset** — `f410d95` touches `scripts/`/`tests/`/`index.html`/`assets/`, ending the idle streak.
+> - **Final: 80 − 0 − 0 − 0 = 80/100.** Net −1 vs v60: code landed (decay reset +1) but the new red-lint-gate defect + impl-below-gate cost 2.
+>
+> **Disposition — Cycle 16, State 3 (FIX THE IMPLEMENTATION).** Plan v29 (96) is the contract; the implementation scores 93 < 95. Next action: fix RA #17/D1 (`prettier --write docs/VERIFICATION_EVIDENCE.md` + correct the false claim), then resubmit for re-verification. RA #14's real-iPad PASS remains separately required and must not be claimed by this cycle; RA #10 stays outside the code loop.
+>
+> **Required Actions status.** **#17** (P2, red CI lint gate) — OPEN new, staleness 0, **−0**; drives the fix. **#16** (P3, empty-critique recurrence) — OPEN, staleness 1, **−0** (not recurred this cycle). **#14** (P0/HIGH, iPad roster scroll) — **BLOCKED (env / device)**, code-complete, staleness 4, **−0**. **#10** (P2, CI external billing) — `BLOCKED`, external, **−0**. **#15** (flaky e2e) RESOLVED. **#11** (CSV) DONE. **#12** (`mark007`) RESOLVED. **#13** (check-in flow) RESOLVED. Camera DONE.
 
 <!-- audit-entry v60 -->
 > **CYCLE 16 OPENED — plan v29 (web app manifest / standalone `start_url`) drafted & APPROVED at 96/100 (State 2 — implement the approved plan). NOT YET IMPLEMENTED → Implementation Score N/A. Empty critique (F-15) restored again. Score 82 → 81 (first idle-code cycle since the `f551d4a` reset → decay −1).**

@@ -44,6 +44,17 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 > verification impossible in this environment, 4th cycle passing — RA #10 precedent). System health 82 → 81
 > (first idle-code cycle since the `f551d4a` reset → decay −1). See `CONSOLIDATED_AUDIT.md` v60 and
 > `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 16 Rev 1.
+>
+> **Cycle 16 implemented (audit v61, State 3):** plan v29 landed in `f410d95` — source `manifest.webmanifest` +
+> committed icons, build-generated `dist/check-in-007.webmanifest` with content-hashed `start_url`, `.webmanifest`
+> MIME entry, and unit/e2e coverage. **Implementation Verification v21 = 93/100 → below the ≥95 gate → State 3**
+> (fix the implementation). Feature is COMPLIANT and well-tested (unit 85/85, e2e 15/15, deterministic build,
+> `start_url === "./"+artifact`), but **one blocking defect (D1/F-18/RA #17):** the impl commit introduced a
+> Prettier violation in the tracked `docs/VERIFICATION_EVIDENCE.md`, reddening the `npm run lint` / CI gate. The
+> item **stays `[/]`** — it flips to `[x]` only after D1 is fixed (`prettier --write` + correct the false
+> "prettier … passed" claim) and re-verified ≥95. System health 81 → 80 (decay reset −1→0, offset by the new
+> red-lint-gate defect + impl below gate). See `CONSOLIDATED_AUDIT.md` v61 and
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v21.
 
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)

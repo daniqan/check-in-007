@@ -141,3 +141,59 @@ Three minor specificity nits (ordering rationale, icon recipe, maskable safe zon
 gap between 96 and excellence. **APPROVED at 96/100 — proceed to implement (Cycle 16, State 2).**
 The plan is now the contract against which the implementation will be audited. RA #14's real-iPad
 verification remains separately required and must not be marked resolved by this cycle.
+
+---
+
+### Implementation Verification — v21
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v29 (Cycle 16) @ approved score 96/100
+**Code:** `f410d95` ("feat(§6): add web app manifest start_url") audited on 2026-09-03 (Node 26.3.0 in-env)
+
+Implementation commit `f410d95` lands **exactly the §5 file manifest** plus one documented
+deviation (`.prettierignore`). `git show --stat f410d95` = 14 files, all in §5 (or the sanctioned
+`.prettierignore` deviation) — **no out-of-manifest source drift.** The web-manifest feature itself
+is implemented correctly and thoroughly tested; a single real defect (a Prettier violation in a
+tracked doc that reddens the CI lint gate) holds the score below the ≥95 gate.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.1 / Phase 1 — source manifest + icons | COMPLIANT | `manifest.webmanifest` carries `id`, `name`, `short_name`, dev `start_url:"./index.html"`, `scope`, `display:"standalone"`, `orientation`, theme/background colors, and 192/512/SVG icon entries. `index.html:10` links exactly one `rel="manifest"` → `./manifest.webmanifest` (verified: `grep -c` = 1). Existing `apple-mobile-web-app-*`/`mobile-web-app-capable` meta tags preserved. |
+| §4.1 / Phase 2 — generated dist webmanifest | COMPLIANT | `createWebAppManifest()`/`writeWebAppManifestArtifacts()` added (`build.mjs:151-195`). Rebuilt twice → deterministic hash `15d6647afdf4`; `dist/check-in-007.webmanifest.start_url === "./"+manifest.json.artifact` (verified true); `dist/index.html` byte-identical to hashed twin (`diff -q` IDENTICAL); built HTML carries exactly one `./check-in-007.webmanifest` link. Bake-before-hash ordering correct (fixed webmanifest filename → no hash cycle; critique nit #1 satisfied). |
+| §4.2 — machine manifest kept separate | COMPLIANT | `dist/check-in-007.manifest.json` still `{artifact,sha256,gzipSize,byteSize}` (unit-asserted `deepEqual(Object.keys(...))`); the two manifest files coexist under distinct names. |
+| §4.3 — commit icons, copy to dist | COMPLIANT + improved | 192/512 PNGs committed at verified dimensions (`IHDR` 192×192 / 512×512) + editable SVG source; build copies all three to `dist/assets/icons/`. **Improvement:** icons use `purpose:"any"` (not `"any maskable"`), which resolves critique nit #3 (maskable safe-zone clip risk) — back-portable to the plan. |
+| §4.5 / Phase 3 — serving & MIME | COMPLIANT | `static-server.mjs:11` adds `.webmanifest → application/manifest+json`; `.svg`/`.png` already present. Live-server test confirms manifest + icon requests return 200 with correct content-type **and** `Cache-Control: no-store`; cert-cache/traversal guards untouched. |
+| Phase 4 — verification coverage | **PARTIAL (blocking)** | Unit **85/85** (+1: manifest transform validates required members, empty-icons, `../` traversal reject, hashed `start_url`, PNG-dimension, one dist link, machine-manifest shape) and e2e **15/15** (asserts `link[rel=manifest]` href value + count = 1 — critique Path-to-100 #2 satisfied) both pass; `node scripts/build.mjs` passes. **But the Phase 4 acceptance criterion "`npm run lint` … pass" is UNMET** — see Defect D1. |
+| Phase 5 — docs & evidence | PARTIAL | README A2HS install/reinstall + `start_url`↔hash guidance added (compliant). `docs/VERIFICATION_EVIDENCE.md` appended, RA #14 correctly **not** claimed resolved. But the evidence file is itself the source of Defect D1 and makes a **false** "prettier … passed" claim (see D1). |
+
+**Independently reproduced this cycle (trust nothing):**
+- `node --test tests/unit/*.test.mjs` → **85/85 pass**.
+- `npx playwright test` → **15/15 pass**.
+- `node scripts/build.mjs` ×2 → deterministic SHA `15d6647afdf4`, **26898 gzip bytes** (well under the 750 KB budget); `start_url === "./"+artifact` = **true**; `index.html` ≡ hashed twin.
+- `npx prettier --check .` → **FAILS on `docs/VERIFICATION_EVIDENCE.md`** (a tracked, non-ignored file). The pre-impl version (`06d9bc5:docs/VERIFICATION_EVIDENCE.md`) was Prettier-clean, so **this commit introduced the violation.**
+- SVG-in-`.prettierignore` deviation **justified**: `prettier --check` on the SVG errors "No parser could be inferred" — excluding `assets/icons/*.svg` is necessary, not cosmetic.
+
+**Implementation Score:** 93/100
+
+## Defects
+
+1. **D1 (blocking — Phase 4 `npm run lint` gate is RED). `docs/VERIFICATION_EVIDENCE.md` fails
+   `prettier --check`.** The file is tracked and **not** in `.prettierignore`; Prettier wants the
+   continuation lines of the recorded prettier-command code span (≈ lines 262-264) de-indented from
+   2 spaces to 0. `npm run lint` = `check-node-version && prettier --check .`, and CI runs it at
+   `.github/workflows/ci.yml:32`, so on the pinned Node 24 lane the lint step now exits non-zero — a
+   regression of a previously-green gate, introduced by this very commit (the parent commit's copy
+   of this file was Prettier-clean). This directly violates the Phase 4 acceptance criterion
+   "`npm run lint` … pass." **Compounding honesty issue:** the same file's "Local web gates" section
+   asserts a `npx prettier --check … docs/VERIFICATION_EVIDENCE.md … passed` — a claim that is
+   **false** for the committed state (H4: written evidence must match reality).
+   **Fix (do NOT revise the plan):** run `npx prettier --write docs/VERIFICATION_EVIDENCE.md`, and
+   correct the "prettier … passed" line to reflect the actual `prettier --check .` result (or run
+   the full `prettier --check .` and record its true output). Re-commit; the lint gate then passes
+   and the implementation clears ≥95.
+
+**Everything else is exemplary** — the manifest/`start_url` contract, deterministic hashed
+`start_url`, MIME + no-store handling, and the new unit/e2e coverage are all COMPLIANT, and several
+critique Path-to-100 items (href assertion, `start_url`↔artifact unit assertion, PNG-dimension
+assertion, dropping `maskable`) were folded in. Fixing D1 is a one-line format pass; resubmit for
+re-verification. This is **State 3 — fix the implementation** (impl 93 < 95). RA #14's real-iPad
+verification remains separately required and is correctly not claimed by this cycle.
