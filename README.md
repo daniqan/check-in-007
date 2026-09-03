@@ -83,8 +83,12 @@ npm run build
 `dist/index.html` is self-contained and also opens from `file://`; that mode uses covert
 scan fallback because camera access requires a secure context. The build also emits a
 cache-busted twin named `dist/check-in-007.<hash>.html` plus
-`dist/check-in-007.manifest.json`. Use the hashed file when redeploying an iPad Safari or
-Add-to-Home-Screen kiosk so the device gets a fresh HTML URL.
+`dist/check-in-007.manifest.json`. It also emits `dist/check-in-007.webmanifest` and
+`dist/assets/icons/*` for Add-to-Home-Screen installs. Deploy the full `dist/` directory
+for that flow; the generated web app manifest sets `start_url` to the current hashed HTML
+artifact, while the source `manifest.webmanifest` points local development at `./index.html`.
+If iPadOS keeps old standalone launch metadata after a redeploy, remove and recreate the
+home-screen icon from the freshly served kiosk URL.
 
 ## Continuous Integration
 
@@ -136,7 +140,10 @@ scan cue on identification; it does not request microphone access or record audi
 
 Camera permission prompt appears on HTTPS; front camera feed is visible; portrait and
 landscape fit without overlap; Add to Home Screen launches full-screen with black status
-bar; the roster scrolls by touch on a fresh hashed URL; controls do not trigger double-tap zoom; inputs are at least 16 px; callout/selection
+bar from the generated `check-in-007.webmanifest` whose `start_url` matches the current
+hashed HTML artifact; reinstall the home-screen icon after redeploys that change the hash
+if the old launch URL persists; the roster scrolls by touch on a fresh hashed URL; controls
+do not trigger double-tap zoom; inputs are at least 16 px; callout/selection
 are suppressed where Safari allows; VoiceOver announces roster rows, scan status, result
 assignment, and admin actions; export the check-in log at the end of the event from the
 admin panel.

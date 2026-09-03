@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>Check-In 007 icon</title>
+  <rect width="512" height="512" fill="#050505" />
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#d5b867" stroke-width="18" />
+  <circle cx="256" cy="256" r="150" fill="#121212" stroke="#f6e7a7" stroke-width="6" />
+  <text
+    x="256"
+    y="238"
+    fill="#f6e7a7"
+    font-family="Arial Black, Arial, sans-serif"
+    font-size="138"
+    font-weight="900"
+    text-anchor="middle"
+    letter-spacing="0"
+  >
+    007
+  </text>
+  <path
+    d="M164 309h184"
+    fill="none"
+    stroke="#d5b867"
+    stroke-linecap="round"
+    stroke-width="16"
+  />
+  <path
+    d="M203 351h106"
+    fill="none"
+    stroke="#f6e7a7"
+    stroke-linecap="round"
+    stroke-width="10"
+  />
+</svg>

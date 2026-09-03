@@ -190,6 +190,8 @@ No production source under `src/`, native Swift files, guest data, or persisted 
 
 ### Phase 1 — Source manifest and icon assets
 
+Status: complete.
+
 1. Add `manifest.webmanifest` at the repository root with stable app identity and development `start_url: "./index.html"`.
 2. Add `assets/icons/` with SVG, 192 PNG, and 512 PNG icon assets. Icon entries must include `src`, `sizes`, `type`, and `purpose: "any maskable"` where supported by the asset shape.
 3. Link the source manifest from `index.html` in the `<head>` after the theme/status metadata.
@@ -202,6 +204,8 @@ Acceptance:
 - Existing local `npm run serve` development still starts from `index.html`.
 
 ### Phase 2 — Generated dist webmanifest
+
+Status: complete.
 
 1. Add `createWebAppManifest()` and `writeWebAppManifestArtifacts()` to `scripts/build.mjs`.
 2. During `build()`, after `artifactNameFor(html)` has identified the hashed HTML name, write `dist/check-in-007.webmanifest` with `start_url: "./<hashed artifact>"`.
@@ -218,6 +222,8 @@ Acceptance:
 
 ### Phase 3 — Serving and MIME behavior
 
+Status: complete.
+
 1. Extend `scripts/lib/static-server.mjs` MIME handling so `.webmanifest` serves as `application/manifest+json`; `.svg` serves as `image/svg+xml`; `.png` serves as `image/png` if not already present.
 2. Preserve existing path traversal, forbidden cert-cache, realpath, GET/HEAD, and `Cache-Control: no-store` behavior.
 3. Add tests for `GET /manifest.webmanifest`, `GET /dist/check-in-007.webmanifest` after a build fixture, and representative icon paths.
@@ -229,6 +235,8 @@ Acceptance:
 - No change to `serve:https` URL advertisement, certificate generation, or bind/SAN contracts.
 
 ### Phase 4 — Verification coverage
+
+Status: complete.
 
 1. Extend `tests/unit/build.test.mjs` to assert:
    - source manifest validation rejects missing required members in pure helper tests,
@@ -247,6 +255,8 @@ Acceptance:
 - E2E coverage confirms the linked manifest does not alter kiosk interaction.
 
 ### Phase 5 — Documentation and completion evidence
+
+Status: complete pending final command results in `docs/VERIFICATION_EVIDENCE.md`.
 
 1. Update README's Build/Test and iPad checklist sections to describe:
    - source `manifest.webmanifest` for development,

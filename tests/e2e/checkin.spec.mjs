@@ -89,6 +89,11 @@ async function installAudioMock(page) {
 test('boot, search, scan, result, log flow, and privacy probes', async ({ page, context }) => {
   await context.grantPermissions(['camera']);
   await page.goto('/');
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
+    'href',
+    './manifest.webmanifest',
+  );
+  await expect(page.locator('link[rel="manifest"]')).toHaveCount(1);
   await waitForRoster(page);
   await page.evaluate(() => {
     window.__privacyProbe = {

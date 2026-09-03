@@ -3,6 +3,7 @@ dist/
 test-results/
 playwright-report/
 native/
+assets/icons/*.svg
 BACKLOG.md
 CONSOLIDATED_AUDIT.md
 IMPLEMENTATION_PLAN.md

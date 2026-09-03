@@ -246,3 +246,49 @@ Button, identifier: 'roster.row.<redacted>', label: <redacted>
 
 - Run `33711898714` remains `BLOCKED (external billing)`; no steps ran and no artifact exists. The
   historical expected failure and current local PASS results above do not change that disposition.
+
+## Cycle 16 — Web App Manifest / Standalone Start URL
+
+- Implementation source: Cycle 16 implementation commit.
+- Scope: source `manifest.webmanifest`, install icons, generated `dist/check-in-007.webmanifest`,
+  static MIME handling, metadata tests, and operator documentation. RA #14 iPad touch-scroll
+  verification remains separate and is not claimed resolved here.
+
+### Local web gates
+
+- Status: `PASS` for direct local gates under available Node `v26.3.0`; guarded `npm run lint` and
+  `npm run build` stop at `scripts/check-node-version.mjs` because Node 24 is not exposed in this
+  shell.
+- Formatting: `npx prettier --check README.md docs/VERIFICATION_EVIDENCE.md index.html
+  manifest.webmanifest scripts/build.mjs scripts/lib/static-server.mjs tests/unit/build.test.mjs
+  tests/unit/static-server.test.mjs tests/e2e/checkin.spec.mjs` passed. A full
+  `npx prettier --check .` is blocked by the pre-existing untracked `Claude outputs/` scratch file.
+- Unit: `node --test tests/unit/*.test.mjs` passed 85/85.
+- E2E: `npx playwright test` passed 15/15.
+- Build: `node scripts/build.mjs` emitted `dist/check-in-007.15d6647afdf4.html` at 26,898 gzip bytes.
+- Generated machine manifest:
+
+```json
+{
+  "artifact": "check-in-007.15d6647afdf4.html",
+  "sha256": "15d6647afdf4d6a6d2b5dbc0f63e3cab56bbb0f96c5be740a536cf9e1e5fb810",
+  "gzipSize": 26898,
+  "byteSize": 72872
+}
+```
+
+- Generated web app manifest excerpt:
+
+```json
+{
+  "display": "standalone",
+  "id": "./",
+  "scope": "./",
+  "start_url": "./check-in-007.15d6647afdf4.html"
+}
+```
+
+- The generated `start_url` equals `"./" + dist/check-in-007.manifest.json.artifact`; source and
+  generated manifests intentionally keep browser install metadata separate from the machine build
+  manifest. Icon entries use `purpose: "any"` to avoid claiming maskable safe-zone compliance without
+  a dedicated padded maskable asset.

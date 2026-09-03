@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, relative } from 'node:path';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, dirname, extname, join, relative } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import * as acorn from 'acorn';
 
@@ -123,6 +123,77 @@ export function artifactNameFor(html) {
   return { fileName: `check-in-007.${sha256.slice(0, 12)}.html`, sha256 };
 }
 
+const requiredManifestMembers = [
+  'id',
+  'name',
+  'short_name',
+  'start_url',
+  'scope',
+  'display',
+  'theme_color',
+  'background_color',
+  'icons',
+];
+
+function assertSafeIconSrc(src) {
+  if (
+    typeof src !== 'string' ||
+    src.length === 0 ||
+    src.startsWith('/') ||
+    /^[a-z][a-z0-9+.-]*:/i.test(src) ||
+    src.includes('..') ||
+    src.includes('\\')
+  ) {
+    throw new Error(`Manifest icon src must be a relative asset path: ${src}`);
+  }
+}
+
+export function createWebAppManifest({
+  sourceManifest,
+  artifact,
+  distIconBase = './assets/icons/',
+}) {
+  for (const member of requiredManifestMembers) {
+    if (!sourceManifest[member]) throw new Error(`manifest.webmanifest missing ${member}`);
+  }
+  if (!Array.isArray(sourceManifest.icons) || sourceManifest.icons.length === 0) {
+    throw new Error('manifest.webmanifest icons must be a non-empty array');
+  }
+  if (!/^check-in-007\.[a-f0-9]{12}\.html$/.test(artifact)) {
+    throw new Error(`Invalid build artifact for web app manifest: ${artifact}`);
+  }
+  const icons = sourceManifest.icons.map((icon) => {
+    for (const member of ['src', 'sizes', 'type']) {
+      if (!icon[member]) throw new Error(`manifest.webmanifest icon missing ${member}`);
+    }
+    assertSafeIconSrc(icon.src);
+    return { ...icon, src: `${distIconBase}${basename(icon.src)}` };
+  });
+  return {
+    ...sourceManifest,
+    start_url: `./${artifact}`,
+    icons,
+  };
+}
+
+export async function writeWebAppManifestArtifacts({
+  sourceManifestPath,
+  dist,
+  artifact,
+  root: sourceRoot = root,
+}) {
+  const sourceManifest = JSON.parse(await readFile(sourceManifestPath, 'utf8'));
+  const manifest = createWebAppManifest({ sourceManifest, artifact });
+  await mkdir(join(dist, 'assets/icons'), { recursive: true });
+  for (const icon of sourceManifest.icons) {
+    assertSafeIconSrc(icon.src);
+    const sourceIcon = join(sourceRoot, icon.src.replace(/^\.\//, ''));
+    await copyFile(sourceIcon, join(dist, 'assets/icons', basename(icon.src)));
+  }
+  await writeFile(join(dist, 'check-in-007.webmanifest'), `${JSON.stringify(manifest, null, 2)}\n`);
+  return manifest;
+}
+
 export async function writeBuildArtifacts({ html, gzipSize, root: outputRoot = root }) {
   const byteSize = Buffer.byteLength(html);
   const { fileName, sha256 } = artifactNameFor(html);
@@ -140,6 +211,12 @@ export async function writeBuildArtifacts({ html, gzipSize, root: outputRoot = r
     join(dist, 'check-in-007.manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
+  await writeWebAppManifestArtifacts({
+    sourceManifestPath: join(outputRoot, 'manifest.webmanifest'),
+    dist,
+    artifact: fileName,
+    root: outputRoot,
+  });
   return { html, gzipSize, byteSize, artifact: fileName, sha256 };
 }
 
@@ -169,7 +246,7 @@ export async function build() {
   }
   const data = await readFile(join(root, 'data/guests.default.js'), 'utf8');
   const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="theme-color" content="#050505"><title>Check-In 007</title><style>${css}</style></head><body><div id="app" aria-live="off"></div><script>${data}\n${appBundle}\nwindow.CheckIn007.start(document.getElementById('app'));</script></body></html>`;
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="theme-color" content="#050505"><link rel="manifest" href="./check-in-007.webmanifest"><title>Check-In 007</title><style>${css}</style></head><body><div id="app" aria-live="off"></div><script>${data}\n${appBundle}\nwindow.CheckIn007.start(document.getElementById('app'));</script></body></html>`;
   const gzipSize = gzipSync(html).byteLength;
   if (gzipSize > 750 * 1024 || Buffer.byteLength(html) > 1.2 * 1024 * 1024) {
     throw new Error(

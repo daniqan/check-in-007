@@ -21,6 +21,9 @@ test('safeResolve rejects traversal, malformed, and dot-prefixed segments', () =
   ])
     assert.equal(safeResolve('/srv', path), null);
   assert.equal(contentTypeFor('a.mjs'), 'text/javascript; charset=utf-8');
+  assert.equal(contentTypeFor('app.webmanifest'), 'application/manifest+json');
+  assert.equal(contentTypeFor('icon.svg'), 'image/svg+xml');
+  assert.equal(contentTypeFor('icon.png'), 'image/png');
   assert.equal(contentTypeFor('a.bin'), 'application/octet-stream');
 });
 
@@ -29,9 +32,16 @@ test('static handler serves files and cert but denies secrets and invalid method
   const certDir = join(root, '.certs');
   const privateDir = join(root, 'private-cache');
   await mkdir(join(root, 'src'));
+  await mkdir(join(root, 'assets'));
+  await mkdir(join(root, 'assets/icons'));
+  await mkdir(join(root, 'dist'));
   await mkdir(certDir);
   await mkdir(privateDir);
   await writeFile(join(root, 'index.html'), '<h1>007</h1>');
+  await writeFile(join(root, 'manifest.webmanifest'), '{"name":"Check-In 007"}\n');
+  await writeFile(join(root, 'dist/check-in-007.webmanifest'), '{"start_url":"./x.html"}\n');
+  await writeFile(join(root, 'assets/icons/check-in-007-icon.svg'), '<svg></svg>');
+  await writeFile(join(root, 'assets/icons/check-in-007-icon-192.png'), 'PNGDATA');
   await writeFile(join(root, 'src/app.mjs'), 'export const ok = true');
   await writeFile(join(certDir, 'key.pem'), 'PRIVATE');
   await writeFile(join(certDir, 'cert.pem'), 'CERTIFICATE');
@@ -52,8 +62,23 @@ test('static handler serves files and cert but denies secrets and invalid method
   assert.equal(await response.text(), '<h1>007</h1>');
   response = await fetch(`${base}/src/app.mjs`);
   assert.equal(response.headers.get('content-type'), 'text/javascript; charset=utf-8');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  response = await fetch(`${base}/manifest.webmanifest`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/manifest+json');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  response = await fetch(`${base}/dist/check-in-007.webmanifest`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/manifest+json');
+  response = await fetch(`${base}/assets/icons/check-in-007-icon.svg`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'image/svg+xml');
+  response = await fetch(`${base}/assets/icons/check-in-007-icon-192.png`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'image/png');
   response = await fetch(`${base}/`, { method: 'HEAD' });
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(await response.text(), '');
   response = await fetch(`${base}/`, { method: 'POST' });
   assert.equal(response.status, 405);
