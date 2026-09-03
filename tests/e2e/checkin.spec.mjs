@@ -151,6 +151,52 @@ test('boot, search, scan, result, log flow, and privacy probes', async ({ page, 
   expect(privacy.attachedStream).toBeNull();
 });
 
+test('roster has no transform ancestor while other screens keep scale entrance', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: undefined,
+      configurable: true,
+    });
+  });
+  await page.goto('/');
+  await waitForRoster(page);
+  const rosterTransform = await page.locator('.roster-screen').evaluate((element) => ({
+    beforeReady: getComputedStyle(element).transform,
+    ready: document.getElementById('app').classList.contains('is-ready'),
+  }));
+  expect(rosterTransform).toEqual({ beforeReady: 'none', ready: true });
+
+  await page.evaluate(() => {
+    window.CheckIn007.setState('LOADING');
+  });
+  const scanTransform = await page.locator('.loading-screen').evaluate((element) => ({
+    initial: getComputedStyle(element).transform,
+    transition: getComputedStyle(element).transitionProperty,
+  }));
+  expect(scanTransform.initial).not.toBe('none');
+  expect(scanTransform.transition).toContain('transform');
+});
+
+test('scroll probe is hidden in normal mode and reflects real roster scroll when enabled', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await waitForRoster(page);
+  await expect(page.locator('#scroll-probe-status')).toHaveCount(0);
+
+  await page.goto('/?scrollProbe=1');
+  await waitForRoster(page);
+  const probe = page.locator('#scroll-probe-status');
+  await expect(probe).toHaveText('scroll-probe:0');
+  await page.locator('.roster-list').evaluate((element) => {
+    element.scrollTop = 200;
+    element.dispatchEvent(new Event('scroll'));
+  });
+  await expect(probe).toHaveText(/scroll-probe:[1-9][0-9]*/);
+});
+
 test('covert mode works when camera is unavailable', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'mediaDevices', {

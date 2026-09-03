@@ -64,14 +64,21 @@ input {
     radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.12), transparent 34%),
     linear-gradient(135deg, var(--ink), var(--ink-2));
   opacity: 0;
+  transition: opacity var(--transition-ms) ease;
+}
+
+#app.is-ready .screen {
+  opacity: 1;
+}
+
+#app:not(.is-ready) .screen:not(.roster-screen) {
   transform: scale(0.985);
   transition:
     opacity var(--transition-ms) ease,
     transform var(--transition-ms) ease;
 }
 
-#app.is-ready .screen {
-  opacity: 1;
+#app.is-ready .screen:not(.roster-screen) {
   transform: scale(1);
 }
 
@@ -147,6 +154,7 @@ h2 {
 
 .roster-screen {
   position: fixed;
+  transform: none;
 }
 
 .search-label {
@@ -238,6 +246,20 @@ h2 {
 
 .empty {
   color: var(--paper-dim);
+}
+
+.scroll-probe-status {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 4;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(5, 5, 5, 0.82);
+  color: var(--gold-hi);
+  font-size: 12px;
+  letter-spacing: 0;
 }
 
 .camera,

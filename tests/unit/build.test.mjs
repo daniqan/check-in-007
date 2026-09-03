@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { build, transformModule } from '../../scripts/build.mjs';
+import { createHash } from 'node:crypto';
+import { build, transformModule, artifactNameFor } from '../../scripts/build.mjs';
 
 test('transforms named imports and exports into namespaces', () => {
   const output = transformModule(
@@ -30,8 +31,21 @@ test('allows import and export words in strings and comments', () => {
 });
 
 test('build emits a self-contained classic artifact', async () => {
-  await build();
+  const result = await build();
   const html = await readFile(new URL('../../dist/index.html', import.meta.url), 'utf8');
+  const manifest = JSON.parse(
+    await readFile(new URL('../../dist/check-in-007.manifest.json', import.meta.url), 'utf8'),
+  );
+  const hashedHtml = await readFile(
+    new URL(`../../dist/${manifest.artifact}`, import.meta.url),
+    'utf8',
+  );
+  assert.equal(hashedHtml, html);
+  assert.equal(result.artifact, manifest.artifact);
+  assert.equal(manifest.sha256, createHash('sha256').update(html).digest('hex'));
+  assert.equal(manifest.artifact, `check-in-007.${manifest.sha256.slice(0, 12)}.html`);
+  assert.equal(manifest.byteSize, Buffer.byteLength(html));
+  assert.equal(manifest.gzipSize, result.gzipSize);
   assert.match(html, /window\.CHECKIN007_DEFAULT_GUESTS/);
   assert.match(html, /window\.CheckIn007\.start/);
   assert.equal((html.match(/<script/g) || []).length, 1);
@@ -63,4 +77,13 @@ test('build emits a self-contained classic artifact', async () => {
     html.slice(mergeIndex, storeIndex),
     /const parseCsv = window\.__CHECKIN007\.modules\.src_lib_csv\.parseCsv;/,
   );
+});
+
+test('artifact names are deterministic content hashes', () => {
+  const first = artifactNameFor('<html>same</html>');
+  const second = artifactNameFor('<html>same</html>');
+  const changed = artifactNameFor('<html>changed</html>');
+  assert.deepEqual(first, second);
+  assert.match(first.fileName, /^check-in-007\.[a-f0-9]{12}\.html$/);
+  assert.notEqual(first.fileName, changed.fileName);
 });

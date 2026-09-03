@@ -81,14 +81,35 @@ npm run build
 ```
 
 `dist/index.html` is self-contained and also opens from `file://`; that mode uses covert
-scan fallback because camera access requires a secure context.
+scan fallback because camera access requires a secure context. The build also emits a
+cache-busted twin named `dist/check-in-007.<hash>.html` plus
+`dist/check-in-007.manifest.json`. Use the hashed file when redeploying an iPad Safari or
+Add-to-Home-Screen kiosk so the device gets a fresh HTML URL.
 
 ## Continuous Integration
 
 `.github/workflows/ci.yml` runs the full web quality gate — `npm ci`, `npm run lint`, unit
 tests, Playwright chromium e2e, and `npm run build` — on the pinned Node 24 line
 (`ubuntu-latest`) for every push to `main`/`master` and every pull request, with npm and
-Playwright-browser caching. The built `dist/index.html` is uploaded as a per-run artifact.
+Playwright-browser caching. The full `dist/` directory is uploaded as a per-run artifact,
+including `index.html`, the hashed HTML artifact, and the manifest.
+
+`.github/workflows/ios-scroll.yml` is a separate self-hosted macOS/iOS lane for the iPad
+touch-scroll regression. Provision a runner with labels `self-hosted`, `macOS`, and
+`ios-touch`, Xcode command-line tools, and an iPadOS simulator such as
+`iPad Pro 13-inch (M4)`. The lane runs:
+
+```bash
+CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll
+```
+
+Locally, `npm run test:ios-scroll` builds the kiosk, serves `dist/` over the existing HTTPS
+helper, opens the hashed `?scrollProbe=1` URL in mobile Safari via XCUITest, performs a
+vertical press-drag near the right side of the web view, and fails unless the probe reports
+`scrollTop > 0`. Without `CHECKIN007_IOS_SCROLL_REQUIRED=1`, a workstation without
+`xcrun`/`xcodebuild` or the requested simulator prints a skipped status instead of claiming
+the iPad fix is verified. Use `CHECKIN007_IOS_DEVICE`, `CHECKIN007_IOS_RUNTIME`, or
+`CHECKIN007_IOS_BASE_URL` for a different simulator or pre-trusted device-farm URL.
 
 External native-simulator and live-CI verification status is recorded in
 [`docs/VERIFICATION_EVIDENCE.md`](docs/VERIFICATION_EVIDENCE.md). Only results explicitly marked
@@ -115,7 +136,7 @@ scan cue on identification; it does not request microphone access or record audi
 
 Camera permission prompt appears on HTTPS; front camera feed is visible; portrait and
 landscape fit without overlap; Add to Home Screen launches full-screen with black status
-bar; controls do not trigger double-tap zoom; inputs are at least 16 px; callout/selection
+bar; the roster scrolls by touch on a fresh hashed URL; controls do not trigger double-tap zoom; inputs are at least 16 px; callout/selection
 are suppressed where Safari allows; VoiceOver announces roster rows, scan status, result
 assignment, and admin actions; export the check-in log at the end of the event from the
 admin panel.

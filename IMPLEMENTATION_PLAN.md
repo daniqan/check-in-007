@@ -349,8 +349,8 @@ Deployment remains static-file based. Operators may continue using `dist/index.h
 
 ## 14. Completion Checklist
 
-- [ ] Phase 1: roster transform removed in isolation and desktop regressions pass.
-- [ ] Phase 2: probe-only scroll oracle implemented and hidden in normal mode.
-- [ ] Phase 3: content-hashed artifact and manifest emitted beside `index.html`.
-- [ ] Phase 4: iOS touch-scroll CI lane and runner script installed.
-- [ ] Phase 5: Node/web gates pass and real iOS touch result is recorded or explicitly blocked on runner provisioning.
+- [x] Phase 1: roster transform removed in isolation and desktop regressions pass.
+- [x] Phase 2: probe-only scroll oracle implemented and hidden in normal mode.
+- [x] Phase 3: content-hashed artifact and manifest emitted beside `index.html`.
+- [x] Phase 4: iOS touch-scroll CI lane and runner script installed.
+- [x] Phase 5: Node/web gates pass and real iOS touch result is recorded or explicitly blocked on runner provisioning.

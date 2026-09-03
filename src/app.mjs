@@ -12,9 +12,18 @@ export function createVisitId() {
   return `visit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export function readRuntimeFlags(search = window.location.search) {
+  const params = new URLSearchParams(search || '');
+  return {
+    scrollProbe: params.get('scrollProbe') === '1',
+    buildVersion: params.get('buildVersion') || null,
+  };
+}
+
 export function start(root = document.getElementById('app')) {
   const store = createStore();
   const audio = createScanAudioController();
+  const runtimeFlags = readRuntimeFlags();
   audio.setEnabled(store.loadAudioSettings().scanBlipEnabled);
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const timing = reduced ? REDUCED : TIMING;
@@ -50,6 +59,7 @@ export function start(root = document.getElementById('app')) {
       cleanup = mountRoster(root, {
         guests,
         store,
+        runtimeFlags,
         onSelect: (guestId) => {
           currentGuestId = guestId;
           currentVisitId = createVisitId();

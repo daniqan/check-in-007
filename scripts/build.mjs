@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, relative } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -117,6 +118,31 @@ export function transformModule(file, source) {
   return `window.__CHECKIN007.modules.${namespaceFor(file)} = (() => {\n${aliases}\n${body}\nreturn { ${returned} };\n})();`;
 }
 
+export function artifactNameFor(html) {
+  const sha256 = createHash('sha256').update(html).digest('hex');
+  return { fileName: `check-in-007.${sha256.slice(0, 12)}.html`, sha256 };
+}
+
+export async function writeBuildArtifacts({ html, gzipSize, root: outputRoot = root }) {
+  const byteSize = Buffer.byteLength(html);
+  const { fileName, sha256 } = artifactNameFor(html);
+  const manifest = {
+    artifact: fileName,
+    sha256,
+    gzipSize,
+    byteSize,
+  };
+  const dist = join(outputRoot, 'dist');
+  await mkdir(dist, { recursive: true });
+  await writeFile(join(dist, 'index.html'), html);
+  await writeFile(join(dist, fileName), html);
+  await writeFile(
+    join(dist, 'check-in-007.manifest.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  return { html, gzipSize, byteSize, artifact: fileName, sha256 };
+}
+
 export async function build() {
   const chunks = ['window.__CHECKIN007 = { modules: {} };'];
   for (const file of modules) {
@@ -150,11 +176,11 @@ export async function build() {
       `Artifact exceeds budget: ${Buffer.byteLength(html)} bytes, ${gzipSize} gzip bytes`,
     );
   }
-  await mkdir(join(root, 'dist'), { recursive: true });
-  await writeFile(join(root, 'dist/index.html'), html);
-  return { html, gzipSize };
+  return writeBuildArtifacts({ html, gzipSize, root });
 }
 
 if (process.argv[1] && relative(process.cwd(), process.argv[1]).endsWith('scripts/build.mjs')) {
-  build().then(({ gzipSize }) => console.log(`Built dist/index.html (${gzipSize} gzip bytes)`));
+  build().then(({ artifact, gzipSize }) =>
+    console.log(`Built dist/index.html and dist/${artifact} (${gzipSize} gzip bytes)`),
+  );
 }

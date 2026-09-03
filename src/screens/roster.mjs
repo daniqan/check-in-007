@@ -2,7 +2,43 @@ import { ADMIN, ROSTER } from '../config.mjs';
 import { filterGuests } from '../lib/roster.mjs';
 import { computeVirtualWindow, shouldVirtualize } from '../lib/virtual-list.mjs';
 
-export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
+export function createScrollProbe(list, { enabled, documentRef = document } = {}) {
+  if (!enabled) return { dispose() {} };
+  if (
+    !list ||
+    typeof list.addEventListener !== 'function' ||
+    typeof list.removeEventListener !== 'function'
+  ) {
+    throw new TypeError('createScrollProbe requires a scrollable list element');
+  }
+  const host = list.parentElement;
+  if (!host || typeof host.append !== 'function') {
+    throw new TypeError('createScrollProbe requires a list with an appendable parent');
+  }
+  const status = documentRef.createElement('p');
+  status.id = 'scroll-probe-status';
+  status.className = 'scroll-probe-status';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  status.setAttribute('aria-label', 'scroll-probe:0');
+  const update = () => {
+    const value = Math.max(0, Math.round(Number(list.scrollTop) || 0));
+    const text = `scroll-probe:${value}`;
+    status.textContent = text;
+    status.setAttribute('aria-label', text);
+  };
+  update();
+  host.append(status);
+  list.addEventListener('scroll', update, { passive: true });
+  return {
+    dispose() {
+      list.removeEventListener('scroll', update);
+      status.remove();
+    },
+  };
+}
+
+export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtimeFlags = {} }) {
   root.innerHTML = `
     <section class="screen roster-screen" aria-labelledby="roster-title">
       <header class="topbar">
@@ -32,6 +68,7 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
   let virtualItems = [];
   let virtualFrame = 0;
   let pendingZeroViewportRemeasure = false;
+  let probe = { dispose() {} };
 
   function createGuestRow(guest, absoluteIndex = null, total = null) {
     const item = document.createElement('li');
@@ -166,6 +203,7 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
   logo.addEventListener('click', preventLogoClick);
 
   render(guests);
+  probe = createScrollProbe(list, { enabled: runtimeFlags.scrollProbe });
   search.focus({ preventScroll: true });
 
   return () => {
@@ -176,6 +214,7 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store }) {
     search.removeEventListener('input', handleSearchInput);
     list.removeEventListener('scroll', handleVirtualScroll);
     list.removeEventListener('click', handleListClick);
+    probe.dispose();
     window.removeEventListener('resize', handleResize);
     logo.removeEventListener('pointerdown', startHold);
     logo.removeEventListener('pointerup', cancelHold);

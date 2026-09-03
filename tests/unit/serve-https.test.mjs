@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request } from 'node:https';
 import { X509Certificate } from 'node:crypto';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -20,7 +20,11 @@ function get(url, ca, path = '/') {
       const chunks = [];
       response.on('data', (chunk) => chunks.push(chunk));
       response.on('end', () =>
-        resolve({ status: response.statusCode, body: Buffer.concat(chunks).toString() }),
+        resolve({
+          status: response.statusCode,
+          headers: response.headers,
+          body: Buffer.concat(chunks).toString(),
+        }),
       );
     });
     req.on('error', reject);
@@ -130,9 +134,31 @@ test('explicit loopback server returns a reachable, certificate-covered URL', as
   assert.match(new X509Certificate(result.certPem).subjectAltName, /IP Address:127\.0\.0\.1/);
   const home = await get(result.url, result.certPem);
   assert.equal(home.status, 200);
+  assert.equal(home.headers['cache-control'], 'no-store');
   assert.match(home.body, /Check-In 007/);
   assert.equal((await get(result.url, result.certPem, '/.certs/key.pem')).status, 404);
   assert.equal((await get(result.url, result.certPem, '/..%2f..%2fetc/passwd')).status, 404);
+});
+
+test('server returns no-store for hashed build artifacts', async (t) => {
+  const { build } = await import('../../scripts/build.mjs');
+  await build();
+  const manifest = JSON.parse(await readFile('dist/check-in-007.manifest.json', 'utf8'));
+  const certDir = await mkdtemp(join(tmpdir(), 'checkin-https-hashed-'));
+  const result = await startServer({
+    host: '127.0.0.1',
+    port: 0,
+    root: 'dist',
+    certDir,
+    interfaces: {},
+  });
+  t.after(() => result.close());
+  for (const path of ['/index.html', `/${manifest.artifact}`]) {
+    const response = await get(result.url, result.certPem, path);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers['cache-control'], 'no-store');
+    assert.match(response.body, /Check-In 007/);
+  }
 });
 
 test('an unavailable explicit bind is rejected by the listener', async () => {
