@@ -1,14 +1,67 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 94/100
-**Audit Version:** v34
-**Audited:** HEAD `28dc5b6` on 2026-09-02 (Cycle 9 — HTTPS helper API precision & CLI docs, IMPLEMENTED & VERIFIED)
-**Stage:** Cycle 9, **State 4 — cycle complete (Plan Rev 1 = 96/100 APPROVED; Implementation Verification v9 = 98/100 ≥ 95 VERIFIED)**
+**Current Score**: 93/100
+**Audit Version:** v35
+**Audited:** HEAD `49be77d` on 2026-09-02 (Cycle 10 — External Verification Closure, plan v21 critiqued Rev 1 = 93/100 NOT APPROVED)
+**Stage:** Cycle 10, **State 1 — revise the plan (Plan Rev 1 = 93/100, below the ≥95 gate)**
 
-**Plan Score:** 96/100
-**Implementation Score:** 98/100
-**Current Score**: 94/100
+**Plan Score:** 93/100
+**Implementation Score:** N/A
+**Current Score**: 93/100
 
+<!-- audit-entry v35 -->
+> **STATE 1 — REVISE THE PLAN (v35).** Cycle 9 closed VERIFIED at v34 (94/100). A **new Cycle 10**
+> opened to create durable, reproducible evidence for the two standing external-verification gaps the
+> v34 *Next Step* recorded — both **environment-blocked verifications, not code defects**: (1) native
+> `xcodebuild … test` has never run (no iPadOS runtime on this machine, `native-ios-sdk-not-installed`);
+> (2) the committed GitHub Actions `CI` workflow has never been observed live (fires on first push, but
+> there is no Git remote). `IMPLEMENTATION_PLAN.md` was replaced with **v21 (commit `49be77d`, "plan:
+> v21 — close external verification gaps")** and fully critiqued under the staleness rule.
+>
+> **Plan Critique Cycle 10 Rev 1 = 93/100 — NOT APPROVED** (below the ≥95 gate). v21 is structurally
+> excellent — a docs-only evidence-capture cycle (`docs/VERIFICATION_EVIDENCE.md` NEW, `README.md` MOD,
+> `IMPLEMENTATION_PLAN.md` checkboxes) with careful operator-approval gates for the two external
+> mutations (iOS `-downloadPlatform`, add-remote+push), an exact-`headSha` CI join, bounded 30-min
+> polling, "skipped required step = failure," and artifact byte-parity. **Scope adequate — no cap:**
+> audit v34 has **zero open Required Actions** (RA #1–#8 DONE) and `BACKLOG.md` has **zero unchecked
+> `[ ]`**; v21 targets exactly the two (and only the two) open Next-Step items; §7 maps four integration
+> contracts; §4/§13 weigh alternatives (evidence-doc vs. wrappers/workflow-edits; UDID vs. named
+> destination; exact-SHA vs. "newest run"). **No regressions** — manifest is docs-only; §2 forbids
+> touching product/tests/Xcode/CI/deps/lockfiles/`dist/`.
+>
+> **Held below the gate by three concrete, mechanically-fixable items**, all verified against the live
+> tree: (1) **flaw of commission** — §6 Phase 1 (line 157) and §10 (line 272) instruct recording "five
+> unit suites," but `native/CheckIn007Tests/` has **six** (`CSVCodec`, `CameraPrivacy`, `CheckInStore`,
+> `GuestCatalog`, `LogMerger`, `ScanAudioPlayer`; 32 `func test`; file-system-synchronized group → all
+> six are members). "Four UI tests" is correct. A wrong expected count in a cycle whose sole deliverable
+> is *accurate evidence* is self-defeating. (2) **flaw of omission** — §6 Phase 0 step 2 and §14 item 1
+> assume `npm run lint/test:unit/test:e2e/build` run "on pinned Node 24.20.0," but this machine is **Node
+> v26.3.0** (`/opt/homebrew/bin/node`, no nvm Node 24 installed) and every script is prefixed by
+> `scripts/check-node-version.mjs`, which **exits non-zero on any major ≠ 24** — so Phase 0 (the first
+> gate, on which the immutable target SHA depends) fails closed as written. Every prior cycle worked
+> around this via a plan-sanctioned direct-tool bypass and documented pinned-Node-24 as env-blocked; v21
+> gates the iOS runtime and git remote but is silent on this equally-blocking Node-24 prerequisite. (3)
+> **flaw of omission** — §14's completion checklist admits no `BLOCKED` terminal state though §3/§6/§8/§13
+> Q4 treat BLOCKED as a legitimate outcome; given the absent runtime/remote, BLOCKED is *likely*, so the
+> cycle could be executed correctly yet never satisfy its own completion criteria. **Path to ≥95:** fix
+> the count to six (ideally by naming the suites); add a local-Node-24 gate (operator-approved nvm
+> install *or* sanction the direct-tool bypass + rewrite §6 Phase 0.2/§14 item 1, recording the actual
+> Node version in §11); split §14 into "plan implemented (evidence recorded PASS/FAIL/BLOCKED, docs-only
+> diff)" vs. "audit findings closed (both PASS)," keying State-4 completion on the former.
+>
+> Loop advances **State 4 → State 1 (revise plan v21 to ≥95).** Implementation Score **N/A** — nothing
+> built (`docs/VERIFICATION_EVIDENCE.md` absent).
+>
+> **Deductions.** No code since the v34 landing (`28dc5b6`); the two commits since (`171fc44` archive,
+> `49be77d` plan v21) are doc/plan-only → **first** idle cycle since the landing → **−1** decay (reset
+> from 0). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE, none stalled). Base
+> health holds **94** (system state unchanged — critiquing a plan is loop progress, not code; the two
+> env-blocked verification gaps are unchanged from v34). **Base 94 − backlog 0 − decay 1 = 93.** The
+> single lever that both raises the score and resets the decay is to **revise plan v21 to ≥95 and then
+> implement it** — landing the durable evidence scaffold and running the gates to a recorded outcome.
+> See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 10 Rev 1.
+
+<!-- audit-entry v34 -->
 > **STATE 4 — CYCLE COMPLETE (v34).** Cycle 9's approved plan v20 was implemented in commit
 > `28dc5b6` ("feat(§6): refine HTTPS advertised endpoints") and **VERIFIED — Implementation
 > Verification v9 = 98/100 ≥ 95**. All plan sections are **COMPLIANT** and **all five** Rev-1
@@ -1202,33 +1255,44 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 8 is at **State 4 — cycle complete**. Plan v19 is APPROVED (Rev 2 = 98/100) and its
-implementation is **VERIFIED** (Implementation Verification v8 = 98/100 ≥ 95, commit `a8f0dbd`).
-**The backlog is now fully closed — zero unchecked items remain** — so there is no queued cycle
-of work. The generator should **not** invent scope: do not re-touch the VERIFIED cycle-1–8 code
-and do not re-revise any approved plan.
+Cycle 10 is at **State 1 — revise the plan**. `IMPLEMENTATION_PLAN.md` v21 (commit `49be77d`) is
+critiqued at **93/100 — NOT APPROVED** (below the ≥95 gate). The plan is structurally excellent and
+correctly scoped (docs-only evidence capture for the two open external-verification gaps; zero open
+Required Actions, zero unchecked backlog items). **Revise v21 to ≥95 by fixing exactly three items,
+then implement it:**
 
-Two cosmetic, non-gate polish items are recorded from the Implementation Verification and may
-optionally be picked up if a future cycle opens; neither affects correctness or the score gate:
+1. **Wrong native suite count (flaw of commission).** §6 Phase 1 (line 157) and §10 (line 272) say
+   "five unit suites"; `native/CheckIn007Tests/` has **six** (`CSVCodec`, `CameraPrivacy`,
+   `CheckInStore`, `GuestCatalog`, `LogMerger`, `ScanAudioPlayer`). Change to six — ideally name the
+   suites so the count is self-checking. ("Four UI tests" is correct.)
+2. **Local Node-24 assumed, not gated (flaw of omission).** §6 Phase 0.2 + §14 item 1 assume
+   `npm run …` runs on pinned Node 24.20.0, but this machine is **Node v26.3.0** with no nvm Node 24,
+   and the `check-node-version.mjs` guard fails closed on any major ≠ 24 → Phase 0 fails as written.
+   Add an operator-approved nvm-install gate *or* sanction the direct-tool bypass prior cycles used
+   (`node --test …`, `npx playwright test`, `node scripts/build.mjs`) and rewrite §6 Phase 0.2/§14
+   item 1; record the actual Node version in §11.
+3. **No BLOCKED completion path (flaw of omission).** §14 admits only PASS outcomes though §3/§6/§8/§13
+   Q4 treat BLOCKED as legitimate; given the absent iPadOS runtime and Git remote, BLOCKED is likely.
+   Split §14 into "plan implemented (evidence recorded PASS/FAIL/BLOCKED, docs-only diff)" vs. "audit
+   findings closed (both external gates PASS)," keying State-4 completion on the former.
 
-1. **`--bind` flag** — add one `parseArgs` unit assertion + a README line, or drop the flag
-   (currently undocumented and untested scope beyond plan v19 §Phase 4).
-2. **`startServer(...).url`** — return the bound/LAN host instead of hard-coded `127.0.0.1`
-   for API precision (no user-facing surface is currently wrong).
-
-Two standing external-verification gaps remain unchanged and continue to hold base health at 93
-rather than higher — both are environment-blocked, not code defects:
+Two standing external-verification gaps remain unchanged and continue to hold base health at 94
+rather than higher — both are environment-blocked, not code defects, and are precisely what Cycle 10
+seeks to record durable evidence for:
 
 - **Native `xcodebuild … test` unrun** — no iPadOS simulator/runtime is installed on this machine
   (`native-ios-sdk-not-installed`); the web-parity gates and `xcodebuild -list` stand in.
 - **GitHub Actions CI first live run unobserved** — `.github/workflows/ci.yml` fires on first push;
-  the first real run is the definitive YAML parse/gate check.
+  no Git remote is configured. The first real run is the definitive YAML parse/gate check.
 
-Since code landed this cycle, inactivity decay resets to 0. If the project goes idle (only
-doc/plan commits) in subsequent audits, inactivity decay will begin re-accruing at −1 per cycle.
+Do **not** weaken v21's external gates to make them pass — the exact-SHA join, byte-parity, and
+skipped-step-as-failure rigor is the plan's strength. No code landed this cycle (first idle cycle
+since the v34 landing `28dc5b6`) → inactivity decay −1. Revising v21 to ≥95 and implementing it is
+the single lever that both raises the score and resets the decay.
 
 ## Revision History
 
+| v35 | 2026-09-02 | 93 | **Cycle 10 opened — plan v21 critiqued Rev 1 = 93/100 — NOT APPROVED** (commit `49be77d`, "plan: v21 — close external verification gaps"). New version fully critiqued under the staleness rule. v21 is a docs-only evidence-capture cycle (`docs/VERIFICATION_EVIDENCE.md` NEW, `README.md` MOD, plan checkboxes MOD) for the two open v34 Next-Step external-verification gaps — native `xcodebuild … test` (no iPadOS runtime, `native-ios-sdk-not-installed`) and the unobserved GitHub Actions first live run (no Git remote). Structurally excellent: operator-approval gates for both external mutations, exact-`headSha` CI join, bounded 30-min polling, skipped-required-step = failure, artifact byte-parity. **Scope adequate — no cap** (audit v34: 0 open RA, backlog 0 unchecked; v21 targets exactly the two open items; §7 four integration contracts; §4/§13 alternatives). **No regressions** (manifest docs-only; §2 forbids product/tests/Xcode/CI/deps/lockfile/`dist/` edits). **Held below ≥95 by three mechanically-fixable items, all live-tree-verified:** (1) commission — §6 Phase 1/§10 say "five unit suites" but `native/CheckIn007Tests/` has **six** (`CSVCodec`/`CameraPrivacy`/`CheckInStore`/`GuestCatalog`/`LogMerger`/`ScanAudioPlayer`, 32 `func test`, synchronized group → all members); "four UI tests" correct; wrong count corrupts an evidence-fidelity cycle. (2) omission — §6 Phase 0.2/§14 item 1 assume local pinned Node 24.20.0, but machine is **Node v26.3.0**, no nvm Node 24, and `check-node-version.mjs` fails closed on major ≠ 24 → Phase 0 (the first gate) fails as written; no Node-24 acquisition/bypass gate though the iOS runtime + git remote are gated. (3) omission — §14 completion checklist has no BLOCKED terminal state though §3/§6/§8/§13 Q4 treat BLOCKED as legitimate; given absent runtime/remote, BLOCKED is likely → unsatisfiable completion gate. Path to ≥95: fix count to six; add local-Node-24 gate (nvm install or sanction direct-tool bypass + rewrite §6.0.2/§14.1, record actual Node version); split §14 into "implemented (PASS/FAIL/BLOCKED recorded)" vs. "findings closed (both PASS)". Loop advances **State 4 → State 1 (revise plan v21)**. Implementation Score **N/A** — nothing built (`docs/VERIFICATION_EVIDENCE.md` absent). No code since the v34 landing (`28dc5b6`); the 2 commits since (archive, plan v21) are doc-only → **first** idle cycle since the landing → **−1** decay (reset from 0). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0. Base holds 94 (state unchanged; plan critique is loop progress, not code). Base 94 − 0 − 1 = **93**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 10 Rev 1. |
 | v34 | 2026-09-02 | 94 | **Cycle 9 HTTPS helper API precision IMPLEMENTED & VERIFIED — Implementation Verification v9 = 98/100 (State 4, cycle complete)** (commit `28dc5b6`, "feat(§6): refine HTTPS advertised endpoints"). All plan v20 sections **COMPLIANT**; **all five** Rev-1 Path-to-100 items folded in. Both open audit v32 polish items closed: (#1) `--bind` kept as listen-interface selector distinct from repeatable `--host` SAN, directly `parseArgs`-tested (`--bind=127.0.0.1` + `--bind ::1` + combined), README flag table + bind/SAN prose; (#2) hard-coded loopback `url` replaced by `advertisedUrls`/`httpsUrl` (wildcard→sorted LAN IPv4 or localhost fallback; explicit→bracket-safe host via `isIP()===6`), additive `urls` with `url===urls[0]`, `lanUrls` retained, explicit non-wildcard bind folded into cert SAN (`serve-https.mjs:66-72,:83-85,:108-119`). Rev-1 Omission #1 correctly resolved: wildcard case now **assertion-only** (`test:105-116`), live GETs on explicit-loopback bind (`:118-136`). Path-to-100: `main()` consumes `result.urls`/`url` (`:128,:130`), negative unavailable-bind test (`EADDRNOTAVAIL`, `:138-144`), `httpsUrl` throw test (`:91-92`), README IPv6 `::` best-effort caveat. Verified on Node v26.3.0 (§6 direct-tool path, pinned Node 24 env-blocked): **78/78** unit (+3 vs 75), **13/13** e2e, `prettier --check .` clean, `build.mjs` **26315 gzip** (budget intact). **No regression** — only the intended wildcard `url` loopback→LAN flip (= polish #2); no field removed/retyped; default-wildcard SAN unchanged (no cert regen for default users). File manifest respected (only `serve-https.mjs`, `serve-https.test.mjs`, `README.md` as source; plan-doc checkboxes also flipped, benign). Two cosmetic non-100 reasons, neither a code defect: pinned-Node-24 gate not natively executed (Node 26 → approved direct-tool path); impl commit touched plan doc. **Backlog fully closed:** two Cycle-9 polish items `[/]`→`[x]`, **0 unchecked**. Deductions: code landed → decay **−1→0**; backlog **−0**; RA **−0**. Base **93→94** (last cosmetic API-precision items resolved, endpoints now correct+cert-covered for every bind mode, unit coverage 75→78; held off ≥95 by two unchanged env-blocked verification gaps: native `xcodebuild test` no iPadOS runtime, CI first-run unobserved). **Base 94 − 0 − 0 = 94.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v9. |
 | v33 | 2026-09-02 | 92 | **Cycle 9 opened — plan v20 APPROVED, Rev 1 = 96/100** (commit `12857d2`, "plan: v20 — refine HTTPS helper endpoint contract"). New version fully critiqued under the staleness rule; clears the ≥95 gate first review. v20 resolves exactly the two cosmetic non-gate polish items from the v32 Next Step and only those: (#1) keep/document/test `--bind` as the listen-interface selector distinct from repeatable `--host` SAN additions — direct `parseArgs` coverage for `--bind=<v>` and `--bind <v>` + a README flag table; (#2) replace hard-coded `startServer().url` = `https://127.0.0.1:<port>` (`serve-https.mjs:86`) with a deterministic advertised endpoint (wildcard → first sorted LAN IPv4 or localhost fallback; explicit → that host, IPv6 bracketed via `URL.hostname`+`isIP`), additive `urls` array with `url===urls[0]` invariant, `lanUrls` retained, explicit non-wildcard bind folded into the cert SAN. Every claim source-verified: `--bind`→`options.host` (`:27`), repeatable `--host` (`:24`), loopback `url` (`:86`), `certHosts` set (`:59`), `lanUrls` sort (`:35-48`), `main()` lanUrls-fallback (`:98,:102`). Scope adequate — no cap (both/only open audit polish items; RA #1–#8 DONE; backlog closed at v32; env-blocked native-test + first-CI-run gaps correctly deferred; §7 four integration contracts; §4/§13 alternatives). No gate-blocking commission. **96 not 97:** one flaw of omission — the existing default-wildcard live-request test (`serve-https.test.mjs:53-67`, injected LAN `192.168.50.7`, live GETs via `result.url`) becomes unreachable under the new contract (wildcard `url` flips to the un-bound injected LAN IP); Phase 2 describes the correct explicit-loopback-live / wildcard-assertion-only end state but never flags this test as a required rebind. Five Path-to-100 items (name the rebind; phase the `main()` edit; IPv6 `::` reachability caveat; negative unavailable-bind test; `httpsUrl` throw test). Only intended regression: wildcard `url` loopback→LAN (= polish #2); no field removed/retyped; default-wildcard SAN unchanged (no cert regen for default users). Loop advances **State 4 → State 2 (implement approved plan v20)**. Implementation Score **N/A** — nothing built (`serve-https.mjs` unchanged 121 lines, no `urls`/`advertisedUrls`/`httpsUrl`; test 67 lines no `--bind`/`urls`; README no flag table). No code since the v32 landing (`a8f0dbd`); the 3 commits since (audit v32, archive, plan v20) are doc-only → **first** idle cycle since the landing → **−1** decay (reset from 0). Backlog strict-unchecked `[ ]` = **0** (two Cycle-9 polish items now `[/]`) → **−0**. RA −0. Base holds 93 (state unchanged; plan approval is loop progress, not code). Base 93 − 0 − 1 = **92**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 9 Rev 1. |
 | v32 | 2026-09-02 | 93 | **Cycle 8 offline static-HTTPS helper IMPLEMENTED & VERIFIED — Implementation Verification v8 = 98/100 (State 4, cycle complete)** (commit `a8f0dbd`, "feat(§6): add offline HTTPS kiosk helper"). All 5 phases **COMPLIANT** vs approved plan v19; **all four** Path-to-100 items folded in. Verified by execution on Node v26.3.0 (§6 direct-tool path): **75/75** unit (`node --test tests/unit/*.test.mjs`), **13/13** e2e (incl. new real-module-load `https-server.spec.mjs`), `prettier --check .` clean, `build.mjs` **26315 gzip** (budget intact), + **live server smoke** (`serve-https.mjs --port=18443`): LAN-IPv4 auto-seeded into cert SAN, `key.pem` 0600 + `GET /.certs/key.pem`→**404** (Rev-1 key-disclosure fix confirmed on the wire), cert route serves `cert.pem`; emitted cert parses iOS-compliant (`CN=CheckIn007 Offline Kiosk`, self-signed, SAN `DNS:localhost,IP:127.0.0.1,IP:<lan>`, EKU `1.3.6.1.5.5.7.3.1`, `ca=false`, 820-day, self-sig verifies). `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/`serve-https.mjs` + 4 unit suites + 1 e2e landed; `package.json:11`→`node scripts/serve-https.mjs` (mkcert/`-S` removed, `http-server` retained, lockfile untouched); `.gitignore` adds `.certs/`; README rewritten. IPv4 predicate pinned to `node:net` `isIP`, IPv6 `--host`→iPAddress[7] 16-byte, golden-byte KeyUsage `030205a0` assertion, static-IP README note. Two cosmetic non-gate defects (undocumented/untested `--bind`; `startServer.url` hard-coded loopback) left as optional polish. **No regressions** (`serve`/CI/`http-server`/lockfile untouched; tests grew 63→75 unit, 12→13 e2e). **Backlog fully closed:** offline-HTTPS item `[/]`→`[x]`, **0 unchecked**. Deductions: code landed → decay **−2→0**; backlog **−0**; RA **−0**. Base **92→93** (backlog entirely closed + verified new capability; held off higher by two unchanged env-blocked gaps: native `xcodebuild test` no iPadOS runtime, CI first-run unobserved). **Base 93 − 0 − 0 = 93.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v8. |
