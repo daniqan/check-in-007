@@ -1,3 +1,67 @@
+### Implementation Verification — v7
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
+**Code:** `master` @ HEAD `1f7d589` audited on 2026-09-03
+
+**Verdict: NOT STARTED — but the environment is now (partly) UNBLOCKED.** No implementation of approved
+plan v23 exists. However, unlike v2–v6, the reason is no longer "everything environment-blocked." The
+operator has resolved **both** long-standing pre-implementation blockers, and a **new** blocker surfaced on
+the CI path only. Implementation Score remains **N/A** (nothing is built), but the disposition changes
+fundamentally: **State 2 is now genuinely actionable for the native half.**
+
+#### Environment change (verified this cycle)
+
+- **Native — UNBLOCKED.** `xcrun simctl list runtimes` now reports **iOS 26.4 (23E244)** with **six
+  available iPad simulators** (iPad Pro 13-inch M5 `45CAACE4-8B3E-4358-86A8-F0BC7322303E`, iPad Pro
+  11-inch M5, iPad mini A17 Pro, iPad Air 13/11-inch M4, iPad A16). Xcode 26.4 (`17E192`), 48 GiB free.
+  The `native-ios-sdk-not-installed` condition is **gone**. → §6 Phase 0–1 is **executable now**.
+- **Remote — UNBLOCKED.** `git remote -v` = `origin https://github.com/daniqan/check-in-007.git`;
+  `gh auth status` = logged in as `daniqan` (scopes `repo`, `workflow`); `origin/master == HEAD == 1f7d589`.
+  → the push route works.
+- **CI — NEW blocker (billing).** The push triggered workflow `CI` (run `33710152352`, event `push`,
+  branch `master`, `headSha 1f7d589`), which **failed in ~2 s**:
+  *"The job was not started because your account is locked due to a billing issue."* GitHub Actions cannot
+  execute until billing is cleared. Note this run targets the **`ignore` commit, not a Cycle-11 target**,
+  and it **FAILED** — per §2/§8 a failed/non-started run is not a PASS. Phase 2's exact-`headSha`-**success**
+  gate is still unsatisfiable, now for a *different* reason.
+
+#### Section-by-section compliance (approved plan v23 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 0 — Authorization, local gates, target | **MISSING** | No Cycle-11 docs-only target commit minted (only commit since v43 is `1f7d589` "ignore" = one-line `.gitignore` edit). No Phase-0 preflight/inventory recorded. Approvals now *available* but not exercised. |
+| §6 Phase 1 — Native iPad execution | **MISSING** | `xcodebuild … test` never run despite iOS 26.4 + 6 iPad sims now available. No `.xcresult`, no recorded counts/exit. **This is now fully executable — no environment excuse.** |
+| §6 Phase 2 — Exact-SHA CI execution | **MISSING / NEW-BLOCKED** | Remote linked & HEAD pushed, but the resulting `CI` run (`33710152352`) FAILED on a billing lock, and it is against the `ignore` commit — not a Cycle-11 target. No `dist-index-html` parity check. |
+| §6 Phase 3 — Finalize evidence | **MISSING** | `docs/VERIFICATION_EVIDENCE.md` unchanged (Native `BLOCKED`, CI `BLOCKED`; no Cycle-11 section, `grep -c "Cycle 11"` = 0). README unchanged. |
+| §5 File Manifest | **UNTOUCHED** | `git diff d8a9949..HEAD` over the three manifest files is **empty**. |
+| §14 Completion Checklist | **0 / 6 checked** | Every box `[ ]`. |
+
+Base tree re-verified unchanged: native inventory still six suites / **32** methods (6+3+8+6+5+4) / **4**
+UI — matching §6 Phase 1 step 5. No regressions; backlog 0 unchecked / 15 `[x]`.
+
+#### Directive (State 2 — implement; no longer "revise-to-withdraw")
+
+The v2–v6 directive ("State 2 can't advance; revise v23 to add a withdrawal disposition") **no longer
+applies to the native half** — the blocker is gone. Do this:
+
+1. **Implement §6 Phase 0–1 now (RA #9).** Mint the Cycle-11 docs-only target commit, run the local web
+   gates, then run `xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination
+   'platform=iOS Simulator,id=<iPad-UDID>' -derivedDataPath <TEMP> -resultBundlePath <TEMP>.xcresult test`
+   against an available iPad UDID; inspect the `.xcresult` and require the exact §6 Phase 1 step-5 counts
+   (six named suites, 32 unit methods, four UI tests, exit 0, zero failures); flip Native `BLOCKED → PASS`.
+2. **Clear the GitHub Actions billing lock for the CI PASS (RA #10).** Once Actions can run, re-push the
+   Cycle-11 target and observe the exact-`headSha` `CI` run to success + `dist-index-html` byte parity
+   (§6 Phase 2). Full §14 completion (both gates PASS) requires this. **Do not** bank the failed run
+   `33710152352` as CI evidence (§2/§8).
+3. **If billing cannot be cleared**, the Rev-1 primary gap (Remaining issue #1 / Path-to-100 #1) now has a
+   concrete trigger: revise v23 to add a **bounded terminal disposition** accepting native-PASS +
+   CI-permanently-environment-blocked (folding in Path-to-100 #2 required-step reconciliation and #3
+   event-pinning), so the loop is not held hostage to billing.
+
+**Implementation Score:** N/A
+
+---
+
 # External Execution Closure Plan Critique — Cycle 11, Revision 1
 
 **Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `d8a9949`
