@@ -230,11 +230,11 @@ Neither permits scope expansion. Billing remediation requires operator action an
 
 ## 14. Completion Checklist
 
-- [ ] Swift parsing returns two correct rows for the audit fixture and all parity regressions pass.
-- [ ] CSV failure reporting cannot cause a secondary out-of-range crash.
-- [ ] Camera tests complete within bounds; any reproduced stall is fixed and privacy invariants pass.
+- [x] Swift parsing returns two correct rows for the audit fixture and all parity regressions pass.
+- [x] CSV failure reporting cannot cause a secondary out-of-range crash.
+- [x] Camera tests complete within bounds; the reproduced stall is fixed and privacy invariants pass.
 - [ ] Full native scheme passes on iOS 26.4 iPad with both targets, expected methods, and zero failures.
-- [ ] Web install, formatting, unit, Playwright, and build gates pass with recorded counts.
+- [x] Web install, formatting, unit, Playwright, and build gates pass with recorded counts.
 - [ ] Evidence/README record native PASS and CI `BLOCKED (external billing)`, identify exact SHAs/run, contain no secret/path/placeholder, and stay within the manifest.
 
 Every checkbox is required. This cycle closes the native defect without laundering CI failure into success; a future exact-SHA successful CI run may upgrade that disposition separately.

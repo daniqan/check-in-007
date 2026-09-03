@@ -93,3 +93,58 @@ required success evidence.
 
 Cycle 11 remains incomplete. Neither failed external run is represented as `PASS`, and all §14
 completion boxes remain open pending a code-fix/re-audit cycle and a successful exact-SHA CI run.
+
+## Cycle 12 — Native CSV Parity Repair
+
+- Fix commit: `b0bdf118c08be821e426b60eab7cd1ef5fe3c839`
+- Environment: Xcode 26.4 (`17E192`); iOS 26.4 (`23E244`); iPad (A16)
+  `A155995F-EC83-41BE-95B2-1A5F390ABF59`; Node `v26.3.0`; npm `11.16.0`.
+
+### CSV regression — PASS
+
+- Before the fix, the isolated `CSVCodecTests` run reproduced the audit defect: the BOM/CRLF fixture
+  returned one row instead of two, then crashed on the unconditional second-row subscript.
+- The parser now treats Swift's combined `Character("\r\n")` grapheme as one record delimiter while
+  retaining standalone LF handling, standalone CR suppression, and quoted-newline preservation.
+- The assertion is count-guarded and the additive table-driven method covers LF, CRLF, terminal CRLF,
+  quoted LF/CRLF, blank records, and doubled quotes. The isolated native suite passed all 7 methods;
+  the audit fixture returned exactly `[["name", "table"], ["Vale, Bianca", "Table \"3\""]]`.
+- The unchanged web CSV contract passed 4/4 tests.
+
+### Camera characterization — PASS
+
+- The first bounded isolated run reproduced the stall and hit its 120-second ceiling. The blocking
+  path combined real simulator authorization with `AVCaptureSession` lifecycle work on `MainActor`.
+- `CameraPreviewModel` now owns configuration/start/stop work in one private serial worker and
+  publishes the awaited result on `MainActor`. Authorization providers are injectable, so the
+  simulator test exercises authorized/no-camera behavior without waiting on a system prompt.
+- Privacy remains preview-only: no audio inputs and no capture outputs. Two fresh isolated runs of
+  all 3 `CameraPrivacyTests` passed, each completing its test phase in about 1.7 seconds.
+
+### Full native result — FAIL
+
+- Command: `xcodebuild test -quiet -project native/CheckIn007.xcodeproj -scheme CheckIn007`
+  with the iPad UDID above plus fresh temporary DerivedData and result-bundle paths.
+- Both test targets and all expected suites ran. All six unit suites passed: 33/33 methods (the 32
+  baseline methods plus one table-driven CSV regression). The four expected UI methods ran but all
+  failed initial element lookup, so the full result was 33 passed, 4 failed, 0 skipped.
+- A single qualified infrastructure retry after simulator shutdown, boot, and `bootstatus -b`
+  produced the same 33-pass/4-fail split. Failure attachments show the roster controls present but
+  exposed under element types different from the existing queries (for example `roster.mark007` is
+  a Button while the test queries `otherElements`). `CheckIn007UITests.swift` is outside the approved
+  Cycle 12 manifest, so this deterministic harness defect was not hidden or changed in this cycle.
+
+### Web result — PASS
+
+- Sanctioned direct Node path: `npm ci` (exit 0, 0 vulnerabilities), `npx prettier --check .` (exit 0),
+  `node --test tests/unit/*.test.mjs` (78/78 passed), `npx playwright test` (13/13 passed), and
+  `node scripts/build.mjs` (exit 0; 26,315 gzip bytes).
+- `dist/index.html`: 70,584 bytes; SHA-256
+  `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744` (unchanged and untracked).
+
+### CI disposition — BLOCKED (external billing)
+
+- Run: `https://github.com/daniqan/check-in-007/actions/runs/33711898714`; workflow `CI`; push event;
+  branch `master`; exact Cycle 11 head SHA `845116d41375cd6422f49bb2a53f23bcec3109e9`.
+- The job did not start because the account was locked for billing. No step passed and no
+  `dist-index-html` artifact exists. This is a terminal external block for Cycle 12; it is not a PASS.
