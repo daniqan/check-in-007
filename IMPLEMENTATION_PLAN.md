@@ -127,7 +127,7 @@ and backlog remain unchanged.
 
 ## 6. Implementation Phases
 
-### Phase 1 — Pure advertised-endpoint contract
+### Phase 1 — Pure advertised-endpoint contract — ✅ Complete
 
 Add two exported pure helpers to `scripts/serve-https.mjs` for direct unit coverage:
 
@@ -160,7 +160,7 @@ Required behavior:
 Acceptance: pure tests cover both wildcards, empty fallback, dedupe/sort, input immutability,
 explicit IPv4, hostname, and IPv6. Existing `lanUrls` remains byte-compatible.
 
-### Phase 2 — Bind parsing and live-server result precision
+### Phase 2 — Bind parsing and live-server result precision — ✅ Complete
 
 Keep parser behavior and expand its matrix. Update `startServer` after the listener starts:
 
@@ -200,7 +200,7 @@ Acceptance: `url` is never undefined; `urls` is non-empty; no return property is
 type; existing private-key/dotfile/traversal assertions remain and pass; certificate and static
 handler modules have no diff.
 
-### Phase 3 — Operator documentation
+### Phase 3 — Operator documentation — ✅ Complete
 
 Add a concise README flag table:
 
@@ -218,7 +218,7 @@ in the SAN and that loopback prevents iPad LAN access. Preserve trust and static
 Acceptance: every accepted flag has syntax/default; `--bind` cannot be confused with `--host`;
 examples use `npm run serve:https -- ...` argument forwarding.
 
-### Phase 4 — Regression gate
+### Phase 4 — Regression gate — ✅ Complete
 
 Run on pinned Node 24:
 
@@ -348,10 +348,10 @@ Rollback is `git revert <implementation-commit>`. It restores loopback-only meta
 
 ## 14. Completion Checklist
 
-- [ ] Audit v32 polish #1: `--bind` is directly tested and fully documented.
-- [ ] Audit v32 polish #2: `startServer().url` reflects the effective advertised endpoint.
-- [ ] `urls` is non-empty and `url === urls[0]` for wildcard, no-LAN, and explicit bind.
-- [ ] Returned hosts are certificate-covered; wildcards are not SANs.
-- [ ] Existing HTTPS security regression assertions pass.
-- [ ] Formatting, unit, e2e, and build gates pass; artifact budgets remain intact.
-- [ ] Only the three manifest files change during implementation.
+- [x] Audit v32 polish #1: `--bind` is directly tested and fully documented.
+- [x] Audit v32 polish #2: `startServer().url` reflects the effective advertised endpoint.
+- [x] `urls` is non-empty and `url === urls[0]` for wildcard, no-LAN, and explicit bind.
+- [x] Returned hosts are certificate-covered; wildcards are not SANs.
+- [x] Existing HTTPS security regression assertions pass.
+- [x] Formatting, unit, e2e, and build gates pass; artifact budgets remain intact.
+- [x] Only the three manifest files change during implementation.

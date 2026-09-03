@@ -37,6 +37,23 @@ iPad with ad-hoc Wi-Fi, Personal Hotspot, or a travel router, then open the prin
 to add a resolvable custom name or address. A static IP or DHCP reservation avoids needing
 to re-trust a regenerated certificate after the host address changes.
 
+| Flag                  | Default           | Meaning                                            |
+| --------------------- | ----------------- | -------------------------------------------------- |
+| `--bind <address>`    | `0.0.0.0`         | Listener interface; `127.0.0.1` is host-only       |
+| `--host <name-or-ip>` | none; repeatable  | Additional certificate SAN, not a listen address   |
+| `--port <1-65535>`    | `8443`            | Listener port                                      |
+| `--root <path>`       | current directory | Static content root                                |
+| `--cert-dir <path>`   | `.certs`          | Private certificate cache, never statically served |
+
+The default wildcard bind listens on all IPv4 interfaces and advertises the discovered LAN
+addresses. To restrict the helper to this computer, use
+`npm run serve:https -- --bind 127.0.0.1`. To listen on one specific LAN interface, use
+`npm run serve:https -- --bind <host-lan-ip>`; an explicit bind is automatically included in the
+certificate SAN. `--host` only adds another certificate identity and does not change where the
+server listens. A loopback bind prevents an iPad from reaching the helper over the LAN. An IPv6
+wildcard bind uses the existing IPv4 discovery as a best-effort advertisement for the usual
+dual-stack listener; IPv6-only interface discovery and reachability probing are not provided.
+
 On the iPad:
 
 1. Open the printed `/checkin007-cert.pem` URL and allow the profile download.
