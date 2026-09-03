@@ -1,229 +1,356 @@
-# Check-In 007 — Cycle 13 Evidence and Plan-Consistency Closure Plan v27 (Cycle 14)
+# Check-In 007 — iPad Scroll Robustness Plan v28 (Cycle 15)
 
 ## 1. Overview
 
-Cycle 14 closes the two documentation-only follow-ups created by Audit v53: back-port the already-verified `sheet.swipeUp()` admin navigation into the authoritative plan contract, and durably prove the Cycle-13 roster hit-region diagnosis with a sanitized, reproducible pre-fix accessibility hierarchy. No shipped source, test assertion, dependency, build setting, generated artifact, or runtime behavior changes. The evidence workflow reproduces the failure at pre-implementation commit `50b4357` in an isolated detached worktree, preserves the current working tree, and then re-verifies the current native and web gates.
+Cycle 15 fixes the reported iPadOS WebKit touch-scroll failure on the roster, then adds the next two backlog robustness items opened in Audit v56: an iOS touch-momentum-scroll regression gate wired into CI and cache-busted single-file kiosk artifacts for Safari / Add-to-Home-Screen redeploys. The plan deliberately isolates the runtime scroll change to one CSS variable first, because `docs/IPAD_SCROLL_BUG.md` records that prior bundled attempts made the iPad behavior worse. The output preserves the self-contained `dist/index.html` build, the offline HTTPS helper, existing desktop/web gates, native SwiftUI code, 40-guest sample path, and >500-row virtualization behavior.
+
+Source trace:
+
+- RA #14 in `CONSOLIDATED_AUDIT.md` v56: make the roster reliably touch-scroll on iPadOS Safari / standalone.
+- Backlog item 1: "Real-device / iOS-Simulator touch-momentum-scroll regression test wired into CI."
+- Backlog item 2: "iOS standalone / Add-to-Home-Screen cache-busting for the single-file build."
 
 ## 2. Scope
 
 ### In scope
 
-1. Replace completed plan v26 with this Cycle-14 plan, retaining the Cycle-13 behavioral contract and explicitly documenting why `testClearLogRequiresTwoConfirmations` must scroll the lazy admin `Form` before querying `admin.clearLog`.
-2. Reproduce `testFirstCheckInFlow` against exact pre-fix commit `50b4357` on the pinned iPad simulator with failure-only `app.debugDescription` instrumentation confined to a temporary detached worktree.
-3. Export the hierarchy attachment from the failing `.xcresult`, verify that it simultaneously contains roster-row identifiers and lacks `scan.status`, redact volatile or local-only values, and add a concise excerpt plus provenance to `docs/VERIFICATION_EVIDENCE.md`.
-4. Re-run the focused current-tree UI paths, the complete native scheme, and all web gates so the historical reproduction cannot be confused with current health.
+1. Remove transform/scale animation from the roster screen's fixed ancestor at rest and during entrance, while preserving the entrance animation for loading, scan, result, and admin screens.
+2. Add a probe-only roster scroll mode, activated only by an explicit query parameter, that exposes scroll state in DOM/accessibility text for real iOS touch verification without changing normal kiosk UX.
+3. Add a self-hosted macOS/iOS CI workflow and runner script that boots an iPadOS simulator or uses an attached iPad-capable runner, loads the cache-busted HTTPS kiosk URL, performs a synthesized vertical touch drag, and fails unless the roster's real scroll position changes.
+4. Add deterministic cache-busted build output for the single-file artifact, including a content-hashed HTML filename and manifest metadata, while keeping `dist/index.html` for existing workflows.
+5. Extend unit/e2e coverage around roster transform contracts, probe mode isolation, build manifest/hash output, and static serving headers.
+6. Document the iPad verification workflow, required runner labels/secrets, cache-busted deployment path, and manual fallback when the CI runner is unavailable.
 
 ### Out of scope
 
-- Any committed change under `native/`, `src/`, `tests/`, `scripts/`, `.github/`, `package.json`, lockfiles, Xcode project settings, or `dist/`.
-- Changing the existing `sheet.swipeUp()`, `requireExists`, hit target, accessibility roles/identifiers, assertions, timeouts, gestures, state logic, camera, persistence, audio, or visible styling.
-- Committing raw `.xcresult` bundles, full device hierarchies, absolute paths, simulator/container UUID paths, guest data beyond the checked-in fixture, secrets, or temporary instrumentation.
-- Editing discriminator-owned `IMPLEMENTATION_PLAN_CRITIQUE.md`, `CONSOLIDATED_AUDIT.md`, or `BACKLOG.md`.
-- Clearing billing, pushing/rerunning GitHub Actions, or changing CI run `33711898714` from `BLOCKED (external billing)`.
+- Replacing the web app with the native SwiftUI build, altering native app behavior, or changing native guest/log/storage contracts.
+- Reworking roster layout from grid to block, adding scroll "kicks", adding `touch-action`/`overscroll-behavior` changes, or promoting layers unless the isolated transform removal fails and a revised plan is approved.
+- Changing guest data, check-in persistence, camera capture, audio, admin merge/export behavior, or virtual-list math.
+- Making hosted Linux CI depend on Xcode/iOS. The new iOS gate runs only on a macOS/iOS-capable runner label and reports a clear skip/failure reason when that runner is not provisioned.
+- Claiming the iPad bug fixed based only on Chromium, desktop WebKit, or Playwright mobile emulation.
 
-## 3. Architecture and Evidence Flow
+## 3. Architecture
 
 ```text
-main worktree @ approved Cycle-14 plan
-  |-- read-only current source ---------------------------> current gate verification
-  |
-  `-- mktemp -d -> detached git worktree @ 50b4357
-                    -> temporary failure-only XCTest hook
-                    -> focused pre-fix UI run (expected FAIL)
-                    -> .xcresult failure attachment
-                    -> validate roster IDs present + scan.status absent
-                    -> sanitize decisive excerpt
-                    -> docs/VERIFICATION_EVIDENCE.md
-                    -> remove detached worktree/temp directory
+src/styles.css
+  roster-screen transform contract
+    -> normal kiosk on iPad Safari: roster fixed ancestor is never transformed
+    -> other screens: existing scale+fade entrance remains
 
-current source: admin sheet -> swipeUp -> lazy dangerSection materializes
-                              -> clear -> confirm clear
+src/app.mjs + src/screens/roster.mjs
+  query params
+    -> normal mode: unchanged UI
+    -> ?scrollProbe=1: adds status node and scroll listener for iOS UI automation
+
+scripts/build.mjs
+  app html
+    -> dist/index.html
+    -> dist/check-in-007.<hash>.html
+    -> dist/check-in-007.manifest.json
+
+scripts/ios-scroll-smoke.mjs
+  build + HTTPS server + simctl/device orchestration
+    -> opens https://<host>:<port>/check-in-007.<hash>.html?scrollProbe=1
+    -> invokes Xcode UI test on Safari/WebKit touch path
+    -> exits nonzero if scroll probe stays at 0
+
+.github/workflows/ios-scroll.yml
+  self-hosted macOS/iOS runner
+    -> npm ci
+    -> npm run build
+    -> npm run test:ios-scroll
 ```
 
-Git owns source identity; XCTest owns the captured hierarchy; `xcresulttool` owns attachment export; the evidence document owns only the sanitized, reviewable conclusion. A failing historical run is evidence of the old defect, never a regression result for HEAD.
+The normal app remains static and dependency-light. The probe path is owned by the web app but inert unless the query parameter is present. The CI runner owns simulator/device availability; the script fails closed when explicitly enabled and cannot silently pass without proving scroll movement.
 
 ## 4. Technical Decisions and Rationale
 
-### 4.1 Reproduce the historical hierarchy from an exact commit
+### 4.1 Isolate the scroll fix to the roster ancestor transform
 
-Use a detached temporary worktree at `50b4357`, the discriminator's approved-plan commit immediately before implementation commit `5e80c8b`. Add an uncommitted, temporary helper to `testFirstCheckInFlow` that waits for missing `scan.status`, attaches `app.debugDescription` with `.keepAlways`, and then preserves the original failing assertion. Run only that method with a fresh DerivedData directory and `.xcresult` on iPad (A16) UDID `A155995F-EC83-41BE-95B2-1A5F390ABF59`.
+Chosen: modify `src/styles.css` so `.screen` has no base transform, `#app.is-ready .screen` controls opacity only, and the scale transition applies through a selector that excludes `.roster-screen`, such as `#app:not(.is-ready) .screen:not(.roster-screen)` or a dedicated `.screen-enter-scale` contract. The roster screen must compute to `transform: none` both before and after `is-ready`; other screens retain the visual scale entrance.
 
-The reproduction is accepted only when all of these hold together:
+Why over alternatives: `docs/IPAD_SCROLL_BUG.md` identifies the transformed fixed ancestor as the best-fitting hypothesis and warns that bundled block-layout/kick/touch-action changes regressed to "no scroll at all." Removing only the roster ancestor transform tests the highest-signal variable without altering scroller display, flex sizing, virtualization, or event handling.
 
-- the test fails at the unchanged `scan.status` expectation after `firstRow.tap()`;
-- the exported failure attachment contains at least one `roster.row.` identifier from the checked-in fixture;
-- the same attachment contains no `scan.status` identifier;
-- source identity is recorded as `50b4357`, and the temp worktree has no commit.
+Tradeoff: the roster no longer has the subtle scale entrance on iPad/desktop, but it keeps fade-in and gains reliable primary-device scrolling. Other screens keep the intended transition.
 
-Rejected alternatives: describing the cause from memory leaves the audit gap open; reverting files in the main worktree risks user changes; capturing only current HEAD proves the repair, not the pre-fix state; committing the full hierarchy leaks volatile device details and produces noisy evidence.
+Evidence: the source currently has `.screen { position: fixed; transform: scale(0.985); transition: opacity, transform; }` and `#app.is-ready .screen { transform: scale(1); }`, while `.roster-list` is the touch scroller with `-webkit-overflow-scrolling: touch`. Apple documents Simulator control through `xcrun simctl` in the Xcode command-line reference, and Playwright's own docs describe mobile support as emulation of browser/device parameters, not proof that real iOS Safari touch-momentum internals behaved correctly. See:
 
-### 4.2 Export, validate, and minimize the evidence
+- https://developer.apple.com/documentation/xcode/xcode-command-line-tool-reference
+- https://playwright.dev/docs/emulation
+- https://playwright.dev/docs/browsers
 
-Use Xcode 26.4's supported result APIs: `xcresulttool get test-results tests` to identify the test ID, then `xcresulttool export attachments --only-failures` into the temporary directory. Inspect `manifest.json` and the exported text attachment before quoting it. The committed evidence contains:
+### 4.2 Add a probe-only scroll oracle instead of screenshot/OCR inference
 
-- exact source commit, Xcode/runtime/device model, focused command shape, expected nonzero result, and attachment name;
-- a short fenced excerpt sufficient to show a `roster.row.` element remains after the tap;
-- an explicit machine-checked statement that `scan.status` had zero matches in that same attachment;
-- a note that paths, PIDs, timestamps, coordinates, and simulator/container identifiers were omitted as irrelevant/volatile.
+Chosen: add a query-param gated scroll probe to the roster screen. In probe mode, the app renders a small fixed text node with stable text and an accessibility-friendly label, initialized to `scroll-probe:0`, then updates it from the real `.roster-list.scrollTop` inside the list's `scroll` event.
 
-Do not claim absence from a hand-selected excerpt: compute it over the complete exported attachment. If XCTest does not retain the custom attachment or the invariants do not hold, stop with the completion item open; do not substitute inference.
+Rejected alternatives: screenshot pixel comparison and OCR are brittle under fonts/safe-area changes; desktop Playwright `hasTouch` emulation cannot validate the iPadOS momentum layer; making the probe visible in normal mode pollutes the kiosk UI.
 
-### 4.3 Back-port the lazy-Form navigation contract
+Tradeoff: test-only code ships inside the self-contained HTML, but it is inert unless a diagnostic query parameter is present and adds only a tiny listener/node on that path.
 
-The Cycle-13 implementation correctly performs `sheet.swipeUp()` after `admin.sheet` exists and before querying `admin.clearLog`. `dangerSection` is the fifth logical section in `AdminSheet` and is below the initial iPad viewport; SwiftUI's lazy `Form` does not guarantee that its button exists or is hittable before scrolling. The scroll is therefore navigation to the existing control, not an assertion bypass: both `admin.clearLog` and the re-identified `admin.clearLog.confirm` remain required in order with unchanged three-second waits.
+Skeletal contract:
 
-Rejected alternatives: increasing timeouts cannot materialize an off-screen lazy row; coordinate taps are layout-coupled; moving the danger section changes product UI; making the clear assertion optional weakens the workflow.
+```js
+export function readRuntimeFlags(search = window.location.search) {
+  /** Returns { scrollProbe: boolean, buildVersion: string | null }. Invalid params are ignored. */
+  ...
+}
 
-### 4.4 Separate historical failure from present health
+export function createScrollProbe(list, { enabled, documentRef = document } = {}) {
+  /** In normal mode returns { dispose() } without DOM mutation.
+      In probe mode appends #scroll-probe-status and updates text from list.scrollTop.
+      Throws TypeError when enabled and list is not an Element. */
+  ...
+}
+```
 
-After the pre-fix capture is validated, remove the detached worktree and all temporary result data. On the clean current tree, run the focused `testFirstCheckInFlow` and `testClearLogRequiresTwoConfirmations` methods, then the full native scheme. Run the pinned web gates via the sanctioned direct Node path. Evidence labels the historical run `EXPECTED FAIL (pre-fix reproduction)` and current runs `PASS`; these statuses must never be merged into one count.
+### 4.3 Use a self-hosted macOS/iOS CI lane for real touch, not Linux emulation
+
+Chosen: add `.github/workflows/ios-scroll.yml` targeting explicit labels such as `self-hosted`, `macOS`, and `ios-touch`. The job runs `npm ci`, `npm run build`, and `npm run test:ios-scroll`. The Node script checks `xcrun simctl`, selected runtime/device, and local HTTPS startup, then invokes a focused Xcode UI test that opens the cache-busted URL and performs an actual press-drag on the roster area.
+
+Why over alternatives: GitHub's Ubuntu runners cannot run Xcode/iOS. GitHub-hosted macOS runners are useful but runner availability, Xcode runtime inventory, billing, and hardware/device access are operational variables in this repo already. A self-hosted label makes the dependency explicit and prevents the main web gate from becoming flaky or blocked by missing iOS capacity.
+
+Tradeoff: the gate requires an operator-provisioned runner before it can provide signal. Until then, the workflow file and script are present, and the script fails closed when `CHECKIN007_IOS_SCROLL_REQUIRED=1` is set.
+
+External constraints checked:
+
+- GitHub documents hosted and larger runners separately, with macOS limitations that matter for iOS-capable jobs: https://docs.github.com/en/actions/reference/runners/github-hosted-runners and https://docs.github.com/en/actions/reference/runners/larger-runners
+- Apple documents installing additional Xcode components/runtimes separately from the command-line tools: https://developer.apple.com/documentation/xcode/downloading-and-installing-additional-xcode-components
+
+Skeletal contract:
+
+```js
+export async function runIosScrollSmoke({
+  root = process.cwd(),
+  device = process.env.CHECKIN007_IOS_DEVICE || 'iPad',
+  runtime = process.env.CHECKIN007_IOS_RUNTIME || 'iOS',
+  required = process.env.CHECKIN007_IOS_SCROLL_REQUIRED === '1',
+  timeoutMs = 120_000,
+} = {}) {
+  /** Builds the kiosk, starts HTTPS, opens the hashed probe URL on iOS WebKit,
+      runs the focused touch-drag UI test, and returns { status, url, deviceId }.
+      Exits/skips only when not required and no iOS runner is available. */
+  ...
+}
+```
+
+### 4.4 Cache-bust with content-hashed HTML while preserving `index.html`
+
+Chosen: after building the self-contained HTML, compute a SHA-256 content hash and write:
+
+- `dist/index.html` for existing users, tests, and upload compatibility.
+- `dist/check-in-007.<12-char-hash>.html` for iOS Safari / standalone reloads that need a new URL.
+- `dist/check-in-007.manifest.json` with `{ "artifact": "...", "sha256": "...", "gzipSize": ..., "byteSize": ... }`.
+
+The HTTPS helper already sends `Cache-Control: no-store`; tests will assert that header for both `/index.html` and the hashed artifact. The hashed filename handles cases where installed web apps or manual operator flows keep stale URL-level state despite headers.
+
+Rejected alternatives: replacing `index.html` would break existing README/CI/e2e paths; query-only versioning is less durable for Add-to-Home-Screen because operators may bookmark/share a URL without the query; service workers are unnecessary and would add a second cache invalidation layer.
+
+Evidence: MDN documents `Cache-Control` response directives including `no-cache` revalidation and `no-store` non-storage semantics, and the current static server already emits `no-store` for served files. See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control.
+
+Skeletal contract:
+
+```js
+export function artifactNameFor(html) {
+  /** Returns { fileName, sha256 } using SHA-256 over the exact emitted HTML bytes. */
+  ...
+}
+
+export async function writeBuildArtifacts({ html, gzipSize, root }) {
+  /** Writes index.html, the hashed HTML twin, and manifest JSON atomically enough
+      for local CI; returns { html, gzipSize, byteSize, artifact, sha256 }. */
+  ...
+}
+```
 
 ## 5. File Manifest
 
 ```text
-IMPLEMENTATION_PLAN.md             (MOD) — Cycle-14 contract and Cycle-13 swipeUp back-port
-docs/VERIFICATION_EVIDENCE.md      (MOD) — sanitized pre-fix hierarchy provenance and current verification
+BACKLOG.md                                      (MOD) — mark the two selected iPad/iOS robustness items in progress
+IMPLEMENTATION_PLAN.md                         (MOD) — replace Cycle-14 plan with this Cycle-15 contract
+src/styles.css                                 (MOD) — remove roster-screen ancestor transform while preserving other screen entrances
+src/app.mjs                                    (MOD) — read runtime flags once and pass them to roster mounting
+src/screens/roster.mjs                         (MOD) — add probe-only scroll status node/listener and cleanup
+scripts/build.mjs                              (MOD) — emit content-hashed HTML artifact and manifest beside index.html
+scripts/ios-scroll-smoke.mjs                   (NEW) — orchestrate build, HTTPS serving, simctl/device checks, and focused iOS scroll verification
+package.json                                   (MOD) — add test:ios-scroll script
+package-lock.json                              (MOD) — script metadata update only if npm mutates lockfile metadata; no dependency additions expected
+.github/workflows/ios-scroll.yml               (NEW) — self-hosted macOS/iOS touch-scroll CI lane
+native/CheckIn007WebUITests/WebRosterScrollUITests.swift (NEW) — XCUITest Safari/WebKit touch-drag assertion against the probe URL
+native/CheckIn007.xcodeproj/project.pbxproj    (MOD) — add focused web UI test target/file if a separate target is required
+native/CheckIn007.xcodeproj/xcshareddata/xcschemes/CheckIn007Web.xcscheme (NEW) — shared scheme for the focused web UI test target if required
+tests/unit/build.test.mjs                      (MOD) — assert hashed artifact/manifest content and size invariants
+tests/unit/roster.test.mjs                     (MOD) — assert probe helper is inert by default and updates on scroll in probe mode
+tests/unit/serve-https.test.mjs                (MOD) — assert no-store for index and hashed artifacts through the HTTPS helper
+tests/e2e/checkin.spec.mjs                     (MOD) — assert roster transform contract, normal-mode probe absence, and desktop scroll regression remains green
+README.md                                      (MOD) — document iOS scroll runner, cache-busted kiosk URL, and manual verification procedure
+docs/IPAD_SCROLL_BUG.md                        (MOD) — append Cycle-15 fix/verification result section after implementation
 ```
 
-Temporary detached-worktree edits, DerivedData, result bundles, and exported attachments are verification inputs only and must be absent from the final diff. No other tracked file may change.
+No files outside this manifest may change. `dist/` remains generated/untracked unless already ignored by project policy.
 
 ## 6. Implementation Phases
 
-### Phase 0 — Baseline and isolation
+### Phase 1 — Isolated roster transform fix
 
-1. Confirm the main worktree is clean apart from the approved plan commit and record `git rev-parse HEAD`.
-2. Confirm `50b4357^{commit}` and `5e80c8b^{commit}` resolve and that their relevant diff contains the Cycle-13 hit-region/test changes.
-3. Confirm Xcode 26.4, iOS 26.4, and the pinned iPad (A16) simulator are available.
-4. Allocate all reproduction paths with `mktemp -d`; add a detached worktree at exact commit `50b4357`. Never switch or rewrite the main worktree.
+1. Update `src/styles.css` so `.roster-screen` and its `.roster-list` ancestors compute to `transform: none` before, during, and after `#app.is-ready`.
+2. Keep opacity transition for `.roster-screen`; keep opacity+scale transition for non-roster screens.
+3. Add e2e assertions that a roster page reports `getComputedStyle(rosterScreen).transform === 'none'`, while a scan/result/admin screen still has the scale entrance contract during transition.
+4. Re-run desktop Chromium/Playwright scroll checks to ensure the existing valid scroller geometry is not broken.
 
-Acceptance: exact commits and runtime resolve, the detached source lacks the full-width frame/content shape, and no tracked main-tree file is touched.
+Acceptance: normal roster UI still renders 40 rows in the non-virtualized path, virtualized tests remain green, and no layout/display/kick/touch-action changes are introduced.
 
-### Phase 1 — Capture the pre-fix failure
+### Phase 2 — Probe-only scroll oracle
 
-1. In the detached worktree only, add a test-local failure attachment immediately after the existing wait for `scan.status` fails. Preserve the original tap, five-second wait, and assertion outcome.
-2. Boot/confirm the pinned simulator and run only `CheckIn007UITests/testFirstCheckInFlow` with fresh temporary DerivedData and result-bundle paths.
-3. Require a nonzero test result caused by missing `scan.status`; infrastructure/compile/boot failures do not count and permit one clean infrastructure-only retry.
-4. Resolve the failed test ID using `xcresulttool get test-results tests`, export only failure attachments, and inspect the manifest plus hierarchy text.
-5. Assert over the complete attachment: `roster.row.` count is at least one and `scan.status` count is zero. Record counts and a minimal roster-bearing excerpt.
+1. Add runtime flag parsing with exact activation only for `scrollProbe=1`.
+2. Add `createScrollProbe()` in `src/screens/roster.mjs`; it must be no-op by default and must remove its event listener in `dispose()`.
+3. Render probe text outside the list's scrollable content but inside the roster screen so it remains visible to XCUITest after dragging.
+4. Add unit tests for default no-op, enabled initial text, scroll update, cleanup, and malformed list handling.
+5. Add e2e tests proving normal URLs do not contain probe UI and probe URLs do.
 
-Acceptance: the exact pre-fix tree produces the expected assertion failure and a retained attachment satisfying both hierarchy invariants. Any different failure or missing evidence stops the phase.
+Acceptance: production kiosk DOM is unchanged unless the probe query is present, and probe status reflects actual `scrollTop`, not a synthetic gesture counter.
 
-### Phase 2 — Document both follow-ups
+### Phase 3 — Cache-busted build artifacts
 
-1. Add a Cycle-14 subsection to `docs/VERIFICATION_EVIDENCE.md` naming the historical commit and environment, expected failure, attachment extraction method/name, invariant counts, sanitized excerpt, and the `5e80c8b` repair relationship.
-2. State explicitly that the excerpt is documentary evidence only, while the complete attachment was used for presence/absence checks and was deleted after validation.
-3. Record the already-landed `sheet.swipeUp()` as required lazy-Form navigation between `admin.sheet` existence and the two mandatory clear-log confirmations.
-4. Preserve all prior evidence verbatim, especially current native PASS and CI `BLOCKED (external billing)`.
+1. Refactor `scripts/build.mjs` to compute SHA-256 over the exact emitted HTML string after CSS/font/data/module inlining.
+2. Write `dist/index.html`, `dist/check-in-007.<hash>.html`, and `dist/check-in-007.manifest.json`.
+3. Keep existing budget checks before writing outputs.
+4. Update build tests for deterministic hash, manifest JSON shape, both files byte-identical, and module-syntax residual checks.
+5. Update HTTPS/static server tests to serve both artifact names with `Cache-Control: no-store`.
+6. Update `.github/workflows/ci.yml` artifact upload path to `dist/` if necessary so the hashed artifact and manifest are retained with `index.html`.
 
-Acceptance: a reviewer can distinguish source versions and reproduce the capture without relying on an uncommitted artifact; no secret, absolute path, PID, timestamp, coordinate dump, or raw personal/container identifier is committed.
+Acceptance: `npm run build` still prints a concise result, `dist/index.html` remains available for all current tests, and the manifest points to an existing byte-identical hashed HTML file.
 
-### Phase 3 — Verify current health and cleanup
+### Phase 4 — iOS touch-scroll CI lane
 
-1. Remove the detached worktree and its temporary directory; verify no registered temporary worktree remains.
-2. Run current-tree focused methods `testFirstCheckInFlow` and `testClearLogRequiresTwoConfirmations` independently. Both must pass with their existing assertions and timeouts.
-3. Run the complete `CheckIn007` native scheme with fresh temporary DerivedData/result bundle; require two targets, six unit suites, 33 unit + 4 UI = 37 passed, zero failed/skipped, exit 0.
-4. Run `npm ci`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`, `npx playwright test`, and `node scripts/build.mjs` through the sanctioned direct Node path.
-5. Confirm `dist/` remains untracked, only the two manifest files differ from the approved-plan commit, and the evidence has no placeholders or false CI-PASS wording.
+1. Add `scripts/ios-scroll-smoke.mjs` with explicit environment variables:
+   - `CHECKIN007_IOS_SCROLL_REQUIRED=1` to fail when no iOS runner/device is present.
+   - `CHECKIN007_IOS_DEVICE` for simulator/device selection.
+   - `CHECKIN007_IOS_RUNTIME` for runtime matching.
+   - `CHECKIN007_IOS_BASE_URL` for externally hosted device-farm runs; otherwise start local `serve-https`.
+2. Add the focused web UI test target/scheme only if the existing native UI test target cannot launch Safari/WebKit independently.
+3. The UI test opens the hashed probe URL, waits for `scroll-probe:0`, performs a vertical press-drag inside the roster list, and requires probe text to report a positive scroll value within the timeout.
+4. Add `.github/workflows/ios-scroll.yml` on the self-hosted macOS/iOS labels. The job is separate from the existing Linux web gate, has `timeout-minutes`, uploads Xcode results on failure, and never hides a required-run failure.
+5. Document runner provisioning and the manual real-iPad fallback command.
 
-Acceptance: focused and full current-tree gates pass, web gates pass, temporary artifacts are gone, and the final tracked diff matches §5 exactly.
+Acceptance: on an enabled iOS runner the job proves touch-driven scroll movement. On a non-iOS local workstation, the script reports `SKIPPED: iOS runner unavailable` only when `CHECKIN007_IOS_SCROLL_REQUIRED` is not set.
 
-### Phase 4 — Completion recording
+### Phase 5 — Verification and completion notes
 
-After every acceptance above succeeds, mark §14 complete and append the current tested source identity and result counts to the Cycle-14 evidence subsection. Do not edit the backlog; the discriminator owns closure of its two items after audit.
+1. Run `npm ci`, `npm run lint`, `npm run test:unit`, `npm run test:e2e`, and `npm run build` on Node 24.
+2. Run `npm run test:ios-scroll` on the available real iPad/iOS Simulator runner. If unavailable locally, record that the code path is installed but the gate requires the self-hosted runner; do not mark the iPad fix verified until a real iOS result exists.
+3. Run existing native tests if Xcode/iPadOS runtime is present; otherwise preserve the previously documented environment limitation.
+4. Append the actual Cycle-15 implementation evidence to `docs/IPAD_SCROLL_BUG.md`.
+5. Mark implementation checklist items complete in this plan after code lands; leave backlog closure for the discriminator after audit.
+
+Acceptance: web gates remain green, build artifacts are generated, and the iOS scroll result is either a recorded PASS from real iOS touch or an explicitly unverified gate awaiting the provisioned runner.
 
 ## 7. Integration Points
 
-### 7.1 Git identity ↔ historical reproduction
+### 7.1 CSS transition system ↔ roster scroller
 
-- **Contract:** reproduction executes detached commit `50b4357`; current verification executes the post-repair HEAD.
-- **Failure:** ambiguous SHA, dirty main tree, or reproduction from repaired source invalidates the evidence.
-- **Recovery:** discard the temp worktree and restart from exact commits; never reset the main tree.
-- **Migration:** none; all reproduction mutations remain outside committed history.
+- **Contract:** `.roster-list` stays the only scroll container; `.roster-screen` stays fixed/flex but never transformed.
+- **Failure mode:** if any ancestor computes to a transform on iPad first paint, RA #14 may persist.
+- **Migration path:** CSS-only visual change to roster entrance; no data or DOM migration.
 
-### 7.2 XCTest attachment ↔ durable evidence
+### 7.2 Runtime flags ↔ normal kiosk mode
 
-- **Contract:** the complete attachment supports both positive roster presence and negative `scan.status` absence; docs retain only a sanitized excerpt and counts.
-- **Failure:** attachment missing, wrong test/run, invariant mismatch, or only an excerpt checked.
-- **Recovery:** inspect test ID/manifest, rerun once only for infrastructure loss; otherwise stop for a new diagnosis.
-- **Migration:** existing Cycle-13 evidence remains append-only.
+- **Contract:** `scrollProbe=1` is the only activation path. Normal routes have no probe node and no extra visible text.
+- **Failure mode:** accidental probe display pollutes kiosk UX or false positives test synthetic state.
+- **Migration path:** query-gated additive behavior; no stored setting.
 
-### 7.3 Lazy admin Form ↔ clear-log UI test
+### 7.3 Build output ↔ deployment and CI artifacts
 
-- **Contract:** find `admin.sheet`, scroll it once, require `admin.clearLog`, tap, require `admin.clearLog.confirm`, tap.
-- **Failure:** control remains absent or confirmation identity does not change.
-- **Recovery:** retain failure hierarchy and fail; no optional assertion, coordinate tap, or timeout inflation.
-- **Migration:** documentation catches up to existing verified code; runtime is unchanged.
+- **Contract:** `dist/index.html` remains the compatibility artifact; `dist/check-in-007.<hash>.html` is the cache-busted URL; manifest names the hash artifact.
+- **Failure mode:** existing tests/README/CI break if `index.html` disappears; iOS stale-cache workaround fails if hash does not change with content.
+- **Migration path:** additive output files, same single-file contents, updated docs.
 
-### 7.4 Evidence status ↔ audit consumers
+### 7.4 HTTPS helper ↔ iOS runner
 
-- **Contract:** historical expected failure and current PASS have separate source identities and labels; CI remains externally blocked.
-- **Failure:** a reader could interpret the historical red run as HEAD health or CI as passed.
-- **Recovery:** correct status labels before commit.
-- **Migration:** additive Cycle-14 subsection; old raw history remains intact.
+- **Contract:** local iOS smoke uses HTTPS because camera/secure-context behavior and installed web-app flows require it; static server returns `no-store` and serves hashed artifacts.
+- **Failure mode:** certificate/SAN trust failure blocks iOS load before scroll can be tested.
+- **Migration path:** reuse existing `serve-https` certificate install flow; allow `CHECKIN007_IOS_BASE_URL` for pre-trusted device farm hosting.
+
+### 7.5 GitHub Actions ↔ self-hosted iOS capacity
+
+- **Contract:** Linux web CI remains mandatory and fast; iOS touch CI is a separate job on explicit runner labels.
+- **Failure mode:** no matching runner leaves the workflow queued rather than silently passing.
+- **Migration path:** document runner labels and make branch protection opt-in once runner capacity exists.
 
 ## 8. Error Handling and Edge Cases
 
 | Condition | Detection | Response and recovery |
 | --- | --- | --- |
-| Main tree becomes dirty unexpectedly | porcelain/diff before each phase | Preserve user work and stop; do not clean/reset it |
-| Historical commit unavailable | `rev-parse` failure | Stop; do not reproduce from an approximate revision |
-| Simulator boot/runner interruption | xcodebuild diagnostics, no product assertion | One clean infrastructure-only retry, then stop |
-| Pre-fix method unexpectedly passes | exit/result summary | Reject the capture; do not fabricate evidence |
-| Failure is compile/setup rather than `scan.status` | xcresult test details | Reject and fix only temporary instrumentation |
-| Attachment not retained/exported | manifest and export output | Check test ID/API, retry once; otherwise leave open |
-| Roster marker absent | full-attachment count = 0 | Stop; hierarchy does not prove the stated state |
-| `scan.status` present | full-attachment count > 0 | Stop; hit-region diagnosis is contradicted |
-| Sensitive/volatile data in hierarchy | final text scan/review | Quote only the minimum sanitized structural lines |
-| Temp cleanup fails | worktree list/path check | Remove only the exact validated temp target; stop if uncertain |
-| Current native/web regression | nonzero result or inventory mismatch | Do not mark complete; diagnose in a later approved case |
-| CI billing remains locked | existing run metadata | Keep `BLOCKED`; no push/poll/claim |
+| Roster still does not scroll on iPad after transform fix | probe value remains 0 after real touch drag | Stop; do not add bundled fallback fixes without a revised plan |
+| Desktop e2e scroll regresses | Playwright scrollTop/geometry assertion fails | Revert only the CSS/probe change causing the regression and diagnose |
+| Probe flag leaks into normal mode | unit/e2e finds `#scroll-probe-status` without query | Fail and keep probe creation behind exact flag |
+| Scroll event fires but `scrollTop` remains 0 | probe text unchanged | Treat as failure; the oracle must use real scroll offset |
+| Virtualized roster path broken | existing >500-row tests fail | Fix within roster rendering without changing virtual-list math |
+| Build hash nondeterministic | repeated build without source changes yields different artifact name | Remove volatile data from emitted HTML/manifest before hashing |
+| `dist/index.html` and hashed artifact differ | byte compare fails | Write both from same HTML string |
+| Static server caches HTML | header test missing `Cache-Control: no-store` | Restore no-store header for all served HTML artifacts |
+| `xcrun simctl` unavailable | child-process exit / command not found | Skip only when not required; fail when required |
+| iOS runtime/device missing | simulator list has no match | Clear error naming install/provisioning step; no false pass |
+| Safari first-run UI blocks URL load | UI test cannot find probe status | Dismiss known first-run prompts in test setup or fail with screenshot/result bundle |
+| Certificate trust blocks local HTTPS | page load does not reach probe | Use documented trusted cert setup or externally hosted `CHECKIN007_IOS_BASE_URL` |
+| CI runner queues forever | GitHub workflow shows no matching self-hosted runner | Operator provisions runner or keeps the job out of required checks |
 
 ## 9. Stability and Performance
 
-- Committed changes are documentation-only and add zero runtime CPU, memory, storage, startup, or latency cost.
-- Historical reproduction runs one UI method, O(1) in suite size; hierarchy inspection is O(H) time and memory for attachment length H, expected well below 1 MB. Only a short excerpt is committed.
-- Full verification retains existing bounded waits and suite sizes. Temporary DerivedData/result bundles may consume several GB, but live only under one validated `mktemp` root and are deleted after extraction.
-- Exactly one detached worktree is created. Cleanup targets its explicit path; no broad glob, repository-root deletion, or unresolved environment variable is permitted.
-- Failure is fail-closed: missing/contradictory evidence leaves completion unchecked and does not alter current source.
+- CSS fix has O(1) runtime cost and removes a compositor transform from the roster screen, reducing rather than increasing roster paint/composition work.
+- Probe mode adds one DOM node and one passive scroll listener only when `scrollProbe=1`; normal kiosk mode has no additional listener.
+- Build hashing is O(N) over the emitted HTML bytes. Current artifact size is about 70 KB raw / 26 KB gzip, far below the 1.2 MB raw and 750 KB gzip budgets, so SHA-256 cost is negligible.
+- Manifest write is O(1) and bounded to one small JSON file. The hashed artifact duplicates one HTML file in `dist/`; generated storage remains well below existing budgets.
+- iOS CI lane is isolated from the Linux web gate. A hung simulator/test has explicit timeouts and uploads diagnostics on failure.
+- No schema, localStorage, CSV, camera, audio, or native persistence migration is introduced.
 
 ## 10. Testing Strategy
 
-- **Historical focused UI:** `testFirstCheckInFlow` at `50b4357` must fail specifically after row tap on absent `scan.status` and emit the diagnostic attachment.
-- **Evidence assertions:** full attachment has `roster.row.` ≥ 1 and `scan.status` = 0; manifest associates it with the failed method.
-- **Current focused UI:** first check-in and clear-log methods pass independently, proving the hit repair and required scroll respectively.
-- **Native integration:** complete scheme reports exactly 37/37 across both targets, six unit suites, four UI methods, zero skips/failures.
-- **Web regression:** clean install, Prettier, 78 unit tests, 13 Playwright tests, deterministic build within the existing budget; counts may increase only if unrelated upstream work already changed them, in which case stop and reconcile rather than silently rewrite evidence.
-- **Documentation:** prior PASS/BLOCKED history unchanged, source identities unambiguous, excerpt sanitized, final diff limited to §5.
+- **Unit:** runtime flag parsing, probe creation/update/disposal, build artifact naming/manifest, byte identity between `index.html` and hashed artifact, `no-store` header coverage for both HTML paths.
+- **E2E desktop regression:** existing roster scroll geometry and virtualized/non-virtualized tests; normal-mode absence of probe UI; probe-mode status update under programmatic scroll; CSS transform contract for roster vs non-roster screens.
+- **iOS touch regression:** `npm run test:ios-scroll` on real iPad/iOS Simulator performs synthesized touch drag and asserts probe `scrollTop > 0`.
+- **Build:** `npm run build` emits `index.html`, hashed HTML, manifest, remains within size budget, and preserves residual module-syntax checks.
+- **CI:** existing `.github/workflows/ci.yml` remains Linux web gate; new `.github/workflows/ios-scroll.yml` runs only on the iOS-capable self-hosted lane.
+- **Manual fallback:** documented real-iPad Safari/standalone fresh hashed URL test when CI runner is unavailable; result must be recorded in `docs/IPAD_SCROLL_BUG.md`.
 
 ## 11. Environment and Toolchain
 
-- Xcode 26.4 (`17E192`), iOS 26.4 (`23E244`), iPad (A16) `A155995F-EC83-41BE-95B2-1A5F390ABF59`.
-- Scheme `CheckIn007`; native targets `CheckIn007Tests` and `CheckIn007UITests`.
-- `xcresulttool get test-results tests` and `xcresulttool export attachments --only-failures` from Xcode 26.4.
-- Node 24.20.0 is the project pin. The documented sanctioned local direct-tool verification may use installed Node 26.3.0/npm 11.16.0 without weakening the checked-in Node guard.
-- Fresh clone setup remains `npm ci`; no new package, formatter, or generator is introduced.
+- Node pinned by the repo: `.nvmrc` / `.node-version` `24.20.0`; `engines.node` `>=24 <25`.
+- npm dependencies already present: `@playwright/test` 1.62.1, `acorn` 8.18.0, `axe-core` 4.13.0, `http-server` 14.1.1, `prettier` 3.9.6. No new npm dependency is planned.
+- Xcode command-line tools with `xcrun simctl`; iPadOS simulator runtime or attached iPad-capable self-hosted runner.
+- Existing HTTPS helper: `npm run serve:https`, with trusted certificate flow documented in `README.md`.
+- GitHub Actions: existing Ubuntu web workflow plus new self-hosted macOS/iOS workflow. The iOS job depends on runner provisioning, not on GitHub's Linux hosted pool.
+
+Fresh clone path remains:
+
+```sh
+npm ci
+npm run lint
+npm run test:unit
+npm run test:e2e
+npm run build
+```
+
+iOS runner path:
+
+```sh
+CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll
+```
 
 ## 12. Deployment, Distribution, and Rollback
 
-There is no deployment or external mutation. The committed output is an implementation plan plus durable evidence. Roll back the later implementation commit with `git revert <cycle-14-implementation-commit>`; no schema, stored data, binary, or generated artifact is affected. Temporary reproduction data is intentionally non-distributed.
+Deployment remains static-file based. Operators may continue using `dist/index.html`; iPad kiosk redeploys should use the new `dist/check-in-007.<hash>.html` URL, or the HTTPS server URL pointing to that filename, to force a fresh standalone/Safari load. Rollback is `git revert <cycle-15-implementation-commit>`; local stored check-ins/logs are untouched because no storage keys or schemas change. If the iOS workflow causes operational friction, it can be removed from branch protection without reverting the runtime scroll fix or build artifacts.
 
 ## 13. Open Questions and Decision Gates
 
-1. **Will exact pre-fix code still reproduce on iOS 26.4?** The prior run says yes, but Phase 1 decides. An unexpected pass or different failure blocks documentation rather than authorizing a rewritten conclusion.
-2. **Will the custom hierarchy attachment export as text?** Xcode 26.4 supports failure attachment export. If the payload format differs, inspect the manifest and use the exported file without changing the required full-payload invariants.
-3. **Does the hierarchy contain fixture names that should not be quoted?** Even though fixtures are checked in, prefer identifiers/roles only; redact display names and all volatile values.
-4. **Will billing clear?** External and irrelevant to this cycle; CI stays `BLOCKED (external billing)`.
-
-None permits product-code edits, assertion weakening, approximate evidence, or scope expansion.
+1. **Is a self-hosted iOS runner already available?** Proposed resolution: implement the workflow against explicit labels and let local runs skip only when not required. Confirmation needed from repository operations before making the iOS job required in branch protection.
+2. **Does isolated roster transform removal fix the physical iPad?** Proposed resolution: test this single variable first with the probe. If it fails, stop and draft a revised plan for the next isolated fallback from `docs/IPAD_SCROLL_BUG.md`.
+3. **Should the hashed artifact become the primary uploaded artifact?** Proposed resolution: upload the full `dist/` directory so both `index.html` compatibility and hashed deployment are available.
+4. **Does Safari standalone require additional manifest/start_url work?** Proposed resolution: start with content-hashed URLs and existing meta tags; add a web app manifest only in a later plan if fresh hashed URLs do not solve stale loads.
 
 ## 14. Completion Checklist
 
-- [x] Exact `50b4357` reproduction fails at missing `scan.status` and retains the expected hierarchy attachment.
-- [x] Full attachment validation proves `roster.row.` present and `scan.status` absent; committed excerpt is minimal and sanitized.
-- [x] Plan contract explicitly requires `sheet.swipeUp()` before both unchanged clear-log confirmations.
-- [x] Current focused first-check-in and clear-log methods pass independently.
-- [x] Current full native scheme passes 37/37 with zero failures/skips, and all web gates pass.
-- [x] Temporary worktree/results are removed; final tracked diff contains only the two §5 files.
-- [x] Evidence distinguishes pre-fix expected failure, current native/web PASS, and CI `BLOCKED (external billing)`.
-
-Every checkbox is required. This plan addresses only the two Audit-v53 backlog follow-ups; the discriminator decides backlog closure after implementation audit.
+- [ ] Phase 1: roster transform removed in isolation and desktop regressions pass.
+- [ ] Phase 2: probe-only scroll oracle implemented and hidden in normal mode.
+- [ ] Phase 3: content-hashed artifact and manifest emitted beside `index.html`.
+- [ ] Phase 4: iOS touch-scroll CI lane and runner script installed.
+- [ ] Phase 5: Node/web gates pass and real iOS touch result is recorded or explicitly blocked on runner provisioning.

@@ -7,12 +7,12 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 > These are deferred *improvements* around the newly-reported iPad roster-scroll defect. The
 > **core fix itself is a defect**, tracked as **RA #14 (P0/HIGH)** in `CONSOLIDATED_AUDIT.md` and
 > drives Cycle 15 — it is deliberately NOT duplicated here. See `docs/IPAD_SCROLL_BUG.md`.
-- [ ] Real-device / iOS-Simulator touch-momentum-scroll regression test wired into CI. The
+- [/] Real-device / iOS-Simulator touch-momentum-scroll regression test wired into CI. The
   iPad roster-scroll defect (RA #14) is **unreproducible in headless Chromium and desktop WebKit**,
   so the current e2e/unit suite cannot catch this class of bug — a genuine coverage gap. Needs a
   touch-capable iOS runner (e.g. Simulator via `xcrun simctl` + WebKit, or a device farm) asserting
   the roster actually scrolls under a synthesized touch-drag.
-- [ ] iOS standalone / Add-to-Home-Screen cache-busting for the single-file build. iOS Safari and
+- [/] iOS standalone / Add-to-Home-Screen cache-busting for the single-file build. iOS Safari and
   installed web-apps cache `index.html` aggressively; stale loads were observed while debugging the
   scroll issue and forced new filenames / manual "Clear Website Data" between tests. A cache-bust
   (hashed asset name, `Cache-Control`, or a version query) would make kiosk redeploys reliable.
