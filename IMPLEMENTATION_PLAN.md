@@ -1,357 +1,315 @@
-# Check-In 007 — HTTPS Helper API Precision & CLI Documentation Plan v20 (Cycle 9)
+# Check-In 007 — External Verification Closure Plan v21 (Cycle 10)
 
 ## 1. Overview
 
-Cycle 8 shipped and verified the dependency-free offline HTTPS helper. Consolidated Audit v32
-records two remaining cosmetic findings: the supported `--bind` option is neither documented nor
-directly asserted by parser tests, and `startServer(...).url` always reports loopback even when the
-server is bound elsewhere. This cycle resolves exactly those findings without changing the kiosk,
-certificate format, static-file security boundary, or CI.
+Consolidated Audit v34 scores the shipped system at 94/100 and identifies exactly two remaining
+findings: the native SwiftUI suite has never run because this Mac has no iOS/iPadOS runtime, and the
+committed GitHub Actions workflow has never been observed on GitHub. Both are evidence gaps rather
+than product defects. This cycle creates durable, reproducible evidence for those two checks without
+changing application behavior.
 
 Traceability:
 
-- Audit v32, **Next Step optional polish item 1**: document/test `--bind` or remove it.
-- Audit v32, **Next Step optional polish item 2**: return a bound/LAN endpoint instead of a
-  hard-coded `127.0.0.1` URL.
-- Audit v32's environment-blocked native-simulator and first-live-CI observations are verification
-  prerequisites, not local code defects, and remain out of scope.
+- Audit v34 **Next Step #1**: install an iOS/iPadOS runtime and run native `xcodebuild ... test`.
+- Audit v34 **Next Step #2**: observe the first live GitHub Actions CI run after a push.
+- Audit v34 has no open Required Actions and `BACKLOG.md` has no unchecked items. This plan does not
+  reopen completed product work or invent a feature.
 
 ## 2. Scope
 
 ### In scope
 
-1. Preserve `--bind` and define it as the listen-interface selector, distinct from repeatable
-   `--host`, which adds certificate SAN entries.
-2. Add direct `parseArgs` coverage for both `--bind=<value>` and `--bind <value>` while preserving
-   existing defaults and validation.
-3. Replace the hard-coded result URL with a deterministic advertised endpoint:
-   - wildcard bind (`0.0.0.0` or `::`): first sorted discovered LAN IPv4 URL, falling back to
-     `https://localhost:<actualPort>` when no LAN IPv4 exists;
-   - explicit bind: that bound host, with IPv6 bracketed, using the actual bound port.
-4. Add a `urls` array containing all advertised endpoints while retaining `lanUrls` for backward
-   compatibility. `url === urls[0]` is invariant.
-5. Include an explicit, non-wildcard bind value in certificate hosts so the returned explicit-bind
-   URL is certificate-covered. Wildcards are never SAN entries.
-6. Document all HTTPS-helper flags and the distinction among bind address, advertised URL, and
-   certificate SAN additions.
-7. Run the existing unit, e2e, formatting, and artifact-size gates; add no dependencies.
+1. Add a checked-in record containing the environment, immutable commit SHA, commands, exit status,
+   native test counts, CI run URL/ID, conclusion, and artifact result for both findings.
+2. Install the matching iOS simulator platform only after explicit operator approval, select an
+   available iPad simulator deterministically, and run the shared `CheckIn007` scheme from a clean
+   temporary derived-data directory.
+3. Establish or confirm the GitHub repository/remote only after explicit operator approval, push
+   the reviewed Cycle-10 implementation commit normally, and inspect the `CI` run for that exact SHA.
+4. Download the CI artifact into a temporary directory, verify metadata and byte parity with a local
+   same-SHA build, and record stable URLs and SHA-256 evidence. Do not commit downloads/build output.
+5. Update README verification status to link to the durable record.
+6. Run existing web/parity gates first so external failures are not confused with local regressions.
 
 ### Out of scope
 
-- Changes under `src/`, `native/`, `data/`, `assets/`, `vendor/`, or `dist/`.
-- Certificate DER, validity, caching, key permissions, SAN encoding, trust steps, or hardened static
-  serving. Those Cycle-8 contracts remain unchanged.
-- Installing an iPadOS runtime, changing native code, pushing to GitHub, or changing CI merely to
-  manufacture the two external verification observations.
-- DNS resolution, reachability probing, IPv6 interface discovery, multiple listener sockets, public
-  API breaks, or new dependencies.
+- Changes to product source/tests, Xcode project/scheme, CI jobs, dependencies, lockfiles,
+  certificates, roster data, or generated `dist/` output.
+- Weakening tests or workflow gates to make a failure pass.
+- Creating a public repository, force-pushing, rewriting history, merging, opening a PR, changing
+  protection/settings/secrets/permissions/billing, or deleting host tooling.
+- Committing runtimes, DerivedData, `.xcresult`, Playwright reports, CI logs, or CI artifacts.
 - Editing discriminator-owned `BACKLOG.md`, `CONSOLIDATED_AUDIT.md`, or
   `IMPLEMENTATION_PLAN_CRITIQUE.md`.
+- Claiming either finding closed when success evidence is unavailable.
 
-## 3. Architecture and Data Flow
+## 3. Architecture and Evidence Flow
 
 ```text
-CLI argv
-  |
-  v
-parseArgs() --------------------> { host: bind address, hosts: extra SANs, ... }
-  |                                      |
-  v                                      v
-startServer() ---- discover LAN IPv4 ----+---- build certHosts
-  |                                            (localhost, loopback, LAN,
-  |                                             explicit bind, --host values)
-  v
-httpsServer.listen(port, host)
-  |
-  +--> actualPort from server.address()
-  +--> advertisedEndpointUrls(bind, actualPort, discovered LAN IPv4)
-          |
-          +--> wildcard: sorted LAN URLs, or localhost fallback
-          +--> explicit: one bracket-safe bound-host URL
-          +--> result { url: urls[0], urls, lanUrls, ...existing fields }
+immutable implementation commit SHA
+       |
+       +--> local web/parity gates ------------------------+
+       +--> approved iOS runtime -> xcodebuild + xcresult -+--> docs/VERIFICATION_EVIDENCE.md
+       +--> approved remote/push -> exact-SHA CI run -------+            |
+                                -> artifact byte/hash check |            +--> README link
+                                                            +------------+
 ```
 
-`parseArgs` owns syntax/defaults. `startServer` owns listener creation, certificate-host assembly,
-and its result contract. Endpoint selection is a pure helper in `scripts/serve-https.mjs`; it does
-no DNS or socket probing. `dev-cert.mjs` and `static-server.mjs` remain untouched failure domains.
+The commit SHA is the join key. Native evidence names the checked-out SHA. CI evidence must come
+from a run whose `headSha` equals it; branch name or “latest run” alone is insufficient. Local web
+failure stops all external work. Missing simulator support blocks only native verification;
+missing remote/auth/permission blocks only CI verification; failed gates are recorded as failed.
 
 ## 4. Technical Decisions and Rationale
 
-### 4.1 Keep `--bind`; document and test it
+### 4.1 Evidence document instead of code changes
 
-The option already lets operators restrict the listener to loopback or one interface instead of
-all IPv4 interfaces. Removing it would be an avoidable compatibility break. `--bind` sets the one
-address passed to `server.listen`; `--host` remains repeatable for extra DNS/IP SANs. Node remains
-the authority for invalid or unavailable bind values, avoiding an incomplete local validator.
+The audit identifies unobserved execution, not missing behavior. Versioned Markdown is reviewable
+and can cite immutable SHAs/run URLs. Wrappers or workflow edits would add implementation surface
+without making the existing workflow more trustworthy. Terminal-only evidence is rejected as
+ephemeral.
 
-### 4.2 Advertise endpoints from the effective bind
+### 4.2 Explicit approval for external mutations
 
-A wildcard is not a useful client destination, so wildcard binds advertise discovered LAN IPv4
-addresses and use localhost only when none exist. An explicit bind advertises exactly that host.
-Always selecting a LAN IP would be wrong for explicit loopback/single-interface binds; returning
-`0.0.0.0` or `::` would preserve the audit defect.
+`xcodebuild -downloadPlatform iOS` changes the host and may consume substantial disk/network. Adding
+a remote and pushing changes publishes state to collaborators. The implementer performs read-only
+preflight, presents the resolved target/impact, and pauses for specific approval before each action.
 
-### 4.3 Add `urls` without removing `lanUrls`
+### 4.3 Machine-readable simulator destination
 
-`url` stays a string for compatibility and becomes the canonical first advertised endpoint.
-`urls` exposes the complete advertised set. `lanUrls` remains the discovery-only view because
-existing tests and potential callers already receive it. No existing property is removed.
+After installation, parse available devices, choose an available iPad, and call `xcodebuild` with
+`platform=iOS Simulator,id=<UDID>`. UDID avoids ambiguous names and the README's named model not
+existing on every runtime. Require iOS 26+ because the project deployment target is 26.0.
 
-### 4.4 Use `node:net` plus WHATWG `URL` for IPv6-safe formatting
+### 4.4 Isolated native results
 
-Use the existing built-in `node:net` `isIP` predicate to identify IPv6, wrap only an IPv6 literal in
-brackets, then assign that value to the built-in `URL.hostname` before setting `.port`. A raw `::1`
-assignment is ignored by WHATWG URL parsing, whereas `[::1]` serializes correctly. IPv4 and DNS
-names remain conventional. This avoids a custom colon heuristic and adds no package.
+Use temporary `-derivedDataPath` and `-resultBundlePath`; inspect `.xcresult` with the installed
+`xcrun xcresulttool`. Record command, Xcode build, runtime, destination, exit code, and unit/UI test
+totals. Do not delete global caches or commit the large, machine-specific bundle.
 
-### 4.5 Certificate coverage follows explicit advertisement
+### 4.5 Exact-SHA CI selection
 
-Add the explicit bind to `certHosts` unless it is a wildcard. Thus URLs returned for loopback, a
-LAN IP, IPv6, or a hostname are represented in the generated SAN. Existing `ensureCert` SAN-mismatch
-regeneration remains authoritative; `Set` preserves deterministic first-occurrence deduplication.
+This repository currently has no Git remote, while `gh` is authenticated. Resolve the intended
+owner/repository and branch with the operator; never guess. After a normal push, query the workflow
+and select by exact `headSha`, then require `conclusion == success`. “Newest run” is race-prone.
+
+### 4.6 Artifact parity
+
+Download the exact run's `dist-index-html` into a temporary directory. Require one
+`dist/index.html`, compute byte count/SHA-256, and compare exact bytes with a fresh local build from
+the same SHA. Mismatch fails verification; only hashes and sizes are committed.
 
 ## 5. File Manifest
 
 ```text
-scripts/
-  serve-https.mjs                 (MOD) — endpoint formatting/selection, explicit-bind SAN,
-                                           additive result metadata
-tests/
-  unit/
-    serve-https.test.mjs          (MOD) — bind parsing, URL selection, live result tests
-README.md                         (MOD) — flag reference and bind/SAN semantics
+docs/
+  VERIFICATION_EVIDENCE.md       (NEW) — immutable-SHA native and live-CI execution evidence
+README.md                        (MOD) — link/status summary for external verification gates
+IMPLEMENTATION_PLAN.md           (MOD) — completion checkboxes after verified implementation
 ```
 
-No file is created or deleted. Package manifests, lockfile, generated artifacts, audits, critique,
-and backlog remain unchanged.
+No product, test, workflow, package, Xcode-project, generated artifact, audit, critique, or backlog
+file changes during implementation.
 
 ## 6. Implementation Phases
 
-### Phase 1 — Pure advertised-endpoint contract — ✅ Complete
+### Phase 0 — Freeze target and local preflight
 
-Add two exported pure helpers to `scripts/serve-https.mjs` for direct unit coverage:
+1. Require a clean tracked worktree; capture HEAD, branch, Xcode/runtime/destination inventory,
+   Node version, remotes, and read-only GitHub authentication status.
+2. On pinned Node 24.20.0 run `npm ci`, `npm run lint`, `npm run test:unit`,
+   `npm run test:e2e`, and `npm run build`.
+3. Run `xcodebuild -list -json -project native/CheckIn007.xcodeproj`; confirm the shared scheme
+   exposes app, unit-test, and UI-test targets.
+4. Create evidence and README files, initially marking external results `BLOCKED`, and commit them.
+   This commit becomes the immutable target SHA.
 
-```js
-/** Build a bracket-safe HTTPS origin for a client-reachable host. */
-export function httpsUrl(host, port) {
-  // Uses isIP(host) === 6 to bracket IPv6 before assigning URL.hostname.
-  // Returns URL.origin (no trailing slash); invalid URL inputs throw.
-  ...
-}
+Acceptance: local gates pass; target commit changes only manifest files; no placeholder is reported
+as success. Any local failure stops work before install or push.
 
-/**
- * Select deterministic client endpoints for the effective bind.
- * Wildcards advertise LAN IPv4 endpoints or localhost fallback.
- */
-export function advertisedUrls(bindHost, port, lanAddresses = []) {
-  ...
-}
-```
+### Phase 1 — Native simulator verification
 
-Required behavior:
-
-- Recognize only `0.0.0.0` and `::` as wildcards.
-- Sort/deduplicate a defensive copy of `lanAddresses`; never mutate caller input.
-- Wildcard plus addresses returns every `https://<address>:<port>`.
-- Wildcard plus no address returns `['https://localhost:<port>']`.
-- Explicit IPv4/DNS returns one conventional URL; explicit IPv6 returns one bracketed URL.
-- Strings omit a trailing slash, matching the existing convention.
-
-Acceptance: pure tests cover both wildcards, empty fallback, dedupe/sort, input immutability,
-explicit IPv4, hostname, and IPv6. Existing `lanUrls` remains byte-compatible.
-
-### Phase 2 — Bind parsing and live-server result precision — ✅ Complete
-
-Keep parser behavior and expand its matrix. Update `startServer` after the listener starts:
-
-```js
-export async function startServer(options = {}) {
-  // Existing defaults are unchanged.
-  const lanAddresses = lanIpv4Addresses(interfaces);
-  const bindCertHosts = host === '0.0.0.0' || host === '::' ? [] : [host];
-  const certHosts = [
-    ...new Set(['localhost', '127.0.0.1', ...lanAddresses, ...bindCertHosts, ...hosts]),
-  ];
-  // Existing certificate, handler, listen, EADDRINUSE, and close logic remains.
-  const actualPort = server.address().port;
-  const urls = advertisedUrls(host, actualPort, lanAddresses);
-  return {
-    server,
-    port: actualPort,
-    url: urls[0],
-    urls,
-    // All existing fields, including lanUrls, remain.
-  };
-}
-```
-
-Tests prove:
-
-1. Both `--bind` syntaxes override only `host`; combined flags retain their exact values.
-2. Existing missing-value, unknown-option, and invalid-port behavior remains.
-3. A live server bound to `127.0.0.1` returns
-   `url === urls[0] === https://127.0.0.1:<actualPort>`.
-4. Its certificate covers loopback and a trusted request through `result.url` serves the kiosk.
-5. The injected-LAN wildcard test asserts `urls`, `url`, and `lanUrls`: LAN is primary rather than
-   hard-coded loopback.
-6. No-LAN wildcard behavior stays at the pure-helper layer, independent of machine interfaces.
-
-Acceptance: `url` is never undefined; `urls` is non-empty; no return property is removed or changes
-type; existing private-key/dotfile/traversal assertions remain and pass; certificate and static
-handler modules have no diff.
-
-### Phase 3 — Operator documentation — ✅ Complete
-
-Add a concise README flag table:
-
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--bind <address>` | `0.0.0.0` | Listener interface; loopback is host-only |
-| `--host <name-or-ip>` | repeatable, none | Additional certificate SAN, not a listen address |
-| `--port <1-65535>` | `8443` | Listener port |
-| `--root <path>` | current directory | Static content root |
-| `--cert-dir <path>` | `.certs` | Private certificate cache, never statically served |
-
-Show default wildcard/LAN use and explicit restricted binding. State that explicit bind is included
-in the SAN and that loopback prevents iPad LAN access. Preserve trust and static-IP guidance.
-
-Acceptance: every accepted flag has syntax/default; `--bind` cannot be confused with `--host`;
-examples use `npm run serve:https -- ...` argument forwarding.
-
-### Phase 4 — Regression gate — ✅ Complete
-
-Run on pinned Node 24:
+Preflight:
 
 ```bash
-npm run lint
-npm test
-npm run build
+xcodebuild -version
+xcrun simctl list runtimes --json
+xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -showdestinations
 ```
 
-If the environment is not Node 24, the guard must fail closed. For diagnosis only, use the approved
-direct-tool path and report the deviation:
+If no eligible runtime exists, report free disk space/platform and request explicit approval for:
 
 ```bash
-npx prettier --check .
-node --test tests/unit/*.test.mjs
-npx playwright test
-node scripts/build.mjs
+xcodebuild -downloadPlatform iOS
 ```
 
-Acceptance: zero test failures, Prettier clean, artifact within ≤750 KB gzip/≤1.2 MB raw, and diff
-review confirms only the three manifest files changed.
+Then choose an available iPad UDID from JSON, boot if required, wait with
+`xcrun simctl bootstatus <UDID> -b`, and run:
 
-## 7. Integration Points
+```bash
+xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 \
+  -destination 'platform=iOS Simulator,id=<UDID>' \
+  -derivedDataPath '<TEMP>/DerivedData' \
+  -resultBundlePath '<TEMP>/CheckIn007.xcresult' test
+```
 
-### 7.1 Parser → listener
+Record target SHA, environment/destination, exact redacted command, exit, unit/UI totals, discovery
+of all five unit suites and four UI tests, and `PASS`, `FAIL`, or `BLOCKED` with recovery detail.
 
-- **Contract:** `parseArgs` maps `--bind` to `options.host`; `main` passes it to `startServer`, which
-  passes it to `server.listen`.
-- **Failure:** malformed CLI shape fails before startup; invalid/unavailable address fails through
-  Node's listen error and the existing top-level catch.
-- **Migration:** default stays `0.0.0.0`; existing commands behave identically.
+Acceptance: exit 0, zero failures, both `CheckIn007Tests` and `CheckIn007UITests` execute, and all
+temporary outputs remain outside the repository.
 
-### 7.2 Listener → API metadata
+### Phase 2 — First live GitHub Actions verification
 
-- **Contract:** calculation uses `actualPort`, not requested port, so port-zero callers are accurate.
-  `url` aliases `urls[0]`; `lanUrls` stays discovery metadata.
-- **Failure:** wildcard/no-LAN degrades to localhost; helper formatting errors reject startup.
-- **Migration:** additive `urls`, corrected `url`, no removed fields. Old reliance on incorrect
-  loopback metadata is intentionally corrected.
+1. Read-only preflight auth/remotes and resolve whether an existing repository matches this project.
+2. If none, present exact `owner/repository`, visibility, branch, and whether creation is required;
+   request approval. Repository creation requires separate approval and defaults private.
+3. Add only the approved remote if needed and normally push the target branch; never force/delete.
+4. Select the `CI` run whose `headSha` equals target SHA. Poll no faster than every 15 seconds with a
+   30-minute ceiling.
+5. Require the `web` job and every non-conditional gate step to succeed. Cancelled/timed-out/skipped
+   required steps and neutral conclusions do not close the finding.
+6. Download `dist-index-html`; assert one expected file and compare byte/hash with local same-SHA
+   `dist/index.html`.
 
-### 7.3 Advertised endpoint → certificate SAN
+Acceptance: stable run URL/ID, workflow/event/branch/exact SHA, timestamps, job/step conclusions,
+artifact name/size/hash, and local parity are recorded; overall conclusion is `success`.
 
-- **Contract:** localhost, loopback, LAN IPv4s, explicit non-wildcard bind, and `--host` feed
-  `ensureCert`; every returned URL host is covered.
-- **Failure:** bad input is rejected by existing certificate generation or socket bind; stale cache
-  regenerates via existing SAN comparison.
-- **Migration:** a cache may regenerate once when explicit bind adds a SAN; existing re-trust docs
-  cover this.
+### Phase 3 — Finalize durable evidence
 
-### 7.4 CLI stdout
+Use this contract:
 
-- **Contract:** `main` should consume `result.urls` so explicit and wildcard binds print the same
-  primary endpoint exposed programmatically; certificate route uses `urls[0]`.
-- **Failure:** no-LAN wildcard prints localhost; no empty endpoint list is possible.
-- **Migration:** headings and trust instructions stay stable; only previously inaccurate explicit-
-  bind output changes.
+```markdown
+# Verification Evidence
+## Target
+- Commit: `<40-hex SHA>`
+- Branch: `<branch>`
+- Recorded at: `<UTC ISO-8601>`
+## Native iOS Simulator
+- Status: `PASS | FAIL | BLOCKED`
+- Environment: `<Xcode build; runtime; device name + UDID>`
+- Command/result: `<redacted command; exit; unit/UI totals>`
+- Notes: `<none or blocker>`
+## GitHub Actions CI
+- Status: `PASS | FAIL | BLOCKED`
+- Repository/run: `<owner/repo; stable URL and ID>`
+- Identity/result: `<workflow; event; branch; head SHA; required steps>`
+- Artifact: `<name; bytes; SHA-256; local parity>`
+- Notes: `<none or blocker>`
+```
+
+README links the record and calls only `PASS` results verified. Commit finalized evidence normally;
+do not amend the pushed target commit. If a gate blocks/fails, preserve that status and do not claim
+audit closure. Scan the final diff for secrets, absolute user paths, temporary paths, and mismatched
+SHAs.
+
+## 7. Integration Contracts
+
+### 7.1 Repository state → verification identity
+
+- **Contract:** one 40-character target SHA identifies the tree tested locally, natively, and in CI.
+- **Failure:** a later commit changes executable inputs or workflow config.
+- **Recovery:** create a new target SHA and rerun both gates; never relabel old results.
+
+### 7.2 Xcode project → simulator
+
+- **Contract:** shared scheme builds app/unit/UI targets on an available iOS 26+ iPad simulator.
+- **Failure:** runtime/device absent, boot timeout, build/test failure, unreadable result bundle.
+- **Recovery:** install approved platform, re-enumerate UDID, retry once after shutdown/boot; code
+  repair requires a separate audited cycle.
+
+### 7.3 Git → GitHub Actions
+
+- **Contract:** approved remote receives target SHA on `main`/`master`, matching the push trigger.
+- **Failure:** missing repo/permission, protection, disabled workflow, YAML error, quota, no run.
+- **Recovery:** record `BLOCKED` and obtain operator/admin resolution; do not bypass policy.
+
+### 7.4 CI → artifact parity
+
+- **Contract:** exact run uploads one artifact byte-identical to local Node-24 same-SHA output.
+- **Failure:** missing/duplicate/download-denied artifact or hash mismatch.
+- **Recovery:** mark `FAIL`; diagnose nondeterminism in a later plan.
 
 ## 8. Error Handling and Edge Cases
 
-| Condition | Detection | Response and recovery |
+| Condition | Detection | Response/recovery |
 | --- | --- | --- |
-| Missing `--bind` value | parser sees absent/next flag | Existing `Missing value` error; supply value |
-| Unknown flag | parser branch | Existing `Unknown option`; no side effect |
-| Invalid/unavailable bind | Node startup `error` | Reject and print failure; choose valid interface |
-| Port in use | existing `EADDRINUSE` branch | Preserve actionable `--port` hint |
-| Wildcard, no LAN IPv4 | empty discovery | Advertise localhost |
-| Duplicate/unsorted LAN input | pure-helper boundary | Copy, dedupe, sort without mutation |
-| Explicit IPv6 | WHATWG URL | Bracket origin and add address to SAN |
-| Wildcard as SAN | explicit filter | Never pass `0.0.0.0`/`::` as identity |
-| Requested port `0` | `server.address().port` | Advertise assigned port |
-| SAN set changes | existing cache comparison | Regenerate and retain re-trust notice |
-| Close after start | existing Promise wrapper | Propagate close error or resolve cleanly |
+| Dirty tracked worktree | `git status --porcelain` | Stop; preserve unrelated work |
+| No runtime | runtime/destination inventory | Ask before download; else `BLOCKED` |
+| Download/disk failure | command diagnostic | Stop; report space/network, do not clean globally |
+| No iPad device | parsed JSON inventory | Use installed iPad only; no iPhone substitute |
+| Boot timeout | `bootstatus` | One shutdown/boot retry, then `BLOCKED` |
+| Native test failure | exit + xcresult | Record `FAIL`; do not edit tests/source |
+| No remote/repository | preflight | Ask exact target and creation permission |
+| Auth/permission failure | `gh`/push | Stop; never expose token or alter scopes |
+| Concurrent push | `headSha` mismatch | Ignore unmatched run |
+| CI exceeds 30 minutes | bounded polling | Record `BLOCKED`; retain run URL |
+| Required step skipped | step inspection | Treat as failure unless explicitly failure-only |
+| Artifact absent/multiple | listing/content check | `FAIL`; do not guess canonical file |
+| Hash mismatch | SHA-256 | `FAIL`; defer diagnosis |
+| Secret/path in evidence | final diff scan | Redact before commit |
 
-First-run, permissions, malformed cache, key mismatch, traversal, dotfile denial, unsupported method,
-and certificate-route handling retain Cycle-8 behavior and tests.
+Retries are bounded/idempotent. Cleanup never targets repository roots, global Xcode state, or user
+data; temporary directories may be discarded after summary.
 
 ## 9. Stability and Performance
 
-- Endpoint selection is `O(n log n)` for sorting `n` LAN addresses and `O(n)` memory; hosts normally
-  have single-digit `n`.
-- Certificate dedupe remains `O(n + m)` for interfaces plus explicit hosts.
-- No per-request work, DNS resolution, reachability probe, retry, timer, or listener is added.
-- `urls` is bounded by the finite interface snapshot and cannot grow after startup.
-- Tests use port `0`, temporary cert directories, and immediate `t.after` cleanup.
-- Wildcard/no-LAN degradation is deterministic and never yields an empty collection.
+- Existing local budgets remain. CI observation is capped at 30 minutes.
+- Simulator download dominates resources and is operator-approved after a free-space check; Apple
+  controls package size, so this plan promises no fixed size.
+- Native output is bounded by one scheme/device, one attempt plus one boot-only retry, and one temp
+  DerivedData/result bundle.
+- CI polling is read-only, at least 15 seconds apart, and bounded.
+- Evidence is O(test suites + CI steps), expected under 20 KB. Logs/artifacts do not enter history.
+- Interruption recovery uses immutable SHA/run ID; simulator tests and ephemeral CI do not mutate
+  production data.
 
 ## 10. Testing Strategy
 
-Unit coverage in `tests/unit/serve-https.test.mjs` includes:
-
-- both bind syntaxes, combined options, defaults, missing values, unknown options, invalid ports;
-- hostname/IPv4/IPv6 URL formatting and actual-port interpolation;
-- both wildcard forms, sort/dedupe, immutability, no-LAN fallback, explicit-bind precedence;
-- explicit-loopback live result and request, wildcard injected-LAN primary URL, SAN coverage, and
-  existing secret/traversal denial.
-
-Regression coverage runs every DER, certificate, static-server, Node-version, web-library, and
-native-parity unit test; every Playwright test including real HTTPS module loading; Prettier; and
-build-size enforcement. Tests require no DNS, internet, privileged port, or real LAN interface.
+- **Local:** pinned Node lint, all unit tests (including native roster parity), all Playwright e2e,
+  build-size gate.
+- **Native:** scheme-level `xcodebuild test` proves compile/link, five unit suites, four UI flows,
+  persistence/privacy/accessibility contracts on a simulator.
+- **CI:** exact-SHA run, all required steps, artifact availability, local byte parity.
+- **Evidence:** validate URLs, SHA consistency, counts, no secrets/absolute paths, no false `PASS`.
+- **Scope:** final implementation diff contains only the three manifest files.
 
 ## 11. Environment and Toolchain
 
-- Node `24.20.0` via `.nvmrc`/`.node-version`; engines remain `>=24 <25`.
-- npm with committed lockfile; fresh setup is `nvm use && npm ci`.
-- Existing built-in `node:test`, Playwright `1.62.1`, Prettier `3.9.6`.
-- No environment variables, secrets, external CA, OpenSSL, mkcert, or new dependency.
-- Live tests use OS temporary directories and ephemeral port `0`.
+- Xcode 26.4 (`17E192`) is installed. Current preflight has no iOS runtime and destinations report
+  iOS 26.4 absent, so Phase 1 needs operator-approved installation.
+- Node 24.20.0, npm lockfile, Playwright 1.62.1, Prettier 3.9.6.
+- GitHub CLI is installed/authenticated, but no Git remote is configured. Phase 2 needs operator
+  confirmation of repository and push.
+- No new dependency, secret, signing identity, paid service, or production credential.
+
+Fresh local setup remains `nvm install && nvm use && npm ci`; external phases additionally require
+approved Xcode platform availability and GitHub repository access.
 
 ## 12. Deployment, Distribution, and Rollback
 
-This is a source-level CLI/library patch. Distribution remains the repository plus existing
-`dist/index.html`; no data migration or release packaging occurs. Existing invocations need no
-migration. Explicit-bind users gain correct returned/printed URLs and may see one certificate-cache
-regeneration, followed by the documented reinstall/re-trust step.
+No application code deploys. Publication is the normal Git push required to run existing CI and the
+follow-up evidence commit. Native binaries remain local; kiosk output remains a CI artifact.
 
-Rollback is `git revert <implementation-commit>`. It restores loopback-only metadata and removes
-`urls`; certificate files and user data remain valid and untouched.
+Rollback repository docs with `git revert <evidence-commit>`. Do not automatically remove an Apple
+platform or rewrite pushed history; use normal revert. GitHub run history remains external evidence.
 
-## 13. Open Questions and Fixed Defaults
+## 13. Open Questions and Decision Gates
 
-1. **Discover IPv6 interfaces for wildcard `::`?** No. Existing discovery is deliberately IPv4;
-   `::` uses known LAN IPv4 advertisements or localhost. IPv6 discovery needs separate scope.
-2. **Validate bind syntax locally?** No. Node supports addresses and hostnames and is authoritative.
-3. **Remove `url` for `urls`?** No. Keep the compatible primary alias and add the collection.
-4. **Install native runtime or push CI?** No. Audit v32 classifies these as external verification
-   gaps, not code defects or locally committable deliverables; each needs separate authority/context.
+1. **Which GitHub repository?** No remote exists. Operator must confirm exact owner/repo, visibility,
+   and branch; nothing is guessed or created implicitly.
+2. **May iOS platform be downloaded?** Operator approves after platform/free-space report; otherwise
+   native remains `BLOCKED`.
+3. **Protected branch?** Do not bypass. Ask whether to use normal PR flow; that requires explicit
+   execution authority.
+4. **External failure?** Record and stop. Product/test/workflow remediation requires another plan.
 
 ## 14. Completion Checklist
 
-- [x] Audit v32 polish #1: `--bind` is directly tested and fully documented.
-- [x] Audit v32 polish #2: `startServer().url` reflects the effective advertised endpoint.
-- [x] `urls` is non-empty and `url === urls[0]` for wildcard, no-LAN, and explicit bind.
-- [x] Returned hosts are certificate-covered; wildcards are not SANs.
-- [x] Existing HTTPS security regression assertions pass.
-- [x] Formatting, unit, e2e, and build gates pass; artifact budgets remain intact.
-- [x] Only the three manifest files change during implementation.
+- [ ] Local Node 24 gates pass at immutable target SHA.
+- [ ] Approved native unit/UI tests pass on identified iPad simulator with durable counts.
+- [ ] Operator confirms GitHub repository/branch and approves normal push.
+- [ ] Exact-SHA `CI` run and every required step succeed.
+- [ ] CI artifact is byte-identical to local same-SHA build.
+- [ ] Evidence has stable identifiers/URLs and no secrets/machine paths.
+- [ ] Final implementation diff contains only the three manifest files.
