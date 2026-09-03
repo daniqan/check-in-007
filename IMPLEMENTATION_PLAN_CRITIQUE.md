@@ -1,3 +1,205 @@
+# Native UI Accessibility Query Repair Plan Critique — Cycle 13, Revision 1
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `38263e6`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v25 (Cycle 13 — Native UI Accessibility Query Repair)
+**Score:** **72 / 100** (previous: v24 Cycle-12 Rev 1 = 96; this is a **new** plan → first review of v25)
+**Status:** **NOT APPROVED** (below the ≥95 gate — the plan's central acceptance is unachievable with its change set)
+
+Plan v25 is clean, honest, and env-accurate about the one thing it looked at — the `roster.mark007`
+`.isButton`-vs-`otherElements` mismatch. But its **load-bearing premise is factually wrong**, and I proved
+it by running the suite. §1 asserts a single **"shared cause"** for *all four* UI failures
+(`roster.mark007` trait/query). Only **two** of the four UI methods touch `mark007`. The other two
+(`testFirstCheckInFlow`, `testRepeatGuestDoesNotDuplicateOneScan`) fail **downstream in the check-in flow**,
+with no relation to `mark007`. v25 changes only the two `mark007` lookups, so even a perfect execution
+leaves the suite red — it cannot reach its own §6 Phase 3 / §14 acceptance ("four UI methods, 37 total
+passes, no skips/failures"). This is a misdiagnosis + scope gap, not a polish nit, so the plan is not
+approvable as written.
+
+## Ground-truth verification (what I ran, and what it proved)
+
+I ran the two non-`mark007` UI methods on the booted iPad (A16) `A155995F-…` (iOS 26.4 `23E244`, Xcode 26.4
+`17E192`), current tree `38263e6` (unchanged from the Cycle-12 code state):
+
+```
+xcodebuild test -project native/CheckIn007.xcodeproj -scheme CheckIn007 \
+  -destination 'platform=iOS Simulator,id=A155995F-EC83-41BE-95B2-1A5F390ABF59' \
+  -only-testing:CheckIn007UITests/CheckIn007UITests/testFirstCheckInFlow \
+  -only-testing:CheckIn007UITests/CheckIn007UITests/testRepeatGuestDoesNotDuplicateOneScan
+→ ** TEST FAILED **
+```
+
+xcresult failure locations (independently extracted, not trusted from prose):
+- `testFirstCheckInFlow()` → **`CheckIn007UITests.swift:30` XCTAssertTrue failed** — `scan.status` static text
+  not found within 5 s **after** the roster-row tap. The roster-row lookup at line 26
+  (`app.buttons.matching(rosterRowPrefix)`) **PASSED** (rows *are* exposed under `app.buttons`).
+- `testRepeatGuestDoesNotDuplicateOneScan()` → **`CheckIn007UITests.swift:51` XCTAssertTrue failed** —
+  `result.title` static text not found within 10 s **after** the tap. Roster-row lookup at line 48 **PASSED**.
+
+**Consequences for v25:**
+1. **The "all four fail on the `mark007` mismatch" story is false.** Two methods clear the roster-row lookup
+   and then fail on the scan → result transition (`scan.status` / `result.title`). `mark007` is never queried
+   in these two methods. Fixing the two `mark007` lookups does nothing for them.
+2. **The Cycle-12 evidence phrase "all four … failed *initial element lookup*" is inaccurate.** Methods 1 & 2
+   fail *downstream* (lines 30 / 51), not at initial lookup. RA #12 inherited that imprecise framing, and v25
+   built its whole scope on it.
+3. **`scan.status` (`ScanView.swift:35-39`) and `result.title` (`ResultView.swift:19-23`) are both on `Text`
+   views** → they *should* resolve under `app.staticTexts`. So the failure is most likely a real check-in
+   **workflow/navigation** problem (tapping a guest does not surface the scan/result screens in the UI-test
+   run) — a second, independent native-UI defect that v25 neither diagnoses nor addresses.
+
+## What v25 gets right (verified)
+
+1. **The `mark007` half is correct.** `RosterView.swift:43-46` assigns `A11y.mark007`, label
+   `"Admin (long press)"`, `.accessibilityAddTraits(.isButton)`, and `.onLongPressGesture(minimumDuration: 2.0)`
+   exactly as §4.1/Phase 1 claim; the `.isButton` trait means XCUITest exposes the control under `app.buttons`,
+   so `app.buttons[A11yId.mark007]` is the right query for `testAdminOpensToggleAudioAndCloses` (line 61) and
+   `testClearLogRequiresTwoConfirmations` (line 80). Exactly **two** `app.otherElements[A11yId.mark007]` call
+   sites exist — matching Phase 1 step 4 ("exactly two button queries").
+2. **Inventory is exact.** Six unit suites = 7+3+8+6+5+4 = **33** unit methods; **4** UI methods — matching §6
+   Phase 3 ("33 unit and four UI methods, 37 total passes").
+3. **Environment §11 verbatim-accurate.** Xcode 26.4 (`17E192`), iOS 26.4 (`23E244`), iPad (A16)
+   `A155995F-EC83-41BE-95B2-1A5F390ABF59` (Booted). All confirmed.
+4. **CI disposition honest (§4.4).** Run `33711898714` retained as terminal `BLOCKED (external billing)`, not
+   banked. Consistent with §2/§8.
+5. **No gate weakening.** §2 forbids deleting/skipping assertions; §4.2 keeps every downstream assertion. The
+   plan preserves product accessibility (does not remove `.isButton`).
+
+## Remaining issues (blocking)
+
+1. **BLOCKING — misdiagnosed root cause; fixes only 2 of 4 failing UI methods.** §1/§4.1 treat `mark007` as the
+   sole shared cause of all four failures. Empirically, `testFirstCheckInFlow` (line 30, `scan.status`) and
+   `testRepeatGuestDoesNotDuplicateOneScan` (line 51, `result.title`) fail in the scan → result flow,
+   independent of `mark007`. v25's change set (two query edits) cannot make them pass, so §6 Phase 3 / §14
+   box 4 ("four UI methods, 37 total passes") is **unreachable**. *Fix:* expand scope to diagnose and address
+   the check-in-flow UI failure (why tapping a roster row does not surface `scan.status`/`result.title` in the
+   UI test) in addition to the `mark007` query — or split the native-green target so the plan does not claim a
+   result its change set cannot deliver.
+2. **BLOCKING — no diagnosis of the scan/result-screen failure.** The plan contains zero analysis of the
+   ScanView/ResultView transition, the `model.selectGuest` path, or why `scan.status`/`result.title` do not
+   appear post-tap. Since these identifiers sit on `Text` views (should be `staticTexts`), this is likely a
+   product-navigation/timing defect, not a query-type mismatch — but the plan neither confirms nor rules that
+   out. A plan whose success gate is "the whole UI suite is green" must account for every failing method.
+3. **Non-blocking — the completion gate would send the generator back to STOP.** §14 requires "all four UI
+   methods pass." If the generator implements v25 verbatim, it will land 2/4 (best case), re-run, and hit the
+   same red-suite STOP state Cycle 12 hit — burning a cycle. This is the practical cost of issues #1–#2.
+
+## Scope Check
+
+- **Audit findings:** open RAs are **#12** (P1, native UI red — the target) and **#10** (P1, CI billing,
+  external). v25 targets **#12** but addresses only ~half its actual failure surface (the 2 `mark007` methods),
+  leaving the other 2 UI failures unaddressed and undiagnosed. **#10** correctly preserved as external. A
+  second native-UI defect (check-in scan/result flow) is surfaced by this review → raised as **RA #13 (P1)**;
+  v25 does not cover it. **Scope cap applies:** the plan ignores an in-scope, same-subsystem defect (the other
+  half of the very native-red gate it exists to close).
+- **Backlog:** `BACKLOG.md` = **0** unchecked. Nothing skipped there.
+- **Integration points:** §7 gives four contracts (SwiftUI tree ↔ XCUITest, admin affordance ↔ workflows,
+  runner ↔ evidence, git ↔ docs) — but all framed around `mark007`; none covers the roster-row → scan → result
+  path that actually fails in 2 of 4 methods.
+- **Alternatives considered:** §4.1 weighs `app.buttons` vs dropping `.isButton` vs untyped query — good, but
+  only for the `mark007` slice.
+
+## Flaws of Commission
+
+1. **§1 states a false "shared cause."** "Required Action #12 identifies the shared cause: `roster.mark007` …
+   while two UI-test call sites query it through `otherElements`" — then equates "two call sites" with "all four
+   UI methods fail." Two of the four methods never touch `mark007`; the causal claim is disproven by execution.
+2. **§6 Phase 3 / §14 assert an outcome the change set cannot produce** ("four UI methods, 37 total passes"),
+   because two of the four fail for a cause the plan does not touch.
+
+## Flaws of Omission
+
+1. No diagnosis or handling of the `testFirstCheckInFlow` / `testRepeatGuestDoesNotDuplicateOneScan` failures
+   (scan/result flow) — the decisive omission.
+2. No branch for "only some UI methods pass after the query fix" — the plan assumes a binary all-green outcome.
+3. No verification that the roster-row → scan → result navigation works on the simulator at all (it does not,
+   per my run), which is prerequisite to any "4/4 UI green" claim.
+
+## Regressions
+
+No regressions identified. The manifest (§5) touches only `CheckIn007UITests.swift` + docs; §2 forbids product,
+web, dependency, workflow, and `dist/` changes. The proposed `otherElements`→`buttons` edit does not weaken the
+two admin methods it touches.
+
+## Why 72 and not higher
+
+The `mark007` analysis is genuinely correct and would fix 2 of the 4 methods — that keeps this well above a
+fabrication-grade score. But a plan is scored on whether it can meet its own acceptance, and this one cannot:
+its headline gate (full native suite green) is unreachable because it misdiagnosed half the failures and
+scoped out the check-in-flow defect entirely. That is a completeness + feasibility failure at the level of the
+plan's core purpose, not a specificity nit — hence low-70s, not the 90s the prose polish might suggest.
+
+## Path to ≥95
+
+1. **Diagnose the real UI-red surface first, then plan against all of it.** The native suite fails for (a) the
+   `mark007` `otherElements`→`buttons` mismatch (methods 3 & 4) AND (b) the check-in scan→result transition not
+   surfacing `scan.status`/`result.title` after a roster-row tap (methods 1 & 2, at lines 30 & 51). Address
+   **both**, or explicitly re-scope the acceptance so it doesn't claim 4/4 when the change set delivers 2/4.
+2. **Root-cause (b).** Both identifiers are on `Text` views → capture the XCUITest hierarchy at failure to
+   determine whether it's a navigation/state issue (`selectGuest` not advancing the phase in the test harness),
+   a timing issue (scan phase auto-advances before the 5 s query resolves), or a camera-`task` interaction on
+   the simulator. Fix the product/test accordingly **without weakening assertions**.
+3. **Correct §1's causal claim** to reflect that only two methods depend on `mark007` and two fail downstream.
+4. **Keep** the correct `mark007` query fix, the exact inventory, the honest CI `BLOCKED` disposition, and the
+   no-assertion-weakening discipline — those are already right.
+
+## Path to 100
+
+Beyond ≥95: pin the exact per-method acceptance (which of the 4 UI methods each change makes green); add a
+diagnostic-capture step (dump `app.debugDescription` on first failure) so future runs attribute failures to a
+specific element/type; and state the expected element type for `scan.status`/`result.title`
+(`staticTexts`) so a type/trait regression there is caught the same way the `mark007` one was.
+
+## Summary
+
+Plan v25 is **NOT APPROVED (72/100).** It correctly fixes the `mark007` `otherElements`→`buttons` mismatch for
+2 of the 4 UI methods, but its stated "shared cause" is false: I ran the other two methods and they fail
+downstream in the check-in flow (`scan.status` line 30, `result.title` line 51), untouched by the fix. The
+plan therefore cannot meet its own "four UI methods, 37 total passes" acceptance. The loop stays in **State 1
+— revise the plan**: expand scope to diagnose and address the check-in-flow UI failure (RA #13) alongside the
+`mark007` query, or re-scope the acceptance to what the change set can actually deliver. Implementation Score
+is **N/A** — v25 is not implemented (the UI test still queries `app.otherElements[A11yId.mark007]` at lines 61
+and 80; `git diff b87cfd3..HEAD` touches only `IMPLEMENTATION_PLAN.md`).
+
+**Plan Score:** 72/100
+
+**Implementation Score:** N/A
+
+---
+
+### Implementation Verification — v13
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v25 @ commit `38263e6` (Cycle 13 — NOT APPROVED, 72/100)
+**Code:** `master` @ HEAD `38263e6` audited on 2026-09-03
+
+**Verdict: NOT IMPLEMENTED — and the plan is not approved.** The only change since the Cycle-12 audit
+(`b87cfd3`) is `38263e6` (`plan: v25`), which rewrites `IMPLEMENTATION_PLAN.md` only. `git diff b87cfd3..HEAD`
+touches no source file. The UI test still queries `app.otherElements[A11yId.mark007]` at
+`CheckIn007UITests.swift:61` and `:80` — v25's Phase 1 edit is not applied. Implementation Score is **N/A**
+(nothing built). Note the loop is in **State 1**, not State 2: plan v25 must be revised to ≥95 before
+implementation, because as written its acceptance gate is unreachable (see the Cycle-13 Rev-1 critique above —
+2 of the 4 failing UI methods fail downstream in the check-in flow, which v25 does not address).
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 1 — Repair the query | **MISSING** | `CheckIn007UITests.swift:61,80` still `app.otherElements[A11yId.mark007]`; no `app.buttons` edit. |
+| §6 Phase 2 — Focused native verification | **MISSING** | No fresh focused UI run recorded for a v25 fix commit. |
+| §6 Phase 3 — Complete regression verification | **MISSING** | Suite is still red (I re-confirmed 2 non-`mark007` UI methods FAIL at lines 30/51); web gates not re-run for a v25 commit. |
+| §6 Phase 4 — Durable evidence & status | **MISSING** | No "Cycle 13" section in `docs/VERIFICATION_EVIDENCE.md`; README unchanged. |
+| §14 Completion Checklist | **0 / 6 checked** | Every box `[ ]`. |
+
+**Directive (State 1 — revise plan v25 first):** Do **not** implement v25 as written — it fixes only the
+`mark007` slice and would land a still-red suite (2/4 UI), re-hitting the STOP state. Revise v25 to (1) keep
+the correct `app.buttons[A11yId.mark007]` fix for `testAdminOpensToggleAudioAndCloses` /
+`testClearLogRequiresTwoConfirmations`, and (2) diagnose + address why `testFirstCheckInFlow` (`scan.status`,
+line 30) and `testRepeatGuestDoesNotDuplicateOneScan` (`result.title`, line 51) fail after the roster-row tap
+(RA #13). Both `scan.status` and `result.title` are on `Text` views (should be `staticTexts`), so investigate
+the scan→result navigation/timing on the simulator. Do not weaken any assertion; keep CI `BLOCKED (external
+billing)`.
+
+**Implementation Score:** N/A
+
+---
+
 # Native CSV Parity Repair Plan Critique — Cycle 12, Revision 1
 
 **Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `a6ca9b7`

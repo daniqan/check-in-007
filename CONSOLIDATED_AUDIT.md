@@ -1,13 +1,68 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 90/100
-**Audit Version:** v49
-**Audited:** HEAD `9072d5b` (plan v24) on 2026-09-03 (Cycle 12 — Native CSV Parity Repair; plan v24 APPROVED Rev 1 = 96/100. **Implementation LANDED** (`b0bdf11` fix + `9072d5b` evidence): the v47-proven `CSVCodec.parseRows` CRLF-grapheme data-loss defect (RA #11) is **FIXED and verified** (`:55` now recognizes the combined-CRLF grapheme; 33/33 native unit methods green incl. a 7-case parity matrix), and the camera stall is **fixed** (serial `SessionWorker` + injectable auth). **But the full native scheme is STILL not green:** 33 unit passed, **4 UI methods FAILED** — a pre-existing `CheckIn007UITests` query/trait mismatch (`roster.mark007` carries `.isButton` but is queried via `otherElements`), now revealed because the run no longer aborts early. §14 = **4/6** (honest). CI still `BLOCKED (external billing)`.)
-**Stage:** Cycle 12, **State 3 — fix implementation to meet approved plan v24**, but the residual failure is **out of v24's manifest** (UI-harness) → next action is a **new fix-cycle (State 1 → new plan)** to bring the trait/query mismatch into scope so the native suite goes fully green (RA #12). CSV (RA #11) and camera are done.
+**Current Score**: 88/100
+**Audit Version:** v50
+**Audited:** HEAD `38263e6` (plan v25) on 2026-09-03 (Cycle 13 — Native UI Accessibility Query Repair. Plan v25 **NOT APPROVED (72/100)** and **not implemented** — the only change since the Cycle-12 audit is `38263e6`, which rewrites `IMPLEMENTATION_PLAN.md` only. **Key new finding (proved by execution):** v25's premise that `roster.mark007` is the *shared cause* of all four UI failures is **false**. I ran the two non-`mark007` UI methods on iPad (A16) `A155995F-…`: `testFirstCheckInFlow` FAILS at `CheckIn007UITests.swift:30` (`scan.status` not found after the roster-row tap) and `testRepeatGuestDoesNotDuplicateOneScan` FAILS at `:51` (`result.title` not found) — both **downstream in the check-in flow**, unrelated to `mark007`; their roster-row lookups (lines 26/48) PASS. So the native suite is red for **two independent** reasons: (a) the `mark007` `.isButton`-vs-`otherElements` mismatch (methods 3 & 4, RA #12) and (b) the scan→result transition not surfacing `scan.status`/`result.title` (methods 1 & 2, **RA #13** raised this cycle). v25 addresses only (a), so it cannot meet its own §6 Phase 3 / §14 "four UI methods, 37 total passes" gate. CI still `BLOCKED (external billing)`.)
+**Stage:** Cycle 13, **State 1 — revise plan v25 to ≥95** before implementing. v25 misdiagnoses half the UI-red surface; it must expand scope to cover both RA #12 and RA #13 (or re-scope its acceptance to what its change set delivers). RA #11 (CSV) and the camera work remain DONE.
 
-**Plan Score:** 96/100
-**Implementation Score:** 84/100
-**Current Score**: 90/100
+**Plan Score:** 72/100
+**Implementation Score:** N/A
+**Current Score**: 88/100
+
+<!-- audit-entry v50 -->
+> **STATE 1 — CYCLE-13 PLAN v25 NOT APPROVED (72/100): MISDIAGNOSED UI-RED; NATIVE SUITE FAILS FOR TWO INDEPENDENT REASONS, NOT ONE (v50). Score 90 → 88.**
+> The only change since v49 is commit `38263e6` (`plan: v25 — repair native UI accessibility query`), a
+> docs-only new plan (Cycle 13) answering v49's RA #12 directive. **Plan v25 is NOT APPROVED at 72/100**
+> (see `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-13 Rev 1) and **not implemented** (`git diff b87cfd3..HEAD`
+> touches only `IMPLEMENTATION_PLAN.md`; `CheckIn007UITests.swift:61,80` still query
+> `app.otherElements[A11yId.mark007]`).
+> - **Decisive new finding — I RAN the suite and disproved v25's premise.** v25 §1 asserts a single "shared
+>   cause" for *all four* UI failures (`roster.mark007` `.isButton` vs `otherElements`). But only **two** of the
+>   four UI methods touch `mark007`. I ran the other two on iPad (A16) `A155995F-…` (iOS 26.4 `23E244`, Xcode
+>   26.4), current tree `38263e6`:
+>   - `testFirstCheckInFlow()` → **FAIL at `CheckIn007UITests.swift:30`** — `scan.status` static text not found
+>     within 5 s **after** the roster-row tap. The roster-row lookup at line 26 (`app.buttons.matching(...)`)
+>     **PASSED**.
+>   - `testRepeatGuestDoesNotDuplicateOneScan()` → **FAIL at `:51`** — `result.title` not found within 10 s
+>     **after** the tap. Roster-row lookup at line 48 **PASSED**.
+>   Both fail **downstream in the check-in flow**, with no relation to `mark007`. Extracted from the
+>   `.xcresult` with `xcresulttool`, not trusted from prose.
+> - **So the native suite is red for TWO independent reasons:** (a) the `mark007` `.isButton`-vs-`otherElements`
+>   mismatch — `testAdminOpensToggleAudioAndCloses` / `testClearLogRequiresTwoConfirmations` (RA #12); and
+>   (b) the scan→result transition not surfacing `scan.status` (`ScanView.swift:35-39`) / `result.title`
+>   (`ResultView.swift:19-23`) after a roster-row tap (RA #13, raised this cycle). Both identifiers are on
+>   `Text` views (should be `staticTexts`), so (b) is most likely a real check-in workflow/navigation defect,
+>   not a query-type mismatch.
+> - **v25 addresses only (a).** Its change set is two query edits; even a perfect execution leaves methods 1 & 2
+>   red, so §6 Phase 3 / §14 box 4 ("four UI methods, 37 total passes") is **unreachable**. Implementing it
+>   verbatim would re-hit the Cycle-12 STOP state. Hence NOT APPROVED, loop → **State 1 (revise the plan)**.
+> - **The Cycle-12 evidence's "all four … failed *initial element lookup*" was inaccurate** — methods 1 & 2
+>   fail downstream (lines 30/51). RA #12 inherited that imprecise framing; RA #12 is now **corrected** to cover
+>   only the two `mark007` methods, and **RA #13** captures the check-in-flow failure.
+> - **What v25 gets right (kept):** the `mark007` half is correct (`RosterView.swift:43-46` ↔ `app.buttons`),
+>   inventory exact (33 unit + 4 UI), §11 environment verbatim, CI honestly retained as `BLOCKED (external
+>   billing)` (run `33711898714`), no assertion weakened. RA #11 (CSV) + camera remain DONE — do not re-open.
+> - **Backlog `[ ]` = 0** / 15 `[x]`.
+>
+> **Disposition — State 1 (revise plan v25 to ≥95).** Expand scope to address **both** RA #12 (the `mark007`
+> query fix — already correct in v25) **and** RA #13 (diagnose why the scan→result flow does not surface
+> `scan.status`/`result.title` after a roster-row tap), or re-scope v25's acceptance so it does not claim 4/4
+> UI green when its change set delivers 2/4. Capture the XCUITest hierarchy at failure to root-cause (b). Do
+> **not** implement v25 as written; do not weaken any assertion; keep CI `BLOCKED`.
+>
+> **Deductions.** **Base health 92 → 91**: the native check-in workflow (core "tap guest → scan → result"
+> path) is now **proven** non-functional in UI tests — a deeper native failure than the previously-believed
+> single trait/query nit (Feature completeness 9 → 8; Testing rigor stays 8). Web system unchanged and healthy.
+> RA: **#12** corrected (now the two `mark007` methods) at staleness 1, P1 deduction begins at staleness 3 →
+> **−0**; **#13** raised this cycle (P1, check-in-flow UI red) at staleness 0 → **−0**; **#10** (CI billing)
+> external, not stalled → −0; #1–#9, #11 DONE. Backlog `[ ]` = 0 → **−0**. **Inactivity decay −1**: no code
+> landed since the Cycle-12 landing (`b0bdf11`/`9072d5b`) — the only commit is the docs-only plan v25 (first
+> no-code cycle; planning a *rejected* plan is loop activity but not code). **−1** open MODERATE CI-billing
+> impediment; **−1** open native UI-red gate (now two-cause). **Base 91 − 1 (CI billing) − 1 (native UI-red) −
+> 1 (decay) − backlog 0 − RA 0 = 88.** Score 90 → 88: discovering the native red is deeper (two independent
+> defects) plus a rejected fix-plan lowers verified health; it recovers when a corrected plan lands both UI
+> fixes green and the CI path is unblocked or bounded. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-13 Rev 1 +
+> Implementation Verification v13.
 
 <!-- audit-entry v49 -->
 > **STATE 3 — CYCLE-12 FIX LANDED (CSV + CAMERA GREEN), BUT NATIVE SUITE STILL RED ON 4 PRE-EXISTING UI FAILURES (v49). Score 88 → 90.**
@@ -1620,31 +1675,33 @@ native UI harness still red):
 | Code correctness | 9/10 | Web: 78/78 unit + 13/13 e2e green. **v49: native `CSVCodec.parseRows` data-loss defect FIXED** (`:55` recognizes the combined-CRLF grapheme; audit fixture → 2 rows; 33/33 native unit methods green incl. a 7-case parity matrix; web source `src/lib/csv.mjs` untouched). Camera stall fixed (serial `SessionWorker`). Remaining native red is a UI *test-harness* query/trait mismatch, not a product-logic bug. |
 | Plan compliance | 9/10 | Cycles 1–10 VERIFIED; Cycle 11 v23 executed faithfully; **Cycle 12 v24 executed faithfully in-scope** — CSV+camera fixed, honest evidence, no gate weakened, no out-of-manifest file touched, §14 honestly 4/6. The one unmet acceptance (native green) is due to an out-of-manifest UI-harness defect, not a compliance lapse. |
 | Document coherence | 9/10 | Config/CSS/build/README agree with code; `VERIFICATION_EVIDENCE.md` honestly records Cycle-12 CSV/camera PASS, native full-run FAIL (4 UI), and CI `BLOCKED (external billing)` — not overstated. |
-| Testing rigor | 8/10 | Web suite 78 unit + 13 e2e green; native **unit** target now green (33/33) and camera resolved. **But the full native scheme still does NOT go green** — 4 `CheckIn007UITests` methods fail on a `roster.mark007` `.isButton`-vs-`otherElements` query mismatch (`RosterView.swift:43-45` ↔ `CheckIn007UITests.swift:61,80`). Coverage exists; the UI harness is demonstrably not passing on-device. |
+| Testing rigor | 8/10 | Web suite 78 unit + 13 e2e green; native **unit** target green (33/33) and camera resolved. **But the full native scheme still does NOT go green** — and (v50) it is red for **two independent** reasons: (a) the `mark007` `.isButton`-vs-`otherElements` mismatch (`CheckIn007UITests.swift:61,80`; RA #12) and (b) the check-in scan→result flow not surfacing `scan.status`/`result.title` after a roster-row tap (`:30`/`:51`; RA #13, proved by execution this cycle). Coverage exists; the UI harness demonstrably does not pass on-device. |
 | Safety architecture | 10/10 | Privacy test-enforced (camera preview-only, no audio/output preserved through the Cycle-12 rework); comprehensive error handling; HTTPS helper blocks private-key disclosure; audio failures non-fatal |
 | Monitoring & observability | 9/10 | Check-in log + admin CSV/JSON export/copy + offline multi-device log merge; committed CI workflow present but exact-SHA run FAILED on a billing lock (not yet observed green) |
-| Feature completeness | 9/10 | All web flow states + admin + roster virtualization + multi-device log merge + scan audio + offline HTTPS kiosk shipped & test-proven. Native SwiftUI client ships; guest-import CSV path now correct (RA #11 fixed); admin-open UI path works but its UI-test verification is red (RA #12). |
-| Risk management | 9/10 | Deps pinned (Playwright 1.62.1 / Prettier 3.9.6 / acorn 8.18.0), artifact budget enforced (26,315 gzip), privacy test-enforced; native CSV data-loss defect closed; native UI-harness gate open (RA #12); CI billing-blocked |
+| Feature completeness | 8/10 | All web flow states + admin + roster virtualization + multi-device log merge + scan audio + offline HTTPS kiosk shipped & test-proven. Native SwiftUI client ships; guest-import CSV path now correct (RA #11 fixed). **v50: the native check-in workflow (tap guest → scan → result) is PROVEN non-functional in UI tests** — tapping a roster row does not surface `scan.status`/`result.title` (`CheckIn007UITests.swift:30,51`; RA #13), on top of the admin-open UI-test query mismatch (RA #12). Two independent native-UI defects open. |
+| Risk management | 9/10 | Deps pinned (Playwright 1.62.1 / Prettier 3.9.6 / acorn 8.18.0), artifact budget enforced (26,315 gzip), privacy test-enforced; native CSV data-loss defect closed; native UI gate open on two defects (RA #12 + RA #13); CI billing-blocked |
 
-**Base Score:** 92/100 (recovered from v47/v48's 90). **This cycle:** the Cycle-12 fix landed and was
-verified — the native `CSVCodec.parseRows` data-loss defect is **fixed** (Code correctness 7 → 9) and the
-camera stall resolved. Base does **not** return to the pre-v47 94 because the **full native scheme still does
-not go green**: 4 `CheckIn007UITests` methods fail on a pre-existing `roster.mark007` `.isButton`-vs-
-`otherElements` query mismatch (Testing rigor stays 8). Web system unchanged and healthy. The residual
-failure is a lower-severity UI *test-harness* defect (the admin control works; the test queries the wrong
-element collection), not a product-logic regression.
+**Base Score:** 91/100 (v49 was 92). **This cycle (v50):** running the two non-`mark007` UI methods proved the
+native-red surface is **deeper than believed** — the core check-in workflow (tap guest → scan → result) does
+not complete in UI tests (`testFirstCheckInFlow` FAIL `:30` `scan.status`; `testRepeatGuestDoesNotDuplicateOneScan`
+FAIL `:51` `result.title`), a second independent native-UI defect (RA #13) beyond the `mark007` query mismatch
+(RA #12). Feature completeness 9 → 8; Testing rigor stays 8. Web system unchanged and healthy. Base does not
+drop further because these are native-UI defects (the web client and native unit/logic layers remain proven
+green); but verified health cannot hold at 92 while the native check-in workflow is proven non-functional in
+tests and the fix plan (v25) is rejected as misdiagnosed.
 
-**Deductions (v49):**
-- Required Actions: −0 (**RA #11 ADDRESSED** — CSV data-loss fixed & verified; **RA #12** raised this cycle
-  (native UI-harness red) at staleness 0 → −0; **RA #10** (CI billing) externally blocked, not stalled → −0.
-  Actions #1–#9 DONE.)
+**Deductions (v50):**
+- Required Actions: −0 (**RA #12** corrected — now covers only the two `mark007` methods — staleness 1,
+  P1 deduction begins at staleness 3 → −0; **RA #13** raised this cycle (native check-in-flow UI red) at
+  staleness 0 → −0; **RA #10** (CI billing) externally blocked, not stalled → −0. Actions #1–#9, #11 DONE.)
 - Backlog: −0 (`BACKLOG.md` strict-unchecked `- [ ]` count = **0**; all 15 items `[x]`)
-- Inactivity: −0 (real code landed — `b0bdf11` touches native source + `9072d5b` records evidence. Not a
-  neglect cycle; decay resets to 0.)
+- Inactivity: **−1** (no code landed since the Cycle-12 landing `b0bdf11`/`9072d5b`; the only commit is the
+  docs-only plan v25 — first no-code cycle. Planning a *rejected* plan is loop activity but not code.)
 - New-finding drag: −1 (open MODERATE CI-billing lock — target run `33711898714` (`head_sha 845116d`) failed
-  on the billing lock) **and** −1 (open native UI-red gate — the full native scheme does not pass; RA #12).
+  on the billing lock) **and** −1 (open native UI-red gate — the full native scheme does not pass; now
+  two-cause: RA #12 + RA #13).
 
-**Current Score**: 90/100
+**Current Score**: 88/100
 
 Trajectory: Cycle 12's plan (v24) is **APPROVED at 96/100** (Rev 1) and its fix **landed and was verified**
 this cycle. The native `CSVCodec.parseRows` data-loss defect (**RA #11**) is **fixed** — `:55` now recognizes
@@ -1678,18 +1735,27 @@ completed RA #11 / camera work.
   `State: Sendable`, and republishes the awaited result on `MainActor`; privacy stays preview-only (no audio
   input, no capture output). Evidence records reproduction of the stall then two green isolated
   `CameraPrivacyTests` runs (~1.7 s each). Fixed in `b0bdf11`.
-- **MODERATE (v49) — full native scheme still red: 4 UI-test failures (RA #12, P1).** With the CSV crash and
-  camera stall removed, the full `xcodebuild test` run now reaches the UI target and exposes a pre-existing
-  harness defect: all **4** `CheckIn007UITests` methods fail initial element lookup (33 unit pass / 4 UI fail,
-  twice). **Root cause confirmed in code:** `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)`
-  to `roster.mark007`, so XCUITest exposes it under `app.buttons`, but `CheckIn007UITests.swift:61,80` query
-  `app.otherElements[A11yId.mark007]` — the admin-open flows (`testAdminOpensToggleAudioAndCloses`,
-  `testClearLogRequiresTwoConfirmations`, and the two that route through the admin sheet) never find the
-  control. This is a lower-severity test-harness/trait mismatch (the app control works), not a product-logic
-  regression — but it keeps the plan's native-green acceptance (§6 Phase 3 / §14 box 4) UNMET. Both candidate
-  files are **out of v24's manifest** (§5) and UI redesign is out of scope (§2), so this requires a **new
-  cycle**. Fix EITHER by querying `app.buttons[A11yId.mark007]` OR by dropping the `.isButton` trait (weigh
-  VoiceOver semantics). The generator correctly left these files untouched and recorded the FAIL honestly.
+- **MODERATE (v49; corrected v50) — native admin-open UI methods fail the `mark007` query (RA #12, P1).**
+  `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)` to `roster.mark007`, so XCUITest exposes
+  it under `app.buttons`, but `CheckIn007UITests.swift:61,80` query `app.otherElements[A11yId.mark007]` — so
+  `testAdminOpensToggleAudioAndCloses` and `testClearLogRequiresTwoConfirmations` never find the control. A
+  lower-severity test-harness/trait mismatch (the app control works). **Corrected scope (v50):** this accounts
+  for **2** of the 4 UI failures, not all four (v49 mis-stated "all four"). Fix EITHER by querying
+  `app.buttons[A11yId.mark007]` OR by dropping the `.isButton` trait (weigh VoiceOver semantics). Plan v25
+  proposes the `app.buttons` fix — correct for these two methods.
+- **MODERATE (v50) — native check-in workflow proven non-functional in UI tests (RA #13, P1).** Running the
+  two non-`mark007` UI methods on iPad (A16) `A155995F-…` (tree `38263e6`) proves the other **2** of the 4 UI
+  failures are **downstream in the check-in flow**, unrelated to `mark007`: `testFirstCheckInFlow` FAILS at
+  `CheckIn007UITests.swift:30` (`scan.status` static text not found within 5 s **after** the roster-row tap;
+  the roster-row lookup at `:26` PASSES) and `testRepeatGuestDoesNotDuplicateOneScan` FAILS at `:51`
+  (`result.title` not found; roster-row lookup at `:48` PASSES). Extracted from the `.xcresult` via
+  `xcresulttool`. Both `scan.status` (`ScanView.swift:35-39`) and `result.title` (`ResultView.swift:19-23`) are
+  on `Text` views (should resolve under `app.staticTexts`), so this is most likely a real check-in
+  workflow/navigation defect (tapping a guest does not surface the scan/result screens in the harness), not a
+  query-type mismatch. **Plan v25 does NOT address this** — its 2-line `mark007` edit leaves these two methods
+  red, so its §6 Phase 3 / §14 "four UI methods, 37 total passes" acceptance is unreachable. Diagnose (capture
+  the XCUITest hierarchy at failure) and fix without weakening assertions; a corrected plan must cover both
+  RA #12 and RA #13 to make the native suite green.
 - **APPROVED (plan v14, Cycle 5 Rev 3)** — Node 24 LTS toolchain plan scores **98/100** (≥95 gate
   cleared). Verified vs. `git show ff40b18`: v14 does exactly and only what Rev 2 asked. (1) The
   Rev-2 gate-blocker is **resolved** — the executable tail swaps `import.meta.main` for the
@@ -1908,13 +1974,16 @@ completed RA #11 / camera work.
 
 ## Required Actions
 
-Actions #1–#9 are all DONE. **RA #11 (native CSV data-loss bug) is DONE this cycle** — fixed and verified
-(`b0bdf11`; `CSVCodec.swift:55` recognizes the combined-CRLF grapheme, 33/33 native unit methods green). The
-camera stall (tracked under RA #11) is likewise fixed. **New RA #12 (P1, native UI-harness red)** is raised at
-staleness 0: the full native scheme still fails on 4 `CheckIn007UITests` methods (`roster.mark007` `.isButton`
-vs `otherElements` query mismatch) — an out-of-manifest defect needing a new cycle. **RA #10** (CI billing)
-remains externally blocked, not stalled → −0. No numeric RA deductions this cycle. RA #12 is the score-driver
-going forward: the native suite cannot be declared green until it lands.
+Actions #1–#9 and #11 are all DONE. **RA #11 (native CSV data-loss bug) is DONE** — fixed and verified
+(`b0bdf11`; `CSVCodec.swift:55` recognizes the combined-CRLF grapheme, 33/33 native unit methods green); the
+camera stall (tracked under RA #11) is likewise fixed. **v50 correction:** the native suite's 4 UI failures
+split into **two independent** defects, not one. **RA #12 (P1)** is corrected to cover only the **two**
+`mark007` admin-open methods (`.isButton` vs `otherElements`). **New RA #13 (P1, native check-in-flow UI red)**
+is raised at staleness 0: the other two UI methods fail downstream in the scan→result flow
+(`CheckIn007UITests.swift:30` `scan.status`; `:51` `result.title`), proved by execution — unrelated to
+`mark007`. **RA #10** (CI billing) remains externally blocked, not stalled → −0. No numeric RA deductions this
+cycle. RA #12 **and** RA #13 are the score-drivers: the native suite cannot be declared green until **both**
+land, and the current fix plan (v25) addresses only RA #12 → NOT APPROVED (72/100).
 
 | # | Priority | Status | Raised | Resolved | Score Impact | Directive |
 |---|----------|--------|--------|----------|--------------|-----------|
@@ -1929,37 +1998,39 @@ going forward: the native suite cannot be declared green until it lands.
 | 9 | P1 | **DONE — gate run (v47)** | v44 | v47 | −0 | **Run plan v23 Phase 1 native tests — DONE.** The native `xcodebuild test` gate was executed against iPad (A16) `A155995F-…` (commit `7b4d681`). It RAN and recorded `FAIL` (see RA #11); the un-run gap is closed. The gate is no longer the blocker — its result is. |
 | 10 | P1 | **OPEN — push done; CI billing-blocked** | v44 | — | −0 (advanced, not stalled) | **Push half DONE; now clear the GitHub Actions billing lock.** Target `845116d` is **pushed** (`origin/master == 845116d`) and CI fires at the **exact** SHA — run `33711898714` (`head_sha 845116d`, event `push`, branch `master`) — but its conclusion is `failure`: *"the job was not started because your account is locked due to a billing issue."* The only remaining obstacle is the billing lock; clear it, re-drive the exact-`headSha` `CI` run to success + `dist-index-html` byte parity. Do not bank the failed run as a PASS (§2/§8). If billing cannot be cleared, revise v23 (Rev-1 Path-to-100 #1) to accept native-PASS + CI-permanently-environment-blocked as a bounded terminal disposition. |
 | 11 | P1 | **DONE — CSV fixed & verified (v49)** | v47 | v49 | −0 | **Fix `native/CheckIn007/Services/CSVCodec.swift` to match the web reference — DONE.** `b0bdf11` changed `:55` to `character == "\n" || character == "\r\n"`, recognizing Swift's combined-CRLF grapheme as one row delimiter (standalone `"\r"` still ignored, quoted CR/LF preserved). Audit fixture now yields `[["name","table"],["Vale, Bianca","Table \"3\""]]`; `CSVCodecTests` count-guards before `rows[1]` and adds a 7-case parity matrix; 33/33 native unit methods green; web source `src/lib/csv.mjs` untouched (78/78). The `CameraPrivacyTests` stall (tracked here) is also fixed (serial `SessionWorker` + injectable auth). |
-| 12 | P1 | **OPEN — raised v49 (native UI-harness red)** | v49 | — | −0 (staleness 0) | **Fix the `CheckIn007UITests` query/trait mismatch so the full native scheme goes green — needs a new cycle (out of v24 manifest §5).** With the CSV crash + camera stall removed, the full `xcodebuild test` run now reaches the UI target and **all 4 UI methods FAIL** initial element lookup (33 unit pass / 4 UI fail, twice). Root cause: `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)` to `roster.mark007`, so XCUITest exposes it under `app.buttons`, but `CheckIn007UITests.swift:61,80` query `app.otherElements[A11yId.mark007]`. Fix EITHER by querying `app.buttons[A11yId.mark007]` in `CheckIn007UITests.swift` OR by dropping `.accessibilityAddTraits(.isButton)` in `RosterView.swift:45` (weigh VoiceOver semantics). Acceptance: `CheckIn007Tests` + `CheckIn007UITests` fully green (six suites / 33 unit / 4 UI / exit 0 / zero failures) on iPad (A16) `A155995F-…`, **without** weakening any assertion; then check §14 boxes 4 & 6. |
+| 12 | P1 | **OPEN — raised v49; scope corrected v50 (2 methods, not 4)** | v49 | — | −0 (staleness 1) | **Fix the `mark007` query/trait mismatch (the two admin-open UI methods).** `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)` to `roster.mark007` (exposed under `app.buttons`), but `CheckIn007UITests.swift:61,80` query `app.otherElements[A11yId.mark007]` → `testAdminOpensToggleAudioAndCloses` + `testClearLogRequiresTwoConfirmations` fail. Fix EITHER by querying `app.buttons[A11yId.mark007]` OR by dropping `.accessibilityAddTraits(.isButton)` in `RosterView.swift:45` (weigh VoiceOver semantics). Plan v25 proposes the `app.buttons` fix — correct for these two methods, but **incomplete for the suite** (see RA #13). Acceptance (with RA #13): both native targets green — six suites / 33 unit / 4 UI / exit 0 / zero failures — on iPad (A16) `A155995F-…`, **without** weakening any assertion; then check §14 boxes 4 & 6. |
+| 13 | P1 | **OPEN — raised v50 (native check-in-flow UI red)** | v50 | — | −0 (staleness 0) | **Diagnose & fix the check-in scan→result UI failure (the two non-`mark007` methods).** Proved by execution on iPad (A16) `A155995F-…`: `testFirstCheckInFlow` FAILS at `CheckIn007UITests.swift:30` (`scan.status` not found after the roster-row tap; roster-row lookup at `:26` PASSES) and `testRepeatGuestDoesNotDuplicateOneScan` FAILS at `:51` (`result.title` not found; `:48` PASSES). Both identifiers are on `Text` views (`ScanView.swift:35-39`, `ResultView.swift:19-23`) → should resolve under `app.staticTexts`, so the likely cause is a check-in workflow/navigation defect (tapping a guest does not surface the scan/result screens in the harness), not a query type. Capture the XCUITest hierarchy at failure to root-cause; fix without weakening assertions. **Plan v25 does not address this** → a corrected plan must cover RA #12 **and** RA #13 to reach a green native suite. |
 
 ## Next Step
 
-Cycle 12 is at **State 3 — fix the implementation to meet the approved plan** (Implementation Verification
-**v12 = 84/100**), but the residual failure is **out of plan v24's manifest**, so the correct move is a
-**new fix-cycle (State 1 → new plan)**. The v24 fix (`b0bdf11` + `9072d5b`) landed and was verified: the CSV
-data-loss defect (RA #11) and the camera stall are **fixed**, all six native unit suites are green (33/33),
-web gates pass, and evidence is honest. The one unmet acceptance is the plan's headline gate — **the full
-native scheme is still red on 4 UI-test failures** (RA #12).
+Cycle 13 is at **State 1 — revise the plan.** Plan v25 (`38263e6`, Cycle 13 — Native UI Accessibility Query
+Repair) is **NOT APPROVED (72/100)**: its central premise is misdiagnosed. It asserts `roster.mark007` is the
+*shared cause* of all four UI failures, but only **two** methods touch `mark007`. Running the other two proved
+they fail **downstream in the check-in flow**, so v25's two-line query fix cannot make the suite green.
 
-**What's done (verified this cycle):**
-- **RA #11 — CSV data-loss fixed.** `CSVCodec.swift:55` recognizes the combined-CRLF grapheme; audit fixture
-  → 2 rows; crash-safe assertion + 7-case parity matrix; 33/33 native unit methods green; web parser untouched.
-- **Camera stall fixed.** Serial `SessionWorker` + injectable authorization; privacy preserved; two green
-  isolated `CameraPrivacyTests` runs.
-- **Web gates green; CI recorded honest `BLOCKED (external billing)`;** §14 honestly at 4/6; no gate weakened.
+**What's done (verified prior cycles, unchanged):**
+- **RA #11 — CSV data-loss fixed** (`b0bdf11`): `CSVCodec.swift:55` recognizes the combined-CRLF grapheme;
+  33/33 native unit methods green; web parser untouched. **Camera stall fixed** (serial `SessionWorker`).
+- **Web gates green; CI honest `BLOCKED (external billing)`** (run `33711898714`), not banked.
 
-**What's left (RA #12 — needs a new cycle):** the full `xcodebuild test` run now reaches the UI target and
-**all 4 `CheckIn007UITests` methods FAIL** initial element lookup, because `roster.mark007` carries
-`.accessibilityAddTraits(.isButton)` (`RosterView.swift:43-45`) — exposed under `app.buttons` — while the
-tests query `app.otherElements[…]` (`CheckIn007UITests.swift:61,80`). Both files are outside v24's manifest
-(§5) and UI redesign is out of scope (§2), so v24 cannot fix this in place.
+**What's proved this cycle (the native suite is red for TWO independent reasons):**
+- **RA #12 (2 methods) — `mark007` `.isButton` vs `otherElements`.** `RosterView.swift:43-45` ↔
+  `CheckIn007UITests.swift:61,80`. Fails `testAdminOpensToggleAudioAndCloses` + `testClearLogRequiresTwoConfirmations`.
+  v25's `app.buttons[A11yId.mark007]` fix is correct here.
+- **RA #13 (2 methods) — check-in scan→result flow.** I ran the two non-`mark007` UI methods on iPad (A16)
+  `A155995F-…`: `testFirstCheckInFlow` FAILS at `:30` (`scan.status`) and `testRepeatGuestDoesNotDuplicateOneScan`
+  FAILS at `:51` (`result.title`) — **after** the roster-row tap (roster-row lookups at `:26`/`:48` PASS).
+  Unrelated to `mark007`; v25 does not address it. Likely a check-in workflow/navigation defect (both
+  identifiers are on `Text` views, so should be `staticTexts`).
 
 **Recommended action:**
 
-1. **Open a new fix-cycle for RA #12 (the score-driver).** Plan a minimal change bringing the UI trait/query
-   mismatch into scope. Fix EITHER by querying `app.buttons[A11yId.mark007]` in `CheckIn007UITests.swift`
-   OR by dropping `.accessibilityAddTraits(.isButton)` in `RosterView.swift:45` (weigh VoiceOver semantics).
-   Acceptance: both native targets green — six suites, 33 unit, 4 UI, exit 0, zero failures — on iPad (A16)
-   `A155995F-…`, **without** weakening any assertion; then check §14 boxes 4 & 6.
+1. **Revise plan v25 to ≥95 (State 1).** Expand scope to address **both** RA #12 (keep the `app.buttons`
+   query fix) **and** RA #13 (diagnose why the scan→result flow does not surface `scan.status`/`result.title`
+   after a roster-row tap — capture the XCUITest hierarchy at failure), OR re-scope v25's §6 Phase 3 / §14
+   acceptance so it does not claim "4/4 UI green" when its change set delivers 2/4. Do **not** implement v25 as
+   written; do not weaken any assertion. Acceptance for the eventual fix: both native targets green — six
+   suites, 33 unit, 4 UI, exit 0, zero failures — on iPad (A16) `A155995F-…`; then check §14 boxes 4 & 6.
 2. **RA #10 — CI billing.** Clear the GitHub Actions billing lock, then re-drive the exact-`headSha` `CI` run
    to success + prove `dist-index-html` byte parity; else keep the bounded terminal `BLOCKED (external
    billing)` disposition. Do not bank the failed run `33711898714`.
@@ -1967,12 +2038,14 @@ tests query `app.otherElements[…]` (`CheckIn007UITests.swift:61,80`). Both fil
 Do not weaken any gate, do not re-open the completed RA #11 / camera work, and do not accept
 `BLOCKED`/`FAIL` as completion (§2/§8).
 
-Real code landed this cycle → **inactivity decay stays 0**. The score moved 88 → 90 (base 92, −1 CI-billing,
-−1 native UI-red, decay 0, backlog 0, RA 0). The lever to raise it further is landing RA #12 (native fully
-green) and unblocking or bounding the CI path.
+Only a docs-only (rejected) plan landed this cycle → **inactivity decay −1** (first no-code cycle since the
+Cycle-12 landing). The score moved 90 → 88 (base 91, −1 CI-billing, −1 native UI-red, −1 decay, backlog 0,
+RA 0). The lever to raise it: an approved plan that lands **both** RA #12 and RA #13 green, plus unblocking or
+bounding the CI path.
 
 ## Revision History
 
+| v50 | 2026-09-03 | 88 | **Cycle 13 plan v25 NOT APPROVED (72/100) — misdiagnosed native UI-red; suite fails for two independent reasons; score 90 → 88.** Only change since v49 is `38263e6` (`plan: v25 — repair native UI accessibility query`), a docs-only new plan (not implemented — `CheckIn007UITests.swift:61,80` still query `app.otherElements[A11yId.mark007]`). **v25 §1 claims `roster.mark007` is the *shared cause* of all four UI failures — DISPROVEN by execution.** Only two of the four UI methods touch `mark007`; I ran the other two on iPad (A16) `A155995F-…` (tree `38263e6`): `testFirstCheckInFlow` FAILS at `CheckIn007UITests.swift:30` (`scan.status` not found after the roster-row tap; roster-row lookup `:26` PASSES) and `testRepeatGuestDoesNotDuplicateOneScan` FAILS at `:51` (`result.title`; `:48` PASSES) — both downstream in the check-in flow, unrelated to `mark007` (extracted via `xcresulttool`). So the native suite is red for **two independent** defects: RA #12 (the `mark007` `.isButton`-vs-`otherElements` mismatch, 2 methods) and **RA #13** (native check-in scan→result flow, 2 methods — raised this cycle). v25 addresses only RA #12, so its §6 Phase 3 / §14 "four UI methods, 37 total passes" acceptance is unreachable → NOT APPROVED; loop → **State 1 (revise v25)**. The Cycle-12 evidence's "all four failed initial element lookup" was inaccurate (methods 1 & 2 fail downstream). v25 gets the `mark007` half right; inventory (33 unit + 4 UI) and §11 environment verbatim-accurate; CI honestly `BLOCKED (external billing)`. Backlog `[ ]` = 0. **Deductions:** base 92 → **91** (native check-in workflow proven non-functional in UI tests — Feature completeness 9 → 8; Testing rigor stays 8; web + native unit/logic layers still green); RA −0 (#12 corrected/staleness 1, #13 staleness 0, #10 external, #1–#9/#11 DONE); backlog −0; **decay −1** (no code since the Cycle-12 landing — only the docs-only rejected plan v25); **−1 CI-billing, −1 native UI-red (two-cause)**. **Base 91 − 1 − 1 − 1 = 88.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-13 Rev 1 + Implementation Verification v13. |
 | v49 | 2026-09-03 | 90 | **Cycle 12 fix LANDED (CSV + camera green) but native suite STILL red on 4 pre-existing UI failures — Implementation Verification v12 = 84/100; score 88 → 90.** Two commits since v48: `b0bdf11` (`fix(§6): restore native CSV and camera test parity`) + `9072d5b` (`docs(§6): record Cycle 12 verification results`). **RA #11 FIXED & verified:** `CSVCodec.swift:55` now recognizes Swift's combined-CRLF grapheme (`character == "\n" || character == "\r\n"`); audit fixture → `[["name","table"],["Vale, Bianca","Table \"3\""]]`; `CSVCodecTests` crash-safe + 7-case parity matrix; 33/33 native unit methods green; web `src/lib/csv.mjs` untouched (78/78). **Camera stall FIXED:** serial `SessionWorker` + injectable auth, privacy preserved, two green isolated runs. **BUT the full native scheme is still red:** 33 unit pass / **4 UI fail** — `RosterView.swift:43-45` adds `.accessibilityAddTraits(.isButton)` to `roster.mark007` (exposed under `app.buttons`) while `CheckIn007UITests.swift:61,80` query `app.otherElements[…]`; pre-existing harness/trait mismatch revealed now the run no longer aborts early. Raised **RA #12 (P1)**; out of v24's manifest (§5), so it needs a **new cycle**. §14 honestly 4/6; CI `BLOCKED (external billing)` (run `33711898714`), not banked. Backlog `[ ]` = 0. **Deductions:** base recovers 90 → **92** (CSV data-loss product defect fixed — Code correctness 7 → 9; native suite still not green so base does not return to 94, Testing rigor 8); decay resets to 0 (real code landed); RA −0 (#11 DONE, #12 staleness 0, #10 external); backlog −0; **−1 CI-billing, −1 native UI-red**. **Base 92 − 1 − 1 = 90.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v12. |
 | v48 | 2026-09-03 | 88 | **Cycle 12 fix plan v24 APPROVED (96/100); implementation NOT yet started — Implementation Verification v11 = N/A; score 89 → 88.** Only change since v47 was `a6ca9b7` (`plan: v24 — native CSV parity repair`), a docs-only new plan correctly answering Implementation Verification v10's State-1 directive. Plan v24 opens a dedicated fix-cycle for the proven `CSVCodec.parseRows` data-loss defect (RA #11), folds in camera characterization + the bounded terminal CI disposition (RA #10). Root cause independently re-confirmed. Implementation not started (`git log a6ca9b7..HEAD` empty; `CSVCodec.swift` still buggy); §14 = 0/6; CI still `BLOCKED (external billing)`; backlog `[ ]` = 0. **Deductions:** base holds 90 (shipped defect still present — an approved plan is not a landed fix); RA −0; backlog −0; **inactivity decay −1** (only a docs-only plan commit, no code) + **−1 CI-billing**. **Base 90 − 1 − 1 = 88.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v11. |
 | v47 | 2026-09-03 | 89 | **Native gate finally RUN and it genuinely FAILS on a real product defect — Implementation Verification v10 = N/A; score 93 → 89.** Commit `7b4d681` records the first-ever native `xcodebuild test` execution (RA #9 DISCHARGED), but the run FAILS — independently reproduced: `CSVCodec.parseRows("﻿name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n")` returns **1 row not 2**, then crashes index-out-of-range on `rows[1]`. The byte-identical web parser passes the equivalent case → real Swift-port data-loss defect, raised **RA #11 (P1)**; a `CameraPrivacyTests` stall also recorded. Generator handled plan-compliantly (gate run, FAIL recorded, no PASS claimed, no gate weakened) but the defect is out of v23 scope → loop to State 1 + new fix-cycle. CI run `33711898714` still FAILED on billing; §14 = 0/6; backlog `[ ]` = 0. **Deductions:** base corrected 94 → 90 (native suite proven-not-green: Code correctness 9 → 7, Testing rigor 10 → 8); RA −0 (#9 discharged, #11 staleness 0, #10 external); backlog −0; decay 0 (real work landed); **−1 CI-billing**. **Base 90 − 1 = 89.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v10. |
