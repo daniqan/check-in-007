@@ -16,6 +16,19 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
   installed web-apps cache `index.html` aggressively; stale loads were observed while debugging the
   scroll issue and forced new filenames / manual "Clear Website Data" between tests. A cache-bust
   (hashed asset name, `Cache-Control`, or a version query) would make kiosk redeploys reliable.
+- [ ] Web app manifest / `start_url` for reliable standalone Add-to-Home-Screen installs. Plan v28
+  §13 Q4 explicitly defers this: Cycle 15 ships content-hashed URLs + existing meta tags first, and
+  a `manifest.json` with `start_url`/`display:standalone` is only warranted in a later cycle *if*
+  fresh hashed URLs do not fully solve stale standalone loads. Deferred pending Cycle-15 real-iPad results.
+
+> **Cycle 15 status (audit v57):** both items above are `[/]` (in progress). `IMPLEMENTATION_PLAN.md`
+> v28 (Cycle 15) fixes **RA #14** (iPad roster touch-scroll) plus both items and is **APPROVED at
+> 96/100** (Plan Critique Cycle 15 Rev 1) but **NOT YET IMPLEMENTED** — no `src/`/`scripts/`/`native/`/
+> `tests/` code has landed (`git diff acaeeb1..HEAD` over those paths is empty; the plan's new files
+> `scripts/ios-scroll-smoke.mjs` and `.github/workflows/ios-scroll.yml` do not exist). Implementing
+> v28 flips these `[/]` → `[x]`, closes RA #14, and resets the inactivity decay (now at the −5 cap).
+> The iPad fix must be verified on a **real iPad / iOS Simulator** — never desktop/CI alone. See
+> `CONSOLIDATED_AUDIT.md` v57 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 15 Rev 1.
 
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)

@@ -1,51 +1,85 @@
 # Consolidated Audit — Check-In 007
 
-<!-- score:plan 97 -->
-<!-- score:implementation 98 -->
+<!-- score:plan 96 -->
+<!-- score:implementation N/A -->
 <!-- score:current 75 -->
 
 **Current Score**: 75/100
-**Audit Version:** v56
-**Audited:** HEAD `acaeeb1` on 2026-09-03. **NEW HIGH-SEVERITY DEFECT REPORTED BY THE USER** and verified against source: the `ROSTER` guest list does not reliably touch-scroll on **iPadOS Safari / standalone** — the primary kiosk device's primary screen. Cycle 14 (plan v27, doc-only) remains COMPLETE & VERIFIED, but the system is **no longer healthy**: a P0/HIGH interaction defect now breaks the core use case on the target hardware. **A NEW CYCLE (15) MUST OPEN** — the approved plan v27 does not cover this defect (it predates the report and was scoped to doc-only follow-ups). Next action for the generator: **draft a new plan** to fix the iPad momentum-scroll defect. Score drops 94 → 75 (base 80: feature-completeness/correctness hit on the primary device; RA −0 [new RA #14 raised this version, staleness 0]; backlog −1 [2 newly-added deferred items]; inactivity decay −4 [4th consecutive audit with no `native/`/`src/`/`tests/` change — now legitimately forcing the scroll fix]).
+**Audit Version:** v57
+**Audited:** HEAD `282b164` on 2026-09-03. **CYCLE 15 OPENED — plan v28 drafted & APPROVED at 96/100 (State 2 — implement the approved plan). NOT YET IMPLEMENTED → Implementation Score N/A.** The generator drafted `IMPLEMENTATION_PLAN.md` v28 (Cycle 15) to fix RA #14 (iPad roster touch-scroll) plus both open backlog items. Independently reviewed this cycle: **Plan Critique Cycle 15 Rev 1 = 96/100 — APPROVED** (`IMPLEMENTATION_PLAN_CRITIQUE.md`), which also **restores the empty (0-byte) critique file** left by the `acaeeb1` archive (F-15 recurrence). No code has landed: `git diff --name-only acaeeb1..HEAD -- src/ scripts/ native/ .github/ tests/` is **empty**; the plan's new files (`scripts/ios-scroll-smoke.mjs`, `.github/workflows/ios-scroll.yml`) do not exist; no `scrollProbe` in `src/`. The Cycle-14 code tree stays byte-identical and all automated gates remain green (37/37 native, 78/13 web), but RA #14 (P0/HIGH) is still live on the primary device, so feature completeness stays broken. Score holds **75/100**: base 80 unchanged; RA −0 (RA #14 in progress — plan approved, staleness 1, not stalled); backlog −0 (both iPad items now `[/]` in progress — recovers the v56 −1); inactivity decay −5 (5th consecutive audit with no `src/`/`scripts/`/`native/`/`tests/` code commit — cap reached). The backlog recovery is exactly offset by the decay tick: an honest "plan approved on paper, code still idle, defect still live."
 
-**Stage:** Cycle 14 **State 4 — COMPLETE** (Plan 97 ≥ 95; Implementation 98 ≥ 95) **→ NEW CYCLE REQUIRED (State 1 — draft plan for RA #14, iPad roster scroll).** The prior "complete and idle" disposition is superseded: there is now real, high-priority code work.
+**Stage:** Cycle 15 **State 2 — IMPLEMENT THE APPROVED PLAN** (Plan v28 = 96 ≥ 95; Implementation not started → N/A). Next action for the generator: **implement plan v28**, isolating one variable at a time and verifying the iPad fix on a **real iPad / iOS Simulator** (headless/desktop CI cannot see this bug). Landing `src/`/`scripts/`/`native/`/`tests/` code resets the −5 decay and recovers feature completeness.
 
-**Plan Score:** 97/100 (v27 — Cycle 14, complete; does NOT cover the new scroll defect — a new plan is required)
-**Implementation Score:** 98/100 (v18 — Cycle 14 execution fidelity; scoped to the doc-only plan, not the shipped scroll behavior)
+**Plan Score:** 96/100 (v28 — Cycle 15, APPROVED; fixes RA #14 + both backlog items; held at 96 by the underspecified XCUITest→mobile-Safari WebView drive/read mechanism)
+**Implementation Score:** N/A (approved plan v28 not yet implemented — no target commit)
 **Current Score**: 75/100
 
 ## Score Breakdown
 
 **Base Score:** 80/100
-- Code correctness: 7/10 — all automated gates green (37/37 native, 78/13 web), but a verified HIGH touch-scroll interaction defect on iPadOS (RA #14).
-- Plan compliance: 10/10 — Cycle 14 faithful (impl v18 = 98).
-- Document coherence: 9/10 — docs agree; `docs/IPAD_SCROLL_BUG.md` accurately captures the new defect.
-- Testing rigor: 7/10 — strong suite, but the iOS touch-momentum path is unreproducible in headless Chromium / desktop WebKit → real-device coverage gap (now backlog).
+- Code correctness: 7/10 — all automated gates green (37/37 native, 78/13 web), but a verified HIGH touch-scroll interaction defect on iPadOS (RA #14) remains unfixed (plan approved, code not yet landed).
+- Plan compliance: 10/10 — the approved plan v28 is source-accurate; no implementation yet to diverge from it.
+- Document coherence: 9/10 — docs agree; `docs/IPAD_SCROLL_BUG.md` accurately captures the defect (note: still untracked in git — plan §5 will `git add` it on implementation).
+- Testing rigor: 7/10 — strong suite, but the iOS touch-momentum path is unreproducible in headless Chromium / desktop WebKit → real-device coverage gap (plan Phase 4 addresses it, not yet built).
 - Safety architecture: 9/10.
 - Monitoring & observability: 8/10.
-- **Feature completeness: 5/10 — the primary kiosk device's main screen does not reliably scroll. Core UX broken on the target platform.**
-- Risk management: 7/10 — an intermittently-unusable kiosk; scoped to one screen/platform with a documented workaround (tab-switch) and candidate fixes.
-- Sum 62/80 → base **80** (rounded up from 77.5, crediting the fully-built app, all-green automated gates, and a precisely-diagnosed defect with concrete candidate fixes).
+- **Feature completeness: 5/10 — the primary kiosk device's main screen still does not reliably scroll. Core UX broken on the target platform until plan v28 lands.**
+- Risk management: 7/10 — an intermittently-unusable kiosk; scoped to one screen/platform with a documented workaround (tab-switch) and an approved, isolated fix.
+- Sum 62/80 → base **80** (rounded up from 77.5, crediting the fully-built app, all-green automated gates, and a precisely-diagnosed defect with an approved single-variable fix).
 
 **Deductions:**
-- Required Actions: **−0** — RA #14 (P0/HIGH) raised THIS version (staleness 0, no stall deduction yet); RA #10 external/`BLOCKED` (−0).
-- Backlog: **−1** — 2 newly-added unchecked items (iOS touch-scroll CI test; iOS standalone cache-busting) → 1 pt / 2 items.
-- Inactivity decay: **−4** — 4th consecutive audit with no `native/`/`src/`/`tests/` commit (v53 −1 → v54 −2 → v55 −3 → v56 −4). The decay is now aligned with a legitimate mandate to land the scroll fix; it resets the moment code lands.
-- **Final: 80 − 0 − 1 − 4 = 75/100.**
+- Required Actions: **−0** — RA #14 (P0/HIGH) is **in progress** (plan v28 drafted & approved this cycle; staleness 1, below the 3+ stale threshold; active progress → no stall deduction). RA #10 external/`BLOCKED` (−0).
+- Backlog: **−0** — both iPad-robustness items are now `[/]` (in progress, driven by approved plan v28) → strict-unchecked `- [ ]` = 0 (per established project precedent, `[/]` is not counted). Recovers the v56 −1.
+- Inactivity decay: **−5** — 5th consecutive audit with no `src/`/`scripts/`/`native/`/`tests/` commit (v53 −1 → v54 −2 → v55 −3 → v56 −4 → v57 −5, cap reached). Resets the moment plan v28's code lands.
+- **Final: 80 − 0 − 0 − 5 = 75/100.**
 
 ## Findings
 
 - **HIGH / F-14 (NEW):** iPadOS Safari + standalone do not reliably momentum-scroll the roster list. Root cause (verified in source): `.roster-list` (`src/styles.css:164-176`, `overflow:auto; -webkit-overflow-scrolling:touch`) is a descendant of `.screen`/`.roster-screen` (`:55-76`, `:148-150`), which is `position:fixed` and carries a `transform` both at rest (`scale(1)`) and during the 500ms entrance re-run on every mount (`src/app.mjs:43-44` toggles `is-ready` on rAF). A transformed/animated fixed ancestor breaks iOS touch-momentum layer initialization at first paint; a later relayout (tab switch) re-establishes it, a reload loses it — exactly the reported "works sometimes, breaks on reload, keyboard temporarily fixes it" pattern and the platform matrix (Blink touch ✅, desktop WebKit trackpad ✅, iPadOS WebKit touch ❌). See `docs/IPAD_SCROLL_BUG.md`. **Not reproducible in headless Chromium / desktop WebKit — a fix requires real-iPad / iOS-Simulator verification.**
-- **PROCESS / F-15:** `IMPLEMENTATION_PLAN_CRITIQUE.md` was left **empty (0 bytes)** by the `acaeeb1` "Archive cycle 9" commit (full Cycle-9-and-earlier critique history preserved in `archive/cycle-9/IMPLEMENTATION_PLAN_CRITIQUE.md`). The canonical plan-critique / implementation-verification record for the current plan was therefore missing. Restored this cycle with the v27 approval + Implementation Verification v18 record and the new-cycle disposition.
+- **PROCESS / F-15 (recurred):** `IMPLEMENTATION_PLAN_CRITIQUE.md` was **empty (0 bytes)** again at the start of this cycle — the `282b164` plan-v28 commit did not carry a critique, so the canonical plan-critique record for the current plan was missing. Restored this cycle with the **Cycle 15 Rev 1 critique of plan v28 (96/100 — APPROVED)**. Recurring pattern: new-cycle commits keep landing without a paired critique; the discriminator must re-author it each time.
+- **INFO / F-16:** `docs/IPAD_SCROLL_BUG.md` is **untracked** in git (`git status` → `?? docs/IPAD_SCROLL_BUG.md`), yet plan v28 §5 lists it `(MOD)` and audit findings reference it as the diagnostic source of record. The Cycle-15 append (plan Phase 5.4) will not be version-controlled unless the generator `git add`s it during implementation. Non-blocking; flagged so the file's history is preserved.
 
 ## Required Actions
 
 | # | Priority | Status | Raised | Staleness | Score Impact | Directive |
 |---|----------|--------|--------|-----------|--------------|-----------|
-| 14 | **P0 / HIGH** | **OPEN (new)** | v56 | 0 | −0 (new) | Draft & implement a plan to make the iPad roster reliably touch-scroll. **Isolate one variable at a time and verify on a real iPad / iOS Simulator** (the defect is invisible to headless/desktop CI). Leading fix per `docs/IPAD_SCROLL_BUG.md`: remove the transform from the roster's fixed ancestor permanently (fade-only entrance for the roster screen, `transform:none` at rest AND during entrance) and change nothing else; fallbacks — move the entrance transform to a non-ancestor inner wrapper, or let the roster scroll the document natively instead of stacking it `position:fixed`, or promote `.roster-list` to its own layer (`translateZ(0)`/`will-change`). Do NOT bundle multiple changes (the fade+block+kick+touch-action bundle already regressed to "no scroll at all"). Preserve the single-file build, other screens' entrance, tests, lint, the 40-guest sample, and the ≥500 virtualization path. |
+| 14 | **P0 / HIGH** | **IN PROGRESS** (plan v28 approved, not implemented) | v56 | 1 | −0 (in progress, not stalled) | **Implement approved plan v28.** Make the iPad roster reliably touch-scroll: Phase 1 removes the `.roster-screen` fixed-ancestor transform (`transform:none` at rest AND during entrance, other screens' scale entrance preserved). **Isolate one variable at a time and verify on a real iPad / iOS Simulator** (the defect is invisible to headless/desktop CI — see `docs/IPAD_SCROLL_BUG.md`). Do NOT bundle changes (fade+block+kick+touch-action already regressed to "no scroll at all"). Wire the probe oracle's `dispose()` into `mountRoster`'s cleanup; render the probe node outside the scroller. The iPad fix may NOT be marked verified on desktop/CI evidence alone — a real iOS touch PASS is required, or the gate stays explicitly unverified pending runner provisioning. Preserve the single-file build, other screens' entrance, tests, lint, the 40-guest sample, and the ≥500 virtualization path. |
 | 10 | P2 / MODERATE | `BLOCKED (external billing)` | v37 | — | −0 (external / non-code-actionable) | Operator must clear GitHub billing, then push/rerun CI `33711898714`. Outside the code loop. |
 
 **DONE / RESOLVED (not re-opened):** RA #11 (CSV data-loss) DONE; camera DONE; RA #12 (`mark007` query) RESOLVED & verified; RA #13 (check-in flow hit region) RESOLVED & verified; RA #1–#9 DONE.
+
+<!-- audit-entry v57 -->
+> **CYCLE 15 OPENED — plan v28 drafted & APPROVED at 96/100 (State 2 — implement the approved plan). NOT YET IMPLEMENTED → Implementation Score N/A. Empty critique (F-15) restored again. Score holds 75 (backlog −1 recovered by `[/]`, offset by 5th idle-code decay tick).**
+> `282b164` ("plan: v28 — iPad scroll robustness cycle") replaced the completed Cycle-14 plan with a fresh Cycle-15 plan for **RA #14** (iPad roster touch-scroll) plus both open backlog items. Per the staleness rule the newer plan is reviewed fresh: **Plan Critique Cycle 15 Rev 1 = 96/100 — APPROVED** (`IMPLEMENTATION_PLAN_CRITIQUE.md`).
+>
+> **Nothing is implemented yet (trust nothing — verified against the tree):**
+> - `git diff --name-only acaeeb1..HEAD -- src/ scripts/ native/ .github/ tests/ package.json` is **empty** — zero code drift since the v56 audit.
+> - `git show --stat 282b164` = **2 files** (`IMPLEMENTATION_PLAN.md` +411/−144, `BACKLOG.md` +4/−4) — a plan/backlog commit only.
+> - The plan's NEW files do not exist: `ls scripts/ios-scroll-smoke.mjs .github/workflows/ios-scroll.yml` → "No such file or directory". `grep -rn "scrollProbe|createScrollProbe|readRuntimeFlags" src/` → 0 hits.
+> - The Cycle-14 code tree is byte-identical; all automated gates remain green (37/37 native, 78/13 web) — but RA #14 (P0/HIGH) is still live on the primary device.
+>
+> **Plan v28 factual claims independently verified against source (all accurate):**
+> - `.screen` carries `transform: scale(0.985)` at rest with `#app.is-ready .screen { transform: scale(1) }` (`src/styles.css:66-76`); `.roster-screen` is `position:fixed` (`:148-150`); `.roster-list` is the touch scroller `overflow:auto; -webkit-overflow-scrolling:touch` (`:164-176`) — the transformed-fixed-ancestor root cause.
+> - `src/app.mjs:43-44` toggles `is-ready` off then on via rAF each mount → the entrance transform re-runs at roster first paint.
+> - `scripts/build.mjs:147-155` runs the size-budget check *before* `writeFile('dist/index.html')` — Phase 3's "keep budget checks before writing" is accurate.
+> - `src/screens/roster.mjs:5,23,153,171-184` — `mountRoster` exports, `list = querySelector('.roster-list')`, scroll listener add/remove, and the cleanup return that the probe `dispose()` must be wired into.
+> - `scripts/lib/static-server.mjs:103` emits `Cache-Control: no-store`; `.github/workflows/ci.yml:57-58` uploads `dist/index.html` (Phase 3.6 correctly widens to `dist/`).
+> - `.prettierignore` already excludes `dist/` and `native/` → the generated manifest and Swift files won't trip `prettier --check` (a recurring prior-cycle concern that does NOT apply here).
+>
+> **Plan held at 96 (not higher):** the XCUITest→mobile-Safari WebView drive/read mechanism — the single hardest deliverable — is left as a conditional branch (read path, Safari-launch approach, and drag-start region unpinned), plus a `createScrollProbe` host-element contract wrinkle and a missing drag-vs-click edge case in §8. None blocking; the iOS lane fails closed and cannot emit a false pass. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 15 Rev 1.
+>
+> **Score computation.**
+> - **Base Score: 80/100.** Unchanged from v56 — all automated gates green, but feature completeness on the primary device stays broken until the fix lands (8-criteria sum 62/80).
+> - **Required Actions: −0.** RA #14 (P0/HIGH) is **in progress** — plan v28 drafted & approved this cycle; staleness 1 (below the 3+ stale threshold) with active progress → no stall deduction. RA #10 external/`BLOCKED` (−0).
+> - **Backlog: −0.** Both iPad-robustness items are now `[/]` (in progress, driven by approved plan v28) → strict-unchecked `- [ ]` = 0 (project precedent: `[/]` is not counted). Recovers the v56 −1.
+> - **Inactivity decay: −5.** 5th consecutive audit with no `src/`/`scripts/`/`native/`/`tests/` commit (v53 −1 → v54 −2 → v55 −3 → v56 −4 → v57 −5, cap reached). Resets the moment plan v28's code lands.
+> - **Final: 80 − 0 − 0 − 5 = 75/100.** Net-flat vs v56: the backlog recovery is exactly offset by the decay tick — "plan approved on paper, code still idle, defect still live."
+>
+> **F-15 recurred — empty critique restored again.** The `282b164` plan-v28 commit landed without a paired critique, leaving `IMPLEMENTATION_PLAN_CRITIQUE.md` at 0 bytes. Re-authored this cycle (v28 APPROVED 96/100 + State-2 disposition). **F-16 — `docs/IPAD_SCROLL_BUG.md` is untracked**; plan §5 must `git add` it on implementation.
+>
+> **Disposition — Cycle 15, State 2 (implement approved plan v28).** Next action: land Phases 1–5 — the isolated roster transform fix, the probe oracle (with `dispose()` wired into `mountRoster` cleanup), cache-busted artifacts, and the fail-closed iOS CI lane — then verify the iPad fix on a **real iPad / iOS Simulator** (never desktop/CI alone). Landing code resets the −5 decay and recovers feature completeness. RA #10 stays outside the code loop.
+>
+> **Required Actions status.** **#14** (P0/HIGH, iPad roster scroll) — **IN PROGRESS** (plan v28 approved, not implemented), staleness 1, **−0**; drives Cycle 15 implementation. **#10** (P2/MODERATE, CI external billing) — `BLOCKED`, external, **−0**. **#11** (CSV) DONE. **#12** (`mark007`) RESOLVED. **#13** (check-in flow) RESOLVED. Camera DONE.
 
 <!-- audit-entry v56 -->
 > **NEW HIGH DEFECT (RA #14) — iPad roster does not reliably touch-scroll on iPadOS Safari/standalone (the primary kiosk device's main screen). Cycle 14 stays COMPLETE & VERIFIED, but system health drops 94 → 75; a NEW CYCLE (15) must open to fix it. Empty critique file (F-15) restored.**
