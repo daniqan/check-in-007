@@ -1,161 +1,144 @@
-# Check-In 007 — External Verification Closure Plan v22 (Cycle 10)
+# Check-In 007 — External Execution Closure Plan v23 (Cycle 11)
 
 ## 1. Overview
 
-Consolidated Audit v34 scores the shipped system at 94/100 and identifies exactly two remaining
-findings: the native SwiftUI suite has never run because this Mac has no iOS/iPadOS runtime, and the
-committed GitHub Actions workflow has never been observed on GitHub. Both are evidence gaps rather
-than product defects. This cycle creates durable, reproducible evidence for those two checks without
-changing application behavior.
-
-Traceability:
-
-- Audit v34 **Next Step #1**: install an iOS/iPadOS runtime and run native `xcodebuild ... test`.
-- Audit v34 **Next Step #2**: observe the first live GitHub Actions CI run after a push.
-- Audit v34 has no open Required Actions and `BACKLOG.md` has no unchecked items. This plan does not
-  reopen completed product work or invent a feature.
+Audit v37 scores the system 94/100 after Cycle 10's plan (97/100) and implementation (98/100).
+There are no product defects, open Required Actions, or unchecked backlog items. Two external checks
+remain unproven: native SwiftUI tests have never run on an iPad simulator, and the GitHub Actions
+workflow has never run for an exact reviewed commit. Cycle 11 closes Audit v37 Next Steps #1–#2 with
+successful execution evidence. Unlike Cycle 10, another `BLOCKED` record does not complete this plan.
 
 ## 2. Scope
 
 ### In scope
 
-1. Add a checked-in record containing the environment, immutable commit SHA, commands, exit status,
-   native test counts, CI run URL/ID, conclusion, and artifact result for both findings.
-2. Install the matching iOS simulator platform only after explicit operator approval, select an
-   available iPad simulator deterministically, and run the shared `CheckIn007` scheme from a clean
-   temporary derived-data directory.
-3. Establish or confirm the GitHub repository/remote only after explicit operator approval, push
-   the reviewed Cycle-10 implementation commit normally, and inspect the `CI` run for that exact SHA.
-4. Download the CI artifact into a temporary directory, verify metadata and byte parity with a local
-   same-SHA build, and record stable URLs and SHA-256 evidence. Do not commit downloads/build output.
-5. Update README verification status to link to the durable record.
-6. Run existing web/parity gates first so external failures are not confused with local regressions.
+1. Obtain explicit approval for the exact host installation and GitHub publication before mutation.
+2. Install the Xcode iOS platform, select an iOS 26+ iPad simulator, and run all native tests using
+   isolated temporary outputs.
+3. Create one immutable Cycle-11 target commit, publish it normally to the approved repository and
+   workflow-triggering branch, and inspect only the CI run whose `headSha` equals that commit.
+4. Download `dist-index-html` and prove byte parity with a clean local same-SHA build.
+5. Change the durable evidence and README from `BLOCKED` to `PASS` only after both gates succeed.
+6. Run existing local web gates first and preserve all product behavior.
 
 ### Out of scope
 
-- Changes to product source/tests, Xcode project/scheme, CI jobs, dependencies, lockfiles,
-  certificates, roster data, or generated `dist/` output.
-- Weakening tests or workflow gates to make a failure pass.
-- Creating a public repository, force-pushing, rewriting history, merging, opening a PR, changing
-  protection/settings/secrets/permissions/billing, or deleting host tooling.
-- Committing runtimes, DerivedData, `.xcresult`, Playwright reports, CI logs, or CI artifacts.
+- Product, test, Xcode-project, workflow, dependency, lockfile, roster, certificate, or generated
+  `dist/` changes; weakening gates; accepting an iPhone; or treating `FAIL`/`BLOCKED` as completion.
+- Guessing a GitHub repository, public-by-default creation, force-push/history rewrite, bypassing
+  branch protection, merging, or changing secrets, permissions, or billing.
+- Committing DerivedData, `.xcresult`, artifacts, logs, credentials, or absolute machine paths.
 - Editing discriminator-owned `BACKLOG.md`, `CONSOLIDATED_AUDIT.md`, or
   `IMPLEMENTATION_PLAN_CRITIQUE.md`.
-- Claiming either finding closed when success evidence is unavailable.
 
 ## 3. Architecture and Evidence Flow
 
 ```text
-immutable implementation commit SHA
-       |
-       +--> local web/parity gates ------------------------+
-       +--> approved iOS runtime -> xcodebuild + xcresult -+--> docs/VERIFICATION_EVIDENCE.md
-       +--> approved remote/push -> exact-SHA CI run -------+            |
-                                -> artifact byte/hash check |            +--> README link
-                                                            +------------+
+approved repository + branch
+            |
+Cycle-11 target commit SHA
+      |             |
+      |             +--> normal push --> exact-headSha CI --> dist-index-html
+      |                                                        |
+      +--> same-SHA local build -------------------------------+ byte equality
+      |
+      +--> approved iOS platform --> iPad UDID --> xcodebuild test + xcresult
+                                                             |
+                                                             v
+                                      docs/VERIFICATION_EVIDENCE.md --> README
 ```
 
-The commit SHA is the join key. Native evidence names the checked-out SHA. CI evidence must come
-from a run whose `headSha` equals it; branch name or “latest run” alone is insufficient. Local web
-failure stops all external work. Missing simulator support blocks only native verification;
-missing remote/auth/permission blocks only CI verification; failed gates are recorded as failed.
+The 40-character SHA joins checkout, native run, CI run, and artifact. Each domain fails
+independently, but this plan completes only when both external domains pass. The evidence-finalization
+commit follows the target and can never substitute for the target-SHA run.
 
 ## 4. Technical Decisions and Rationale
 
-### 4.1 Evidence document instead of code changes
+### 4.1 Success-only cycle
 
-The audit identifies unobserved execution, not missing behavior. Versioned Markdown is reviewable
-and can cite immutable SHAs/run URLs. Wrappers or workflow edits would add implementation surface
-without making the existing workflow more trustworthy. Terminal-only evidence is rejected as
-ephemeral.
+Cycle 10 made blockers observable; Audit v37 says the findings close only at `PASS`. Therefore
+authorization is a pre-implementation gate and all completion gates require success. If permission
+or infrastructure remains unavailable, stop with the plan pending instead of producing another
+docs-only blocked cycle.
 
-### 4.2 Explicit approval for external mutations
+### 4.2 Supported platform installation
 
-`xcodebuild -downloadPlatform iOS` changes the host and may consume substantial disk/network. Adding
-a remote and pushing changes publishes state to collaborators. The implementer performs read-only
-preflight, presents the resolved target/impact, and pauses for specific approval before each action.
+Use installed Xcode 26.4's `xcodebuild -downloadPlatform iOS`, after approval and a disk-space check.
+This is safer than copying runtimes or editing Xcode internals because Xcode owns compatibility. The
+tradeoff is a potentially large host/network mutation.
 
-### 4.3 Machine-readable simulator destination
+### 4.3 Discovered, UDID-addressed iPad
 
-After installation, parse available devices, choose an available iPad, and call `xcodebuild` with
-`platform=iOS Simulator,id=<UDID>`. UDID avoids ambiguous names and the README's named model not
-existing on every runtime. Require iOS 26+ because the project deployment target is 26.0.
+Parse `simctl` runtime/device JSON, require iOS 26+, and address an available iPad by UDID. A fixed
+marketing name is brittle. If the platform supplies no iPad device, create one only from an installed
+iPad device type/runtime after showing the exact `simctl create` command; record created resources.
 
 ### 4.4 Isolated native results
 
-Use temporary `-derivedDataPath` and `-resultBundlePath`; inspect `.xcresult` with the installed
-`xcrun xcresulttool`. Record command, Xcode build, runtime, destination, exit code, and unit/UI test
-totals. Do not delete global caches or commit the large, machine-specific bundle.
+Use `mktemp -d` for `-derivedDataPath` and `-resultBundlePath`, then inspect `.xcresult` with installed
+`xcresulttool`. Require exit 0, zero failures, and execution of both test targets—not merely a build.
 
-### 4.5 Exact-SHA CI selection
+### 4.5 New immutable target
 
-This repository currently has no Git remote, while `gh` is authenticated. Resolve the intended
-owner/repository and branch with the operator; never guess. After a normal push, query the workflow
-and select by exact `headSha`, then require `conclusion == success`. “Newest run” is race-prone.
+Cycle 10's `628a4be…` predates finalized evidence and archival. Publish a new Cycle-11 target that
+contains the approved plan and evidence placeholder. This avoids special publication of an older
+ancestor. The target is docs-only, so executable inputs stay unchanged.
 
-### 4.6 Artifact parity
+### 4.6 Exact-SHA CI and parity
 
-Download the exact run's `dist-index-html` into a temporary directory. Require one
-`dist/index.html`, compute byte count/SHA-256, and compare exact bytes with a fresh local build from
-the same SHA. Mismatch fails verification; only hashes and sizes are committed.
+The workflow triggers on pushes to `main`/`master` and pull requests. Select by exact `headSha`, not
+recency, and require every non-conditional web-gate step to succeed. `build.mjs` was byte-stable in
+Cycle 10 across Nodes 24/26; nevertheless compare exact artifact bytes, SHA-256, and size. A mismatch
+fails even when the workflow conclusion is `success`.
+
+### 4.7 Existing tools only
+
+Use Xcode, Git, GitHub CLI, Node, and shell tools already present. A wrapper/library would increase
+the surface under verification. Durable evidence records versions, identities, commands, outcomes,
+counts, and hashes.
 
 ## 5. File Manifest
 
 ```text
-docs/
-  VERIFICATION_EVIDENCE.md       (NEW) — immutable-SHA native and live-CI execution evidence
-README.md                        (MOD) — link/status summary for external verification gates
-IMPLEMENTATION_PLAN.md           (MOD) — completion checkboxes after verified implementation
+IMPLEMENTATION_PLAN.md          (MOD) — check completion only after both external PASS gates
+docs/VERIFICATION_EVIDENCE.md   (MOD) — append exact-SHA native and CI PASS evidence
+README.md                       (MOD) — report verified status and link durable evidence
 ```
 
-No product, test, workflow, package, Xcode-project, generated artifact, audit, critique, or backlog
-file changes during implementation.
+No other tracked file may change. Temporary artifacts remain outside the repository. `BACKLOG.md`
+stays unchanged because it has no unchecked item and is discriminator-owned.
 
 ## 6. Implementation Phases
 
-### Phase 0 — Freeze target and local preflight
+### Phase 0 — Authorization, local gates, and target
 
-1. Require a clean tracked worktree; capture HEAD, branch, Xcode/runtime/destination inventory,
-   Node version, remotes, and read-only GitHub authentication status.
-2. Treat local Node selection as an explicit decision gate. The current interpreter is Node 26.3.0
-   at `/opt/homebrew/bin/node`; pinned Node 24.20.0 is not installed, and the repository guard
-   intentionally rejects Node 26. Ask before installing or changing host tooling. Either:
-   - with approval, install/select 24.20.0 using `nvm install && nvm use`, record the resolved
-     `node --version`/`npm --version`, then run `npm ci`, `npm run lint`, `npm run test:unit`,
-     `npm run test:e2e`, and `npm run build`; or
-   - without approval, use the previously audited direct-tool path on the actual Node 26.3.0
-     interpreter: `npm ci`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`,
-     `npx playwright test`, and `node scripts/build.mjs`. This deliberately bypasses only
-     `scripts/check-node-version.mjs`; record the deviation and actual versions. It does not claim
-     pinned-local-Node verification. The exact-SHA CI run on `.nvmrc` remains the definitive Node 24
-     execution.
-3. Run `xcodebuild -list -json -project native/CheckIn007.xcodeproj`; confirm the shared scheme
-   exposes app, unit-test, and UI-test targets.
-4. Create evidence and README files, initially marking external results `BLOCKED`, and commit them.
-   This commit becomes the immutable target SHA.
+1. Require a clean tracked worktree while preserving unrelated untracked files. Record HEAD/branch,
+   Xcode/runtime/device inventory, free space, remotes, and redacted `gh auth status`.
+2. Present two independent approval requests:
+   - `xcodebuild -downloadPlatform iOS`, with available space and host impact.
+   - Exact GitHub `owner/repository`, visibility if creation is needed, remote URL/name, target branch,
+     and normal push refspec.
+3. Do not start implementation until both approvals and repository identity are exact. Ambiguity,
+   refusal, missing credentials, or an unapproved protected-branch route leaves this plan pending.
+4. Use pinned Node 24.20.0 if available. Otherwise use the audited Node 26 direct path without host
+   installation: `npm ci`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`,
+   `npx playwright test`, `node scripts/build.mjs`. Record Node/npm and that only the version guard
+   was bypassed; CI remains the authoritative pinned-Node-24 gate.
+5. Append a Cycle-11 evidence placeholder and create a docs-only target commit. Capture its full SHA;
+   never amend it after external execution begins.
 
-Acceptance: every gate in the selected, recorded Node path passes; target commit changes only
-manifest files; no placeholder is reported as success. Any local failure stops work before install
-or push.
+Acceptance: local gates pass, both mutations are approved, destination is known, target commit
+changes only manifest files, and the SHA is captured before mutation.
 
-### Phase 1 — Native simulator verification
+### Phase 1 — Native iPad execution
 
-Preflight:
-
-```bash
-xcodebuild -version
-xcrun simctl list runtimes --json
-xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -showdestinations
-```
-
-If no eligible runtime exists, report free disk space/platform and request explicit approval for:
-
-```bash
-xcodebuild -downloadPlatform iOS
-```
-
-Then choose an available iPad UDID from JSON, boot if required, wait with
-`xcrun simctl bootstatus <UDID> -b`, and run:
+1. Recheck space and run approved `xcodebuild -downloadPlatform iOS` once.
+2. Confirm an available iOS 26+ runtime. Choose an available iPad deterministically by highest runtime,
+   then device name and UDID. If none exists, enumerate iPad device types and show/create exactly one
+   eligible simulator; fail if no eligible type exists.
+3. Boot the UDID if needed and wait with `xcrun simctl bootstatus <UDID> -b`. Permit one bounded
+   shutdown/boot retry.
+4. Create a temporary directory and run:
 
 ```bash
 xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 \
@@ -164,202 +147,179 @@ xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 \
   -resultBundlePath '<TEMP>/CheckIn007.xcresult' test
 ```
 
-If the installed platform exposes no available iPad destination, follow the `No iPad device` path
-in §8 and record `BLOCKED`; an iPhone is not an acceptable substitute. Record target SHA,
-environment/destination, exact redacted command, exit, unit/UI totals, discovery of all six unit
-suites (`CSVCodecTests`, `CameraPrivacyTests`, `CheckInStoreTests`, `GuestCatalogTests`,
-`LogMergerTests`, and `ScanAudioPlayerTests`; 32 test methods) and four UI tests, and `PASS`, `FAIL`,
-or `BLOCKED` with recovery detail.
+5. Inspect the result bundle. Record Xcode/runtime/device, redacted command, exit, totals, and targets.
+   Require `CheckIn007Tests` and `CheckIn007UITests`; six unit suites (`CSVCodecTests`,
+   `CameraPrivacyTests`, `CheckInStoreTests`, `GuestCatalogTests`, `LogMergerTests`,
+   `ScanAudioPlayerTests`), 32 unit methods, four UI tests, and zero failures.
 
-Acceptance: exit 0, zero failures, both `CheckIn007Tests` and `CheckIn007UITests` execute, and all
-temporary outputs remain outside the repository.
+Acceptance: scheme-level execution exits 0 and structured results prove all expected tests ran at
+the target SHA. Any missing count, unavailable destination, timeout, crash, or failure stops; do not
+edit source/tests to continue.
 
-### Phase 2 — First live GitHub Actions verification
+### Phase 2 — Exact-SHA CI execution
 
-1. Read-only preflight auth/remotes and resolve whether an existing repository matches this project.
-2. If none, present exact `owner/repository`, visibility, branch, and whether creation is required;
-   request approval. Repository creation requires separate approval and defaults private.
-3. Add only the approved remote if needed and normally push the target branch; never force/delete.
-4. Select the `CI` run whose `headSha` equals target SHA. Poll no faster than every 15 seconds with a
-   30-minute ceiling.
-5. Require the `web` job and every non-conditional gate step to succeed. Cancelled/timed-out/skipped
-   required steps and neutral conclusions do not close the finding.
-6. Download `dist-index-html`; assert one expected file and compare byte/hash with a fresh local
-   same-SHA `dist/index.html` built using the same selected interpreter/path recorded in Phase 0
-   (currently Node 26.3.0 plus `node scripts/build.mjs` if host-tool installation is not approved).
+1. Reconfirm approved remote URL/branch. Add the remote or create a private repository only if that
+   exact action was approved.
+2. Fetch metadata. If the remote branch cannot accept a normal ancestry-compatible push, stop; never
+   force. A protected-branch/PR route needs separate approval and must still yield an exact-SHA run.
+3. Push the target SHA normally to approved `main`/`master`; capture output without credentials.
+4. Select only workflow `CI` with matching repository, event, branch, and `headSha`. Poll no faster
+   than every 15 seconds with a 30-minute ceiling.
+5. Require overall and `web` job success plus checkout, Node setup, install, lint, unit, browser
+   install, e2e, build, and artifact-upload success. Only the failure-report upload may be skipped.
+6. Download only `dist-index-html` to a new temporary directory; require exactly one
+   `dist/index.html`. Build from a clean same-SHA worktree with Phase-0's recorded path and compare
+   exact bytes, size, and SHA-256.
 
-Acceptance: stable run URL/ID, workflow/event/branch/exact SHA, timestamps, job/step conclusions,
-artifact name/size/hash, and local parity are recorded; overall conclusion is `success`.
+Acceptance: stable run URL/ID, exact SHA, event/branch, required-step conclusions, artifact identity,
+and byte equality exist. No “latest run” or approximate match passes.
 
-### Phase 3 — Finalize durable evidence
+### Phase 3 — Finalize evidence
 
-Use this contract:
+Retain Cycle-10 history and append:
 
 ```markdown
-# Verification Evidence
-## Target
-- Commit: `<40-hex SHA>`
-- Branch: `<branch>`
+## Cycle 11 — External Execution Closure
+- Target commit: `<40-hex SHA>`
+- Branch/repository: `<branch>; owner/repo>`
 - Recorded at: `<UTC ISO-8601>`
-## Native iOS Simulator
-- Status: `PASS | FAIL | BLOCKED`
-- Environment: `<Xcode build; runtime; device name + UDID>`
-- Command/result: `<redacted command; exit; unit/UI totals>`
-- Notes: `<none or blocker>`
-## GitHub Actions CI
-- Status: `PASS | FAIL | BLOCKED`
-- Repository/run: `<owner/repo; stable URL and ID>`
-- Identity/result: `<workflow; event; branch; head SHA; required steps>`
-- Artifact: `<name; bytes; SHA-256; local parity>`
-- Notes: `<none or blocker>`
+
+### Native iOS Simulator — PASS
+- Environment: `<Xcode build; runtime; iPad name + UDID>`
+- Result: `<redacted command; exit 0; targets/suites/method totals; zero failures>`
+- Bundle inspection: `<command and summary; bundle remains temporary>`
+
+### GitHub Actions CI — PASS
+- Run: `<stable URL; ID; workflow; event; branch; exact head SHA>`
+- Gates: `<job and required-step conclusions>`
+- Artifact: `<name; bytes; SHA-256; exact local parity PASS; local build environment>`
 ```
 
-README links the record and calls only `PASS` results verified. Commit finalized evidence normally;
-do not amend the pushed target commit. The finalization commit remains local in this cycle and is
-not pushed without a new, explicit publication approval. If later approved and pushed, any CI run
-for that second SHA is incidental and must not replace or be joined to the target-SHA run. If a gate
-blocks/fails, preserve that status and do not claim audit closure. Scan the final diff for secrets,
-absolute user paths, temporary paths, and mismatched SHAs.
+Update README to verified, check §14 only after revalidation, scan for credentials and absolute/temp
+paths, and commit only the three manifest files. Publishing this later evidence commit is outside
+scope and cannot alter the target-SHA result.
 
 ## 7. Integration Contracts
 
-### 7.1 Repository state → verification identity
+### 7.1 Git tree → evidence
 
-- **Contract:** one 40-character target SHA identifies the tree tested locally, natively, and in CI.
-- **Failure:** a later commit changes executable inputs or workflow config.
-- **Recovery:** create a new target SHA and rerun both gates; never relabel old results.
+- **Contract:** one target SHA identifies local, native, and CI inputs.
+- **Failure:** executable/workflow inputs differ or evidence names another SHA.
+- **Recovery:** create a new docs-only target and rerun both gates; never relabel results.
 
 ### 7.2 Xcode project → simulator
 
-- **Contract:** shared scheme builds app/unit/UI targets on an available iOS 26+ iPad simulator.
-- **Failure:** runtime/device absent, boot timeout, build/test failure, unreadable result bundle.
-- **Recovery:** install approved platform, re-enumerate UDID, retry once after shutdown/boot; code
-  repair requires a separate audited cycle.
+- **Contract:** Xcode resolves the shared scheme to an iOS 26+ iPad and runs app/unit/UI targets.
+- **Failure:** platform/device/boot/suite/build/test failure.
+- **Recovery:** one boot retry; otherwise stop for a separate environment/code cycle.
 
-### 7.3 Git → GitHub Actions
+### 7.3 Local Git → GitHub
 
-- **Contract:** approved remote receives target SHA on `main`/`master`, matching the push trigger.
-- **Failure:** missing repo/permission, protection, disabled workflow, YAML error, quota, no run.
-- **Recovery:** record `BLOCKED` and obtain operator/admin resolution; do not bypass policy.
+- **Contract:** approved remote accepts a non-force target-SHA publication on a triggered branch.
+- **Failure:** identity/auth/ancestry/protection/Actions mismatch.
+- **Recovery:** stop for repository-owner direction; never bypass controls.
 
-### 7.4 CI → artifact parity
+### 7.4 CI → local artifact
 
-- **Contract:** exact run uploads one artifact byte-identical to the fresh local same-SHA output
-  built with the interpreter/path recorded in Phase 0; the evidence names that interpreter.
-- **Failure:** missing/duplicate/download-denied artifact or hash mismatch.
-- **Recovery:** mark `FAIL`; diagnose nondeterminism in a later plan.
+- **Contract:** exact-SHA successful run uploads one file identical to same-SHA local output.
+- **Failure:** unmatched run, failed/skipped gate, missing/duplicate artifact, byte mismatch.
+- **Recovery:** retain diagnostics and plan remediation separately; do not claim closure.
+
+### 7.5 Evidence → readers
+
+- **Contract:** stable, redacted, independently checkable identifiers; README does not overstate.
+- **Failure:** placeholder, wrong/inaccessible URL, leak, inconsistent count/SHA.
+- **Recovery:** correct before commit; rerun whenever identity is uncertain.
 
 ## 8. Error Handling and Edge Cases
 
 | Condition | Detection | Response/recovery |
 | --- | --- | --- |
-| Dirty tracked worktree | `git status --porcelain` | Stop; preserve unrelated work |
-| No runtime | runtime/destination inventory | Ask before download; else `BLOCKED` |
-| Download/disk failure | command diagnostic | Stop; report space/network, do not clean globally |
-| No iPad device | parsed JSON inventory | Use installed iPad only; no iPhone substitute |
-| Boot timeout | `bootstatus` | One shutdown/boot retry, then `BLOCKED` |
-| Native test failure | exit + xcresult | Record `FAIL`; do not edit tests/source |
-| No remote/repository | preflight | Ask exact target and creation permission |
-| Auth/permission failure | `gh`/push | Stop; never expose token or alter scopes |
-| Concurrent push | `headSha` mismatch | Ignore unmatched run |
-| CI exceeds 30 minutes | bounded polling | Record `BLOCKED`; retain run URL |
-| Required step skipped | step inspection | Treat as failure unless explicitly failure-only |
-| Artifact absent/multiple | listing/content check | `FAIL`; do not guess canonical file |
-| Hash mismatch | SHA-256 | `FAIL`; defer diagnosis |
+| Dirty tracked worktree | porcelain status | Stop; preserve user work |
+| Approval missing/ambiguous | no exact affirmative scope | Leave plan pending; no mutation |
+| Disk/network failure | preflight/download diagnostic | Stop; no global cleanup |
+| Runtime absent after install | runtime JSON | Stop with installer diagnostic |
+| No eligible iPad/type | device/type JSON | Create one approved device or stop |
+| Boot timeout | bounded `bootstatus` | One shutdown/boot retry, then stop |
+| Native failure/count mismatch | exit + `.xcresult` | Stop; do not commit PASS |
+| Repository uncertain | remote/API metadata | Stop; never infer identity |
+| Branch diverged/protected | fetch/push preflight | No force; request direction |
+| No run within 30 minutes | exact-SHA query | Stop with pushed SHA; no blind repush |
+| Concurrent workflow | `headSha` mismatch | Ignore unmatched run |
+| Required step skipped/neutral | job-step result | Fail the gate |
+| Artifact absent/duplicate | inventory | Fail; do not guess |
+| Hash mismatch | byte compare/SHA-256 | Fail; defer diagnosis |
 | Secret/path in evidence | final diff scan | Redact before commit |
+| Later finalization run | different `headSha` | Incidental; never substitute |
 
-Retries are bounded/idempotent. Cleanup never targets repository roots, global Xcode state, or user
-data; temporary directories may be discarded after summary.
+Retries are bounded. Recovery never deletes repositories, branches, global Xcode data, user files,
+or credentials. Remove temp directories only after validating exact paths and capturing summaries.
 
 ## 9. Stability and Performance
 
-- Existing local budgets remain. CI observation is capped at 30 minutes.
-- Simulator download dominates resources and is operator-approved after a free-space check; Apple
-  controls package size, so this plan promises no fixed size.
-- Native output is bounded by one scheme/device, one attempt plus one boot-only retry, and one temp
-  DerivedData/result bundle.
-- CI polling is read-only, at least 15 seconds apart, and bounded.
-- Evidence is O(test suites + CI steps). The contract records summaries, identifiers, hashes, and
-  counts—not raw logs—so growth is bounded by discovered test suites and workflow steps; no numeric
-  byte ceiling is asserted before the document exists. Logs/artifacts do not enter history.
-- Interruption recovery uses immutable SHA/run ID; simulator tests and ephemeral CI do not mutate
-  production data.
+- One platform download, one selected/created simulator, one scheme run, and one boot retry bound
+  native work. Apple controls download size/time, so no fixed promise is made.
+- CI polling is read-only, ≥15 seconds apart, ≤30 minutes (at most 121 queries including initial).
+- Artifact comparison is O(n) for one HTML file (currently about 71 KB), with two copies plus hashing
+  buffers. Result inspection is O(test records), presently 36 methods total.
+- Only constant-size summaries enter Git. DerivedData, result bundle, checkout, and artifacts remain
+  temporary. Immutable SHA/run ID supports interruption recovery.
+- Publication is one normal push. Since CI cancels in-progress runs per ref, make no second target-
+  branch push until the target run completes.
 
 ## 10. Testing Strategy
 
-- **Local:** the selected §6 Phase 0 Node path, all unit tests (including native roster parity), all
-  Playwright e2e, lint, and build-size gate; record actual Node/npm versions and whether the guard was
-  bypassed. CI supplies the definitive pinned-Node-24 result when the direct path is used locally.
-- **Native:** scheme-level `xcodebuild test` proves compile/link, six named unit suites (32 methods),
-  four UI flows, and persistence/privacy/accessibility contracts on a simulator.
-- **CI:** exact-SHA run, all required steps, artifact availability, local byte parity.
-- **Evidence:** validate URLs, SHA consistency, counts, no secrets/absolute paths, no false `PASS`.
-- **Scope:** final implementation diff contains only the three manifest files.
+- **Local regression:** install, Prettier, unit, Playwright, and build-size gates; record actual
+  discovered counts, versions, build size/hash, and version-guard status.
+- **Native integration:** one iOS 26+ iPad; both targets, six named suites/32 unit methods, four UI
+  tests, zero failures from structured results.
+- **CI integration:** exact target SHA and expected event; `web` plus every required step successful
+  under pinned Node 24.20.0.
+- **Artifact regression:** exactly one CI file byte-identical to fresh same-SHA local build; matching
+  size and SHA-256.
+- **Documentation:** no placeholder, secret, absolute/temp path, inconsistent SHA/count, false PASS,
+  or tracked file outside the manifest.
 
 ## 11. Environment and Toolchain
 
-- Xcode 26.4 (`17E192`) is installed. Current preflight has no iOS runtime and destinations report
-  iOS 26.4 absent, so Phase 1 needs operator-approved installation.
-- The current host has Node 26.3.0 at `/opt/homebrew/bin/node`; pinned Node 24.20.0 is not installed,
-  while `.nvmrc`/`.node-version` and CI require 24.20.0. Phase 0 records whether the operator approves
-  installation or the sanctioned direct-tool path is used. The npm lockfile, Playwright 1.62.1, and
-  Prettier 3.9.6 remain authoritative.
-- GitHub CLI is installed/authenticated, but no Git remote is configured. Phase 2 needs operator
-  confirmation of repository and push.
-- No new dependency, secret, signing identity, paid service, or production credential.
-
-Fresh pinned setup remains `nvm install && nvm use && npm ci`, but installation is a host mutation
-requiring approval in this cycle. Without it, use and disclose the Phase 0 direct-tool path. External
-phases additionally require approved Xcode platform availability and GitHub repository access.
+- Verified pre-plan: Xcode 26.4 (`17E192`); empty runtime list; destinations say iOS 26.4 absent.
+- GitHub CLI is authenticated as `daniqan`; no remote exists. Authentication neither identifies nor
+  authorizes a repository.
+- Repository/CI pin Node 24.20.0. Host Node is 26.3.0; Phase 0 records the actual approved path.
+- Locked tools remain Playwright 1.62.1, Prettier 3.9.6, acorn 8.18.0, and the npm lockfile.
+- No dependency, signing identity, production credential, paid service, or automation is added.
 
 ## 12. Deployment, Distribution, and Rollback
 
-No application code deploys. Publication in this cycle is only the approved normal Git push of the
-target commit required to run existing CI. The follow-up evidence-finalization commit remains local
-unless the operator separately approves another normal push; a resulting second-SHA CI run is not
-verification evidence for the target SHA. Native binaries remain local; kiosk output remains a CI
-artifact.
-
-Rollback repository docs with `git revert <evidence-commit>`. Do not automatically remove an Apple
-platform or rewrite pushed history; use normal revert. GitHub run history remains external evidence.
+No application deploys. One approved normal push exercises existing CI. Prove remote identity and
+ancestry before push. Revert documentation with `git revert`; never rewrite a published target. Do
+not automatically uninstall iOS. Record an optionally created simulator; delete it only on a later
+explicit request. GitHub run history remains evidence.
 
 ## 13. Open Questions and Decision Gates
 
-1. **Which GitHub repository?** No remote exists. Operator must confirm exact owner/repo, visibility,
-   and branch; nothing is guessed or created implicitly.
-2. **May iOS platform be downloaded?** Operator approves after platform/free-space report; otherwise
-   native remains `BLOCKED`.
-3. **May pinned Node be installed?** The host currently has Node 26.3.0 and no installed nvm Node 24.
-   Operator may approve `nvm install && nvm use`; otherwise use the disclosed direct-tool path from
-   Phase 0 and rely on exact-SHA CI for definitive Node 24 execution.
-4. **Protected branch?** Do not bypass. Ask whether to use normal PR flow; that requires explicit
-   execution authority.
-5. **External failure?** Record and stop. Product/test/workflow remediation requires another plan.
+1. Will the operator approve `xcodebuild -downloadPlatform iOS` after reviewing space/impact?
+2. What exact `owner/repository`, visibility if creation is required, remote name, and `main`/`master`
+   target are approved?
+3. If existing history/protection rejects normal push, should a PR route be separately approved?
+4. Node 24 host installation is optional; absent approval, use/disclose the audited direct path and
+   rely on exact-SHA CI for authoritative Node 24 execution.
+
+Questions 1–2 are blocking authorization gates, not choices the implementer may infer.
 
 ## 14. Completion Checklist
 
-### Plan implemented — cycle completion gate
+- [ ] Both exact external mutations were explicitly approved before implementation.
+- [ ] Immutable target SHA passed selected local gates; versions, commands, counts, guard status,
+      build size, and hash are recorded.
+- [ ] Native command exited 0 on an identified iOS 26+ iPad; both targets, six suites/32 unit methods,
+      four UI tests, and zero failures are evidenced.
+- [ ] Approved repository's CI run has exact target `headSha`; `web` and all required steps passed
+      under pinned Node 24.20.0.
+- [ ] `dist-index-html` has exactly one expected file byte-identical to the fresh same-SHA local build,
+      with equal size and SHA-256.
+- [ ] Evidence/README say `PASS`, retain prior history, use stable identifiers, contain no secret,
+      absolute/temp path, or placeholder, and final diff contains only manifest files.
 
-- [x] The selected local Node path ran at the immutable target SHA; actual Node/npm versions,
-      commands, guard status, and results are recorded, and every selected local gate passed.
-- [x] Native verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with environment, exact
-      destination/command when run, six-suite/four-UI counts when available, and rationale/recovery.
-- [x] CI verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with operator decision, exact-SHA
-      run identity when available, required-step conclusions, and artifact/parity result or blocker.
-- [x] Evidence has stable identifiers/URLs where available and no secrets or absolute machine paths.
-- [x] Final implementation diff contains only the three manifest files.
-- [x] The evidence-finalization commit is not pushed without separate approval; any second-SHA run is
-      excluded from the target-SHA join.
-
-Completing every item above is sufficient to mark this plan implemented even when an external result
-is honestly `FAIL` or `BLOCKED`.
-
-### Audit findings closed — external success gate
-
-- [ ] Native status is `PASS`: exit 0, zero failures, all six unit suites and four UI tests executed
-      on an identified iOS 26+ iPad simulator.
-- [ ] CI status is `PASS`: the target-SHA `CI` run and every required step succeeded, and its
-      `dist-index-html` is byte-identical to the recorded fresh local same-SHA build.
-
-The two audit findings close only when both external success items pass; `FAIL`/`BLOCKED` completes
-the evidence-capture cycle but does not close the corresponding finding.
+Every checkbox is required. Missing approval, `BLOCKED`, `FAIL`, or partial evidence leaves Cycle 11
+pending for a later authorized attempt; it does not complete another evidence-only cycle.
