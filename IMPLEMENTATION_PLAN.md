@@ -1,240 +1,210 @@
-# Check-In 007 — Native CSV Parity and External-Gate Disposition Plan v24 (Cycle 12)
+# Check-In 007 — Native UI Accessibility Query Repair Plan v25 (Cycle 13)
 
 ## 1. Overview
 
-Audit v47 proves that the iOS guest-import parser loses a row for a UTF-8 BOM + CRLF CSV containing quoted commas and doubled quotes. The same fixture passes in the web parser. Cycle 12 restores native/web parity, characterizes and resolves the observed camera-test stall, reruns the complete native suite on the installed iOS 26.4 iPad simulator, and records an honest terminal disposition for the exact-SHA GitHub Actions run blocked by account billing.
-
-This plan addresses Audit v47 Required Action #11 and both directives in Implementation Verification v10. It supersedes the success-only Cycle-11 closure plan without converting failed or blocked evidence into a pass.
+Audit v49 proves that Cycle 12 fixed native CSV data loss and the camera stall, but the full native scheme remains red: 33 unit methods pass while all four UI methods fail before their workflows begin. Required Action #12 identifies the shared cause: `roster.mark007` intentionally has a button accessibility trait, while two UI-test call sites query it through `otherElements`. Cycle 13 corrects that harness query, reruns the complete native scheme, and records an honest result without changing product accessibility or laundering the separately billing-blocked CI run.
 
 ## 2. Scope
 
 ### In scope
 
-1. Correct `CSVCodec.parseRows` to match `src/lib/csv.mjs` for BOM, CRLF, quoted commas, doubled quotes, blank rows, trailing newlines, and unterminated quotes.
-2. Add native regression coverage that prevents the exact parity defect and reports row-count failure without a secondary out-of-range crash.
-3. Reproduce the camera test in isolation, bound its execution, and make the smallest production or test isolation change needed if it still stalls.
-4. Run every web gate and the complete native scheme on the installed iOS 26.4 iPad simulator.
-5. Record exact commands, environment, counts, failures, and the Cycle-11 CI billing disposition in durable evidence and README status.
+1. Change both `A11yId.mark007` UI-test lookups from `app.otherElements` to `app.buttons`.
+2. Preserve long-press timing, admin workflow assertions, the app identifier/label, and `.isButton` trait.
+3. Run the two affected methods, all four UI methods, and the complete shared native scheme on iOS 26.4.
+4. Re-run existing web formatting, unit, Playwright, and build gates.
+5. Update evidence and README only after structured native results prove both targets green; retain CI run `33711898714` as `BLOCKED (external billing)`.
 
 ### Out of scope
 
-- Weakening CSV expectations, changing web behavior, replacing the parser with a dependency, or changing guest normalization/export semantics.
-- Camera redesign, capture output, audio permission/input, UI redesign, signing, deployment, or support-target changes.
-- Changing GitHub billing, workflow YAML, secrets, repository visibility, protection, dependencies, lockfiles, or generated `dist/`.
-- Calling the billing-blocked run a success, fabricating an artifact, force-pushing, or requiring new CI to prove the native-only correction.
-- Editing discriminator-owned `BACKLOG.md`, `CONSOLIDATED_AUDIT.md`, or `IMPLEMENTATION_PLAN_CRITIQUE.md`.
+- Changing `.accessibilityAddTraits(.isButton)`, `roster.mark007`, VoiceOver text, the gesture, admin UI, or any production Swift source.
+- Weakening, deleting, skipping, or conditionally accepting any assertion or test.
+- Reopening completed CSV/camera work (RA #11); changing web behavior, dependencies, lockfiles, Xcode settings, workflow YAML, `dist/`, signing, deployment, or support targets.
+- Clearing billing, pushing/rerunning CI, claiming the blocked run passed, or fabricating an artifact.
+- Editing discriminator-owned critique, audit, or backlog files.
 
 ## 3. Architecture and Data Flow
 
 ```text
-CSV text -> CSVCodec.parseRows state machine <- parity contract -> src/lib/csv.mjs
-                         |
-                         v
-              parseGuests -> GuestCatalog.normalize -> native roster
+RosterView Text("007") + identifier + .isButton
+             -> XCUITest app.buttons["roster.mark007"]
+             -> 2.2 s press -> admin sheet -> existing assertions
 
-CameraPrivacyTests -> CameraPreviewModel.start -> authorization/session -> bounded state
-
-iOS 26.4 iPad -> xcodebuild test -> temporary xcresult -> durable summary
-Cycle-11 exact-SHA CI failure ---------------------------> terminal BLOCKED summary
+shared native scheme -> temporary xcresult -> exact inventory -> evidence/README
+CI run 33711898714 -------------------------------------> BLOCKED unchanged
 ```
 
-`CSVCodec` owns tokenization only; `GuestCatalog` retains normalization/deduplication. `CameraPreviewModel` owns capture lifecycle; tests observe it without adding outputs. Temporary DerivedData and result bundles remain outside the repository.
+The app owns the semantic accessibility contract. The UI target consumes the element type SwiftUI exposes. Evidence records verified outcomes; it never substitutes prose for a passing gate.
 
 ## 4. Technical Decisions and Rationale
 
-### 4.1 Fix Swift CRLF grapheme handling
+### 4.1 Align the test with the semantic role
 
-The algorithms look equivalent but JavaScript indexes UTF-16 code units while Swift `Character` iterates extended grapheme clusters. Swift may expose `"\r\n"` as one `Character`; comparisons only with `"\n"` and `"\r"` miss the boundary and merge records. Confirm this at the failing fixture, then explicitly recognize combined CRLF as a delimiter while retaining standalone CR/LF handling.
+Use `app.buttons[A11yId.mark007]` at both call sites. The actionable long-press control explicitly declares `.isButton`, giving assistive technology accurate semantics. Removing that trait would satisfy the old query by degrading VoiceOver information. An untyped descendants query is rejected because it could hide future role regressions.
 
-This narrow fix is preferred to a new CSV library (which would not guarantee the exact compatibility contract) or line splitting (which breaks quoted newlines). The parser stays single-pass O(n).
+### 4.2 Preserve test strength
 
-### 4.2 Preserve the web parser as source of truth
+Only the element collection changes. The five-second existence check, 2.2-second press, admin-sheet lookup, audio interaction, close behavior, and two-step clear-log assertions remain unchanged. The repair makes existing workflows reachable; it does not reduce what they prove.
 
-Shared fixtures must produce identical grids. The expected two-row result cannot change. The state machine continues to preserve newlines inside quotes, drop all-whitespace rows, and throw `CSVError.unterminatedQuote` at EOF with an open quote.
+### 4.3 Verify in widening layers
 
-### 4.3 Prevent secondary test crashes
+Run the two affected methods, the whole UI target, then the shared scheme. The final completion gate is exact: both targets, six named unit suites, 33 unit methods, four UI methods, 37 total passes, no skips/failures, and exit 0.
 
-The regression first asserts row count and then conditionally unwraps the data row before cell comparison. A missing row still fails, but no unsafe `rows[1]` obscures later test results.
+### 4.4 Preserve external-gate truth
 
-### 4.4 Bound camera diagnosis and preserve privacy
-
-Run `CameraPrivacyTests` alone with fresh temporary outputs and a command timeout. If it passes, characterize the old stall as fallout from the CSV test-process crash and leave camera files unchanged. If reproducible, isolate blocking AVFoundation work from `@MainActor` on a private serial queue and publish state back to the main actor. Preserve zero audio inputs and zero outputs.
-
-### 4.5 Honest bounded CI disposition
-
-Run `33711898714` proves only the push trigger and exact `headSha` selection. Its billing-lock failure is an environment-blocked terminal disposition unless the owner clears billing. Record `BLOCKED (external billing)` with URL/event/branch/SHA and the absence of executed steps/artifact; do not poll, repush, or call it `PASS`.
+Run `33711898714` failed before steps ran because of an external billing lock. This native-only cycle neither changes nor reruns it. Documentation retains `BLOCKED (external billing)` and records no artifact.
 
 ## 5. File Manifest
 
 ```text
-IMPLEMENTATION_PLAN.md                              (MOD) — Cycle-12 contract/completion marks
-native/CheckIn007/Services/CSVCodec.swift           (MOD) — recognize Swift CRLF delimiter
-native/CheckIn007Tests/CSVCodecTests.swift          (MOD) — parity regressions and safe assertions
-native/CheckIn007/Services/CameraPreviewModel.swift (MOD, CONDITIONAL) — queue isolation if stall reproduces
-native/CheckIn007Tests/CameraPrivacyTests.swift      (MOD, CONDITIONAL) — bounded observation if needed
-docs/VERIFICATION_EVIDENCE.md                       (MOD) — Cycle-12 results and CI disposition
-README.md                                           (MOD) — accurate native/CI status
+IMPLEMENTATION_PLAN.md                           (MOD) — Cycle-13 contract/completion marks
+native/CheckIn007UITests/CheckIn007UITests.swift (MOD) — use the button collection for mark007
+docs/VERIFICATION_EVIDENCE.md                    (MOD) — append Cycle-13 commands and outcomes
+README.md                                        (MOD) — verified native status; unchanged CI block
 ```
 
-Conditional camera files remain unchanged if isolation passes. No other tracked file changes. Test output, DerivedData, `.xcresult`, logs, and `dist/` remain temporary/untracked.
+No production Swift file changes. DerivedData, `.xcresult`, logs, screenshots, and `dist/` stay temporary/untracked.
 
 ## 6. Implementation Phases
 
-### Phase 1 — Reproduce and correct CSV parsing
+### Phase 1 — Repair the query
 
-1. Run only `CSVCodecTests` on the installed iOS 26.4 iPad and keep the concise failure summary outside Git.
-2. Confirm Swift iteration exposes the fixture's CRLF delimiter as a combined `Character`.
-3. Treat standalone LF and combined CRLF as row delimiters outside quotes, while ignoring standalone CR as before.
-4. Make the failing test safe against missing-row indexing.
-5. Add table-driven assertions for LF, CRLF, terminal CRLF, quoted embedded LF/CRLF, blank records, and the original BOM/comma/doubled-quote fixture.
-6. Run native CSV tests and the equivalent web CSV unit test.
+1. Confirm `RosterView` still assigns `A11y.mark007`, label `Admin (long press)`, `.isButton`, and a 2.0-second long press.
+2. Replace both `app.otherElements[A11yId.mark007]` expressions with `app.buttons[A11yId.mark007]`.
+3. Do not change identifiers, waits, press duration, or downstream assertions.
+4. Require zero remaining old queries and exactly two button queries.
 
 ```swift
-enum CSVCodec {
-    static func parseRows(_ input: String) throws -> [[String]]
-    // Strip one BOM; parse once; recognize Character("\r\n") as a delimiter;
-    // preserve quoted CR/LF; drop whitespace rows; throw on an open quote.
-
-    static func parseGuests(_ input: String) throws -> ImportResult
-    // Require name/table, keep id optional, preserve GuestCatalog normalization.
-}
+let mark = app.buttons[A11yId.mark007]
+XCTAssertTrue(mark.waitForExistence(timeout: 5))
+mark.press(forDuration: 2.2)
+XCTAssertTrue(app.otherElements[A11yId.adminSheet].waitForExistence(timeout: 5))
 ```
 
-Acceptance: the audit fixture yields exactly `[["name", "table"], ["Vale, Bianca", "Table \"3\""]]`; all CSV tests and unchanged web parity tests pass.
+Acceptance: the static query contract is exact and the production accessibility surface is unchanged.
 
-### Phase 2 — Characterize the camera stall
+### Phase 2 — Focused native verification
 
-1. Terminate an orphaned simulator app/test process through `simctl` only; never delete global Xcode state or the simulator.
-2. Run `CameraPrivacyTests` alone with fresh temporary outputs and a 120-second ceiling. Retry once only for simulator launch/setup interruption.
-3. If all three pass, record non-reproduction after removal of the CSV crash and leave conditional files untouched.
-4. If the stall reproduces, locate authorization/configuration/start/stop blocking; move session operations to one private serial queue, return state to `MainActor`, make stop idempotent, and await a bounded terminal state without sleeps.
-5. Re-run the isolated camera suite twice after a camera change.
+1. Boot and await iPad (A16) `A155995F-EC83-41BE-95B2-1A5F390ABF59`.
+2. Use fresh temporary DerivedData/result-bundle paths.
+3. Run `testAdminOpensToggleAudioAndCloses` and `testClearLogRequiresTwoConfirmations` with a 120-second-per-method ceiling.
+4. Run the entire `CheckIn007UITests` target; require exactly four methods and zero failures.
+5. Retry once only for diagnosed simulator boot/runner interruption; repeated assertion/lookup failures receive no retry credit.
 
-```swift
-@MainActor
-final class CameraPreviewModel: ObservableObject {
-    func start() async // Authorization then awaited serial work; reaches visible terminal state.
-    func stop()        // Idempotent and does not block MainActor.
-    func configureSessionInputs() -> State // Video-only input; no audio/output.
-    var isPreviewOnly: Bool { get }
-}
-```
+Acceptance: both affected methods and all four UI methods pass without skips or changed assertions.
 
-Acceptance: all camera tests finish within bounds; without a camera the model is not `.running`; privacy assertions remain true. Non-reproduction is valid characterization, but a reproduced stall must be fixed.
+### Phase 3 — Complete regression verification
 
-### Phase 3 — Full regression and native verification
+1. Run the shared `CheckIn007` scheme on the same simulator with fresh temporary output paths.
+2. Inspect `.xcresult` using installed `xcresulttool`; require both targets, six unit suites, exactly 33 unit and four UI methods, 37 total passes, zero skips/failures, and exit 0.
+3. Run `npm ci`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`, `npx playwright test`, and `node scripts/build.mjs` through the sanctioned direct Node path.
+4. Confirm `dist/` is untracked and no out-of-manifest file changed.
 
-1. Run `npm ci`, `npx prettier --check .`, `node --test tests/unit/*.test.mjs`, `npx playwright test`, and `node scripts/build.mjs` using the existing sanctioned direct Node path.
-2. Select/boot the installed iOS 26.4 iPad by UDID and await boot completion.
-3. Use `mktemp -d`, isolated `-derivedDataPath` and `-resultBundlePath`, and run the shared `CheckIn007` scheme.
-4. Inspect `.xcresult` with installed `xcresulttool`; require both test targets, six named unit suites, the 32 baseline unit methods plus new regressions, four UI methods, zero failures, and exit 0.
-5. Retry only an identified simulator-infrastructure failure once; product failures receive no retry credit.
-
-Acceptance: all web gates pass and structured native results prove every expected test ran with zero failures. No generated output is tracked.
+Acceptance: complete native and web gates pass. Any native failure leaves the cycle incomplete.
 
 ### Phase 4 — Durable evidence and status
 
 Append:
 
 ```markdown
-## Cycle 12 — Native CSV Parity Repair
-- Fix commit: `<40-hex SHA>`
+## Cycle 13 — Native UI Accessibility Query Repair
+- Fix commit/tree: `<40-hex SHA or exact tested tree identity>`
 - Environment: `<Xcode build; runtime; iPad + UDID>`
-- CSV regression: `<fixture/result; test count; zero failures>`
-- Camera characterization: `<isolated command and result>`
-- Full native result: `<command; exit; targets/suites/methods; zero failures>`
-- Web result: `<versions; counts; build size/hash>`
-- CI disposition: `BLOCKED (external billing)`; run `33711898714`; no artifact
+- Focused UI: `<commands; 2 affected pass; 4/4 target pass>`
+- Full native: `<command; exit 0; 6 suites; 33 unit + 4 UI; no skips/failures>`
+- Web: `<versions; formatting; counts; build size/hash>`
+- CI: `BLOCKED (external billing)`; run `33711898714`; no steps/artifact
 ```
 
-README states native tests pass after repair while exact-SHA CI remains externally blocked. Scan for secrets, absolute/temp paths, placeholders, and out-of-manifest changes. Check completion only after evidence exists.
+Change README native status to PASS only after Phase 3 succeeds. Scan documentation for secrets, absolute/temp paths, placeholders, false CI-PASS language, and stale current claims that the UI target is red. Historical Cycle-12 failure records remain history.
 
 ## 7. Integration Contracts
 
-### 7.1 Swift parser ↔ web parser
+### 7.1 SwiftUI accessibility tree ↔ XCUITest
 
-- **Contract:** shared fixtures yield equal grids/errors.
-- **Failure:** differing rows/cells, blank-row treatment, or quote errors.
-- **Recovery:** fail regression and compare parsing branches; never alter web expectations to fit Swift.
+- **Contract:** `roster.mark007` is a button and is queried through `app.buttons`.
+- **Failure:** lookup timeout or semantic-role drift.
+- **Recovery:** fail and reconcile the intentional role/query; never use an untyped lookup merely to pass.
+- **Migration:** test-only correction; app behavior remains unchanged.
 
-### 7.2 Rows ↔ guest normalization
+### 7.2 Admin affordance ↔ workflows
 
-- **Contract:** header survives and every nonblank data row reaches normalization once.
-- **Failure:** dropped/merged rows or absent headers.
-- **Recovery:** schema errors throw; callers retain existing presentation; no partial import is committed.
+- **Contract:** a 2.2-second press exceeds the 2.0-second threshold and opens `admin.sheet`.
+- **Failure:** sheet absent, gesture undelivered, or control unavailable.
+- **Recovery:** retain diagnostics and stop; do not lengthen waits/remove assertions without another approved plan.
+- **Migration:** none; gesture and identifiers remain stable.
 
-### 7.3 Camera ↔ simulator tests
+### 7.3 Native runner ↔ evidence
 
-- **Contract:** `start()` terminates to a non-running state without camera access; session is preview-only.
-- **Failure:** deadlock, indefinite permission wait, false running state, or privacy violation.
-- **Recovery:** timeout captures diagnostics; one qualified retry separates runner setup from product behavior.
+- **Contract:** exit status and `.xcresult` agree on both targets and 37 methods.
+- **Failure:** nonzero exit, missing inventory, skip, or failure.
+- **Recovery:** one infrastructure-only retry; otherwise record FAIL and leave completion open.
+- **Migration:** fresh temporary results prevent attribution to Cycle 12.
 
-### 7.4 Git tree ↔ evidence
+### 7.4 Git tree ↔ documentation
 
-- **Contract:** native evidence names the tested fix SHA; CI evidence names Cycle-11 target `845116d…` and separates trigger success from job failure.
-- **Failure:** SHA ambiguity, false PASS, missing counts, or invented artifact.
-- **Recovery:** correct before commit; rerun native tests if the tested tree changes.
+- **Contract:** evidence identifies the tested tree and separates native PASS from CI BLOCKED.
+- **Failure:** SHA ambiguity, unverified PASS, invented artifact, leak, or out-of-manifest diff.
+- **Recovery:** correct docs or rerun after code changes before commit.
+- **Migration:** append Cycle 13 rather than rewriting historical failures.
 
 ## 8. Error Handling and Edge Cases
 
 | Condition | Detection | Response |
 | --- | --- | --- |
-| Empty/whitespace/BOM-only CSV | filtered grid empty | Preserve `CSVError.empty` from `parseGuests` |
-| LF, CRLF, terminal newline | regression matrix | One boundary; filter empty terminal row |
-| CRLF inside quotes | quoted-state test | Preserve both characters in the field |
-| Doubled quote | quoted lookahead | Append one quote and advance once |
-| Unterminated quote | open state at EOF | Throw; return no partial grid |
-| Short cells | index validation | Preserve empty-cell fallback/normalization |
-| Test-count mismatch | xcresult inventory | Fail even if command exits 0 |
-| Camera timeout | 120-second ceiling | Diagnose, one qualified retry, then fix/stop |
-| Simulator boot failure | bootstatus | One shutdown/boot retry, then stop |
-| CI billing locked | stable run annotation | Terminal external BLOCKED; no poll/repush |
-| Dirty tracked worktree | porcelain status | Preserve user work; stop on overlap |
-| Secret/path leak | final diff scan | Redact before commit |
+| Mark absent from buttons | focused timeout | Fail; inspect tree without weakening role semantics |
+| Long press misses sheet | existing assertion | Fail; preserve duration and diagnose separately |
+| Test state leaks | per-method app launch/target run | Fail and inspect isolation; do not reorder away defect |
+| Simulator interruption | bootstatus/runner diagnostics | One clean boot retry, then stop |
+| Missing method/target | xcresult mismatch | Fail even if command exits 0 |
+| Native assertion failure | xcresult failure | No retry credit; record exact failure |
+| Web gate failure | nonzero exit | Stop; do not publish PASS |
+| CI billing locked | stable annotation | Preserve BLOCKED; no poll/repush |
+| Dirty tracked tree | porcelain status | Preserve user work; stop on overlap |
+| Secret/path/placeholder | final diff scan | Redact before commit |
 
 ## 9. Stability and Performance
 
-- CSV stays O(n) time/O(n) peak memory (`Array(source)` plus output); delimiter comparison is O(1). Parser state is call-local and concurrency-safe.
-- Conditional camera work uses one bounded serial queue per model, no detached unowned tasks or unbounded retries. Stop remains idempotent.
-- Runs are bounded: CSV before/after, at most two camera attempts before and two after a fix, one full scheme plus one infrastructure-only retry.
-- Evidence is constant-size. Temporary results are cleaned only after summaries are captured.
+- Two O(1) test queries change; product runtime, allocation, state, and dependencies are unchanged.
+- Existing five-second waits and 2.2-second presses stay bounded. Focused methods have 120-second outer ceilings; the full scheme permits one infrastructure-only retry.
+- Fresh temporary results avoid stale attribution and are excluded from Git.
+- No persistent data/migration is touched; failed tests do not mutate tracked source.
 
 ## 10. Testing Strategy
 
-- **Unit:** BOM/CRLF audit fixture; LF/CRLF endings; terminal delimiter; blank lines; quoted LF/CRLF; doubled quotes; unterminated quotes; import counts/headers.
-- **Parity:** unchanged JavaScript fixture and matching semantic native fixtures.
-- **Camera:** bounded async start, non-running simulator state, authorization mapping, zero audio inputs/outputs.
-- **Integration:** complete native scheme on iOS 26.4 iPad, both targets and expected methods from structured results.
-- **Regression:** all baseline web tests, Playwright, formatting, install, build; record actual additive counts.
-- **Documentation:** truthful PASS/BLOCKED terms, stable IDs, no paths/secrets, manifest-only diff.
+- **Static:** zero old and exactly two corrected queries; production role, identifier, label, and gesture remain.
+- **Focused UI:** both admin methods prove lookup, long press, sheet, toggle/close, and two-confirmation clear.
+- **UI integration:** all four methods cover roster, repeat guest, and both admin workflows.
+- **Native integration:** two targets, six suites, 33 unit + 4 UI = 37 passes, no skips/failures.
+- **Web regression:** clean install, Prettier, all unit/e2e tests, deterministic build.
+- **Documentation:** exact tree/environment/counts; native PASS only after success; CI explicitly BLOCKED.
 
 ## 11. Environment and Toolchain
 
-- Xcode 26.4 (`17E192`), iOS 26.4 (`23E244`), iPad (A16) simulator `A155995F-EC83-41BE-95B2-1A5F390ABF59` are installed.
-- Remote is `daniqan/check-in-007`, branch `master`, and Cycle-11 target is published.
-- CI pins Node 24.20.0. Local sanctioned gates use Node 26.3.0/npm 11.16.0 without host changes.
+- Xcode 26.4 (`17E192`), iOS 26.4 (`23E244`), iPad (A16) `A155995F-EC83-41BE-95B2-1A5F390ABF59`.
+- Scheme `CheckIn007`; targets `CheckIn007Tests` and `CheckIn007UITests`.
+- CI pins Node 24.20.0. The sanctioned local direct-tool path uses Node 26.3.0/npm 11.16.0 without host changes.
 - Locked versions remain Playwright 1.62.1, Prettier 3.9.6, acorn 8.18.0. No dependency/project-format change.
 
-Fresh-clone web setup is `npm ci`; Xcode resolves the checked-in project without a package manager.
+Fresh-clone web setup remains `npm ci`; Xcode resolves the checked-in project without a package manager.
 
 ## 12. Deployment, Distribution, and Rollback
 
-No deployment occurs. Commit parser/test/evidence changes normally; publication is outside scope because billing/remote execution are operator-controlled. Roll back with `git revert`. No migration or persistent rewrite occurs; the fix affects future imports and failed imports remain non-partial.
+No deployment, push, or external mutation occurs. Roll back with `git revert <implementation-commit>`; there is no migration or data impact. Publication and billing remediation require separate operator action.
 
 ## 13. Open Questions and Decision Gates
 
-1. Does the camera suite pass after eliminating the CSV-induced crash? The isolated run decides; camera production changes require reproduction.
-2. Will GitHub billing be cleared? This is non-blocking here. CI remains terminally `BLOCKED (external billing)` until separately cleared and verified.
+1. Does the typed button query resolve consistently? Audit v49 predicts yes; the focused run decides. Failure stops work rather than authorizing a semantic workaround.
+2. Will billing be cleared? This remains external and non-blocking here; it cannot be represented as PASS.
 
-Neither permits scope expansion. Billing remediation requires operator action and a later verification cycle.
+Neither permits scope expansion or assertion weakening.
 
 ## 14. Completion Checklist
 
-- [x] Swift parsing returns two correct rows for the audit fixture and all parity regressions pass.
-- [x] CSV failure reporting cannot cause a secondary out-of-range crash.
-- [x] Camera tests complete within bounds; the reproduced stall is fixed and privacy invariants pass.
-- [ ] Full native scheme passes on iOS 26.4 iPad with both targets, expected methods, and zero failures.
-- [x] Web install, formatting, unit, Playwright, and build gates pass with recorded counts.
-- [ ] Evidence/README record native PASS and CI `BLOCKED (external billing)`, identify exact SHAs/run, contain no secret/path/placeholder, and stay within the manifest.
+- [ ] Both lookups use `app.buttons`; existing workflow assertions remain unchanged.
+- [ ] Both affected admin methods pass within bounds on the named simulator.
+- [ ] All four UI methods pass with zero skips/failures.
+- [ ] Full native scheme proves both targets, six suites, 33 unit + 4 UI, exit 0, and zero skips/failures.
+- [ ] Web formatting, unit, Playwright, and build gates pass.
+- [ ] Evidence/README identify the tested tree and native PASS, retain CI `BLOCKED (external billing)`, and contain no leaks/placeholders/out-of-manifest changes.
 
-Every checkbox is required. This cycle closes the native defect without laundering CI failure into success; a future exact-SHA successful CI run may upgrade that disposition separately.
+Every checkbox is required. This cycle closes RA #12 only; RA #10 remains externally blocked and RA #11 remains completed.
