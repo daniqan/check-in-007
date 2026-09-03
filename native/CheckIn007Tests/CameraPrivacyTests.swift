@@ -27,7 +27,13 @@ final class CameraPrivacyTests: XCTestCase {
     }
 
     func testStartOnSimulatorDoesNotCrashAndStaysNonRunning() async {
-        let model = CameraPreviewModel()
+        let model = CameraPreviewModel(
+            authorizationStatus: { .authorized },
+            requestAccess: {
+                XCTFail("Authorized startup must not request permission")
+                return false
+            }
+        )
         await model.start()
         // Without a camera device or granted permission, the model must not be left "running".
         XCTAssertNotEqual(model.state, .running)

@@ -52,7 +52,7 @@ enum CSVCodec {
             } else if character == "," {
                 row.append(field)
                 field = ""
-            } else if character == "\n" {
+            } else if character == "\n" || character == "\r\n" {
                 row.append(field)
                 rows.append(row)
                 row = []

@@ -7,7 +7,28 @@ final class CSVCodecTests: XCTestCase {
         let input = "\u{FEFF}name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n"
         let rows = try CSVCodec.parseRows(input)
         XCTAssertEqual(rows.count, 2)
-        XCTAssertEqual(rows[1], ["Vale, Bianca", "Table \"3\""])
+        guard rows.count == 2 else { return }
+        XCTAssertEqual(rows, [["name", "table"], ["Vale, Bianca", "Table \"3\""]])
+    }
+
+    func testMatchesWebParserAcrossLineEndingAndBlankRowCases() throws {
+        let cases: [(name: String, input: String, expected: [[String]])] = [
+            ("LF", "name,table\nAva,One", [["name", "table"], ["Ava", "One"]]),
+            ("CRLF", "name,table\r\nAva,One", [["name", "table"], ["Ava", "One"]]),
+            ("terminal CRLF", "name,table\r\nAva,One\r\n", [["name", "table"], ["Ava", "One"]]),
+            ("quoted LF", "name,table\n\"Ava\nSterling\",One", [["name", "table"], ["Ava\nSterling", "One"]]),
+            ("quoted CRLF", "name,table\r\n\"Ava\r\nSterling\",One", [["name", "table"], ["Ava\r\nSterling", "One"]]),
+            ("blank records", "name,table\r\n\r\nAva,One\r\n\r\n", [["name", "table"], ["Ava", "One"]]),
+            ("doubled quote", "name,table\nAva,\"Table \"\"3\"\"\"", [["name", "table"], ["Ava", "Table \"3\""]]),
+        ]
+
+        for testCase in cases {
+            XCTAssertEqual(
+                try CSVCodec.parseRows(testCase.input),
+                testCase.expected,
+                "Failed parity case: \(testCase.name)"
+            )
+        }
     }
 
     func testDropsBlankRows() throws {
