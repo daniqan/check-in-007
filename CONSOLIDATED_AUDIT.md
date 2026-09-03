@@ -1,13 +1,45 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 90/100
-**Audit Version:** v31
-**Audited:** HEAD `dfd2909` on 2026-09-02 (Cycle 8 — offline static-HTTPS helper, plan v19 APPROVED)
-**Stage:** Cycle 8, **State 2 — implement the approved plan (Plan Critique Cycle 8 Rev 2 = 98/100, APPROVED)**
+**Current Score**: 93/100
+**Audit Version:** v32
+**Audited:** HEAD `a8f0dbd` on 2026-09-02 (Cycle 8 — offline static-HTTPS helper, IMPLEMENTED & VERIFIED)
+**Stage:** Cycle 8, **State 4 — cycle complete (Plan Rev 2 = 98/100 APPROVED; Implementation Verification v8 = 98/100 VERIFIED)**
 
 **Plan Score:** 98/100
-**Implementation Score:** N/A
-**Current Score**: 90/100
+**Implementation Score:** 98/100
+**Current Score**: 93/100
+
+> **STATE 4 — CYCLE COMPLETE (v32).** Cycle 8's approved plan v19 was implemented in commit
+> `a8f0dbd` ("feat(§6): add offline HTTPS kiosk helper") and **VERIFIED — Implementation
+> Verification v8 = 98/100 ≥ 95**. All five phases are **COMPLIANT** and all **four** plan
+> Path-to-100 items were folded in. Verified by execution on Node v26.3.0 via the §6
+> direct-tool path: **75/75** unit tests (`node --test tests/unit/*.test.mjs`), **13/13** e2e
+> (`npx playwright test`, incl. the new real-module-load `https-server.spec.mjs`), `prettier
+> --check .` clean, `build.mjs` = **26315 gzip bytes** (budget intact), and a **live server
+> smoke test** (`node scripts/serve-https.mjs --port=18443`): LAN-IPv4 auto-seeded into the
+> cert SAN, `key.pem` mode `0600` + `GET /.certs/key.pem` → **404** (Rev-1 private-key-disclosure
+> fix confirmed on the wire), cert route serves `cert.pem`, and the emitted cert parses as
+> iOS-compliant (`CN=CheckIn007 Offline Kiosk`, self-signed, SAN `DNS:localhost,
+> IP Address:127.0.0.1, IP Address:<lan-ip>`, EKU `1.3.6.1.5.5.7.3.1`, `ca=false`, 820-day
+> validity, self-signature verifies). `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/
+> `serve-https.mjs` + 4 unit suites + 1 e2e spec all landed; `package.json:11` now
+> `node scripts/serve-https.mjs` (mkcert/`-S` removed; `http-server` retained; lockfile
+> untouched); `.gitignore` adds `.certs/`; README rewritten. Two **cosmetic non-gate** defects
+> noted (undocumented/untested `--bind` flag; `startServer.url` hard-coded to loopback) — left
+> as optional polish. **No regressions** (`serve`/CI/`http-server`/`package-lock.json`
+> untouched; test count grew 63→75 unit, 12→13 e2e).
+>
+> **Backlog now fully closed:** the single remaining item (`§10 Q2` offline static-HTTPS helper)
+> flips `[/]` → `[x]`. **Zero unchecked backlog items remain.**
+>
+> **Deductions.** Code landed this cycle (`a8f0dbd` touches `scripts/`, `tests/`, `package.json`,
+> `README.md`, `.gitignore`) → **inactivity decay resets −2 → 0**. Backlog strict-unchecked
+> `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE, none stalled). **Base health rises 92 → 93**:
+> the backlog is now entirely closed (no acknowledged-but-unaddressed improvements remain) and a
+> new capability shipped fully test- and live-verified. Two standing, unchanged limitations keep
+> base off a higher number — native `xcodebuild … test` remains env-blocked (no iPadOS runtime)
+> and the GitHub Actions CI first live run is still unobserved (fires on first push). **Base 93 −
+> backlog 0 − decay 0 = 93.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v8.
 
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v31).** `IMPLEMENTATION_PLAN.md` was revised
 > **v18 → v19 (commit `dfd2909`, "plan: v19 — harden offline HTTPS helper")** and
@@ -1064,33 +1096,34 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 5 is at **State 2 — implement the approved plan**. `IMPLEMENTATION_PLAN.md` v14 (Node 24 LTS
-toolchain) is **APPROVED at 98/100** (Plan Critique Rev 3) and unchanged since v23. There is nothing
-left to critique on the plan; the loop is blocked solely on the generator executing it. **Implement
-plan v14** exactly as approved:
+Cycle 8 is at **State 4 — cycle complete**. Plan v19 is APPROVED (Rev 2 = 98/100) and its
+implementation is **VERIFIED** (Implementation Verification v8 = 98/100 ≥ 95, commit `a8f0dbd`).
+**The backlog is now fully closed — zero unchecked items remain** — so there is no queued cycle
+of work. The generator should **not** invent scope: do not re-touch the VERIFIED cycle-1–8 code
+and do not re-revise any approved plan.
 
-1. **Version metadata (Phase 1).** Create `.nvmrc` and `.node-version`, each `24.20.0`. Tighten
-   `engines.node` to `>=24 <25` in both `package.json` and the lockfile root `packages[""].engines`.
-   Verify the hand-edited lockfile with `npm ci` (do **not** run `npm install`).
-2. **Guard (Phase 2).** Create `scripts/check-node-version.mjs` with the pure functions
-   (`parseNodeMajor`, `isSupportedNodeVersion`, `formatUnsupportedNodeMessage`, `main`) and the
-   version-agnostic executable tail `if (import.meta.url === pathToFileURL(process.argv[1]).href)`.
-3. **Wiring + docs (Phase 3).** Add `check:node` and prefix `build`/`lint`/`test` with
-   `node scripts/check-node-version.mjs &&`; document Node 24 + `nvm install && nvm use` in `README.md`
-   (keep it Prettier-clean).
-4. **Tests + verification (Phase 4).** Add `tests/unit/node-version.test.mjs` (parse/range/main +
-   the `spawnSync` CLI smoke test). Then, under Node 24 (`nvm install && nvm use`), run `npm ci`,
-   `npm run lint`, `npm run test:unit`, `npm run test:e2e`, `npm run build`. If Node 24 is unavailable
-   during audit, run the documented direct-tool diagnostic set and treat the guard failure on Node
-   26.3.0 as expected.
+Two cosmetic, non-gate polish items are recorded from the Implementation Verification and may
+optionally be picked up if a future cycle opens; neither affects correctness or the score gate:
 
-Implementing closes the Node 24 backlog item (`[/]` → `[x]`), recovers the −1 backlog deduction, and
-resets the inactivity decay from −4 → 0. Do **not** re-touch the VERIFIED cycle-1–4 code, and do
-**not** re-revise the approved plan (State 2, not State 1). Until code lands, each further plan-only
-cycle re-accrues −1 inactivity decay (currently −4; cap −5 — one idle cycle from the floor).
+1. **`--bind` flag** — add one `parseArgs` unit assertion + a README line, or drop the flag
+   (currently undocumented and untested scope beyond plan v19 §Phase 4).
+2. **`startServer(...).url`** — return the bound/LAN host instead of hard-coded `127.0.0.1`
+   for API precision (no user-facing surface is currently wrong).
+
+Two standing external-verification gaps remain unchanged and continue to hold base health at 93
+rather than higher — both are environment-blocked, not code defects:
+
+- **Native `xcodebuild … test` unrun** — no iPadOS simulator/runtime is installed on this machine
+  (`native-ios-sdk-not-installed`); the web-parity gates and `xcodebuild -list` stand in.
+- **GitHub Actions CI first live run unobserved** — `.github/workflows/ci.yml` fires on first push;
+  the first real run is the definitive YAML parse/gate check.
+
+Since code landed this cycle, inactivity decay resets to 0. If the project goes idle (only
+doc/plan commits) in subsequent audits, inactivity decay will begin re-accruing at −1 per cycle.
 
 ## Revision History
 
+| v32 | 2026-09-02 | 93 | **Cycle 8 offline static-HTTPS helper IMPLEMENTED & VERIFIED — Implementation Verification v8 = 98/100 (State 4, cycle complete)** (commit `a8f0dbd`, "feat(§6): add offline HTTPS kiosk helper"). All 5 phases **COMPLIANT** vs approved plan v19; **all four** Path-to-100 items folded in. Verified by execution on Node v26.3.0 (§6 direct-tool path): **75/75** unit (`node --test tests/unit/*.test.mjs`), **13/13** e2e (incl. new real-module-load `https-server.spec.mjs`), `prettier --check .` clean, `build.mjs` **26315 gzip** (budget intact), + **live server smoke** (`serve-https.mjs --port=18443`): LAN-IPv4 auto-seeded into cert SAN, `key.pem` 0600 + `GET /.certs/key.pem`→**404** (Rev-1 key-disclosure fix confirmed on the wire), cert route serves `cert.pem`; emitted cert parses iOS-compliant (`CN=CheckIn007 Offline Kiosk`, self-signed, SAN `DNS:localhost,IP:127.0.0.1,IP:<lan>`, EKU `1.3.6.1.5.5.7.3.1`, `ca=false`, 820-day, self-sig verifies). `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/`serve-https.mjs` + 4 unit suites + 1 e2e landed; `package.json:11`→`node scripts/serve-https.mjs` (mkcert/`-S` removed, `http-server` retained, lockfile untouched); `.gitignore` adds `.certs/`; README rewritten. IPv4 predicate pinned to `node:net` `isIP`, IPv6 `--host`→iPAddress[7] 16-byte, golden-byte KeyUsage `030205a0` assertion, static-IP README note. Two cosmetic non-gate defects (undocumented/untested `--bind`; `startServer.url` hard-coded loopback) left as optional polish. **No regressions** (`serve`/CI/`http-server`/lockfile untouched; tests grew 63→75 unit, 12→13 e2e). **Backlog fully closed:** offline-HTTPS item `[/]`→`[x]`, **0 unchecked**. Deductions: code landed → decay **−2→0**; backlog **−0**; RA **−0**. Base **92→93** (backlog entirely closed + verified new capability; held off higher by two unchanged env-blocked gaps: native `xcodebuild test` no iPadOS runtime, CI first-run unobserved). **Base 93 − 0 − 0 = 93.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v8. |
 | v31 | 2026-09-02 | 90 | **Cycle 8 plan v19 APPROVED, Rev 2 = 98/100** (commit `dfd2909`, "plan: v19 — harden offline HTTPS helper"). Revised v18 → v19, re-critiqued under the staleness rule; clears the ≥95 gate. v19 closes **both** Rev-1 must-fix items + **all four** Rev-1 nits, each with a concrete mechanism + matching test, re-verified vs the live tree (`scan.mjs:32`, `package.json:11` mkcert line, `.gitignore:5-6`, `check-node-version.mjs:37` guarded tail). (1) **Commission #1 — private-key disclosure CLOSED** via three layered guards: `safeResolve` rejects any dot-prefixed segment (§Phase 3); `createStaticHandler` takes `forbiddenRoots` + `startServer` always passes the resolved cert-cache dir (§Phase 4); a `realpath()` symlink-escape check compares against real root + real forbidden roots (§8). Tests assert `GET /.certs/key.pem` **and** `/.certs/cert.pem` → 404 (+ a non-dot `private-cache` forbidden root); the key is reachable by no route, only `certRoute` streams `cert.pem`. (2) **Omission #1 — out-of-box failure CLOSED:** `startServer` seeds `certHosts = dedupe(['localhost','127.0.0.1', ...lanAddresses, ...hosts])`, so the default `serve:https` cert SAN matches every printed LAN URL — no flag (injected-snapshot test asserts SAN `IP Address:192.168.50.7`); `ensureCert` regenerates on SAN mismatch (DHCP) + prompts re-trust. Nits CLOSED: `key.pem` 0600; exact EKU OID `1.3.6.1.5.5.7.3.1`; UTCTime<2050 note; real browser `import('./probe.mjs')` e2e. Three non-blocking Path-to-100 gaps → 98 not 100: basic KeyUsage DER emitted but not test-asserted; `buildSanExtension` IPv4 predicate "IPv4-looking" not pinned; IPv6 `--host` unspecified. Scope adequate (single backlog item `[/]`; RA #1–#8 DONE; no cap). No regressions (`serve`/CI/`http-server`/`package-lock.json` untouched; test count grows). Loop advances **State 1 → State 2 (implement approved plan v19)**. Implementation Score **N/A** — `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/`serve-https.mjs` all absent; `package.json:11` still the mkcert line. No source since `61c456b`; the 3 commits since (plan v18, critique, plan v19) are doc-only → **second** consecutive idle cycle since the v29 landing → **−2** decay (was −1 at v30). Backlog strict-unchecked `[ ]` = **0** (offline-HTTPS `[/]`, rest `[x]`) → **−0**. RA −0. Base holds 92 (state unchanged; plan approval is loop progress, not code). Base 92 − 0 − 2 = **90**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 2. |
 | v30 | 2026-09-02 | 91 | **Cycle 8 opened — plan v18 critiqued Rev 1 = 93/100 — NOT APPROVED** (commit `2b5e8d3`, "plan: v18 (Cycle 8) — on-device offline static-HTTPS helper for iPad live camera"). New version fully critiqued under the staleness rule. v18 targets the **single** remaining backlog item (offline-HTTPS helper, already `[/]`): a dependency-free pure-Node self-signed-cert HTTPS kiosk replacing the mkcert `serve:https` line — `der.mjs` (ASN.1/DER) + `dev-cert.mjs` (RSA-2048/SHA-256, SAN+serverAuth EKU+CA:FALSE+≤825-day per Apple HT210176, SPKI reused from Node) + `static-server.mjs` (hardened handler) + `serve-https.mjs` (guarded-tail CLI + `startServer`), 4 test suites, README rewrite. Every load-bearing claim source-verified: `scan.mjs:32` secure-context gate; `package.json:11` mkcert line; `.gitignore:5-6` `*.pem`/`*.key`; README mkcert block (25-27); `check-node-version.mjs:37` guarded-tail idiom. Held below ≥95 by two concrete items: (1) **flaw of commission — private-key disclosure:** default `root=cwd` + relative `certDir='.certs'` writes `key.pem` inside the served tree; the handler serves in-root files (traversal check blocks only escapes) and `MIME` maps `.pem`, so `GET /.certs/key.pem` returns the **private key** — contradicts the plan's §2.3/§7.5 hardening claims. *Fix:* default root `dist/` and/or cert dir outside root and/or deny dotfiles + test `GET /.certs/key.pem`→404. (2) **flaw of omission — out-of-box failure:** default SAN omits the LAN IP the iPad connects to → Safari name-mismatch blocks the secure context even after trust; `--host` framed "optional" but mandatory. *Fix:* auto-add discovered LAN IPv4s to SAN (or make `--host` mandatory + warn). Two Path-to-100 nits (`key.pem` mode 0600; exact `X509Certificate.keyUsage` OID-string EKU assertion). Scope adequate (single backlog item `[/]`; RA #1–#8 DONE; no cap). No regressions (`serve`/CI/`http-server`/`package-lock.json` untouched). Loop advances **State 4 → State 1 (revise plan v18)**. Implementation Score **N/A** — `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/`serve-https.mjs` all absent; `package.json:11` still the mkcert line. No source since `61c456b`; only commit since (plan v18) is doc-only → **first** idle cycle since the v29 landing → **−1** decay (reset from 0). Backlog strict-unchecked `[ ]` = **0** (offline-HTTPS `[/]`, rest `[x]`) → **−0**. RA −0. Base holds 92 (state unchanged; plan critique is loop progress, not code). Base 92 − 0 − 1 = **91**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 1. |
 
