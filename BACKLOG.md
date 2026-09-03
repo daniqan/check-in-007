@@ -218,3 +218,12 @@ Strict-unchecked `[ ]` = 0 → backlog −0. Three non-blocking Path-to-100 item
 implementation: a golden-byte KeyUsage-extension `der.test.mjs` assertion; a pinned IPv4
 predicate in `buildSanExtension`; explicit IPv6 `--host` handling. See
 `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 2 and `CONSOLIDATED_AUDIT.md` v31.
+
+**Cycle 11 (audit v38, State 2 — implement the approved plan):** the backlog remains **fully
+closed** — every item above is `[x]`, strict-unchecked `[ ]` = **0** → backlog −0. Cycle 11 does not
+add or reopen a backlog item: its two targets are Audit v37's environment-gated **Next Steps** (run
+native `xcodebuild … test`; observe an exact-SHA live `CI` run), which are tracked as audit findings,
+not backlog improvements. `IMPLEMENTATION_PLAN.md` v23 (commit `d8a9949`) was **APPROVED at 96/100**
+(Cycle 11 Rev 1) and awaits implementation. Because no code has landed since the v37 reset (only an
+archive + the v23 plan commit), inactivity decay is −1 (first idle cycle). See
+`IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 11 Rev 1 and `CONSOLIDATED_AUDIT.md` v38.
