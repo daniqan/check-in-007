@@ -1,13 +1,66 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 92/100
-**Audit Version:** v33
-**Audited:** HEAD `12857d2` on 2026-09-02 (Cycle 9 — HTTPS helper API precision & CLI docs, plan APPROVED)
-**Stage:** Cycle 9, **State 2 — implement the approved plan (Plan Rev 1 = 96/100 APPROVED; Implementation N/A — not yet built)**
+**Current Score**: 94/100
+**Audit Version:** v34
+**Audited:** HEAD `28dc5b6` on 2026-09-02 (Cycle 9 — HTTPS helper API precision & CLI docs, IMPLEMENTED & VERIFIED)
+**Stage:** Cycle 9, **State 4 — cycle complete (Plan Rev 1 = 96/100 APPROVED; Implementation Verification v9 = 98/100 ≥ 95 VERIFIED)**
 
 **Plan Score:** 96/100
-**Implementation Score:** N/A
-**Current Score**: 92/100
+**Implementation Score:** 98/100
+**Current Score**: 94/100
+
+> **STATE 4 — CYCLE COMPLETE (v34).** Cycle 9's approved plan v20 was implemented in commit
+> `28dc5b6` ("feat(§6): refine HTTPS advertised endpoints") and **VERIFIED — Implementation
+> Verification v9 = 98/100 ≥ 95**. All plan sections are **COMPLIANT** and **all five** Rev-1
+> Path-to-100 items were folded in. Both open audit v32 *Next Step* polish items are now closed:
+> - **[Polish #1 — `--bind`]** `--bind` is retained as the listen-interface selector (distinct
+>   from repeatable `--host` SAN additions), directly `parseArgs`-tested for both `--bind=127.0.0.1`
+>   and `--bind ::1` (+ combined flags), and documented in a README flag table with bind/SAN prose
+>   (`serve-https.mjs:28,:25`; `serve-https.test.mjs:42-67`).
+> - **[Polish #2 — `startServer().url`]** the hard-coded `https://127.0.0.1:<port>` is replaced by
+>   `advertisedUrls`/`httpsUrl` — wildcard binds advertise sorted discovered LAN IPv4 (localhost
+>   fallback when none), explicit binds advertise exactly that host (IPv6 bracketed via
+>   `isIP()===6`). Additive `urls` array with the `url===urls[0]` invariant; `lanUrls` retained;
+>   the explicit non-wildcard bind is folded into the cert SAN so every returned URL is covered
+>   (`serve-https.mjs:66-72,:83-85,:108-119`).
+>
+> Verified by execution on Node v26.3.0 via the plan-sanctioned §6 direct-tool path (pinned Node
+> 24 env-blocked): **78/78** unit (`node --test tests/unit/*.test.mjs`; +3 vs v32's 75 for
+> bind/URL/unavailable-bind coverage), **13/13** e2e (`npx playwright test`, incl. real
+> HTTPS-module-load `https-server.spec.mjs`), `prettier --check .` clean, `build.mjs` = **26315
+> gzip bytes** (budget intact). The Rev-1 Omission #1 risk (the injected-LAN wildcard live test
+> becoming unreachable) was correctly resolved: the wildcard case is now **assertion-only**
+> (`serve-https.test.mjs:105-116`) and live GETs run against an **explicit-loopback** bind
+> (`:118-136`). Path-to-100: `main()` now consumes `result.urls`/`result.url` (`:128,:130`); a
+> negative unavailable-bind test asserts `EADDRNOTAVAIL` (`:138-144`); an `httpsUrl` throw-contract
+> test (`:91-92`); a README IPv6 `::` best-effort/reachability caveat. **No regression** — the only
+> behavioral change is the intended wildcard `url` loopback→LAN flip (= polish #2); no field
+> removed/retyped; default-wildcard cert SAN unchanged so existing default users see no cert
+> regeneration. **File manifest respected** — only `scripts/serve-https.mjs`,
+> `tests/unit/serve-https.test.mjs`, `README.md` changed as source (no `src/`/`native/`/`data/`/
+> `assets/`/`vendor/`/`package*`/lockfile diff); `IMPLEMENTATION_PLAN.md` phase checkboxes were
+> also flipped (the plan doc itself, benign). **Two cosmetic non-100 reasons, neither a code
+> defect:** the pinned-Node-24 gate was not natively executed here (Node v26.3.0 → approved
+> direct-tool path), and the impl commit touched the plan doc. See
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v9.
+>
+> **Backlog now fully closed again:** the two Cycle-9 polish items flip `[/]` → `[x]`. **Zero
+> unchecked backlog items remain.**
+>
+> **Deductions.** Code landed this cycle (`28dc5b6` touches `scripts/`, `tests/`, `README.md`) →
+> **inactivity decay resets −1 → 0**. Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0 (all
+> #1–#8 DONE, none stalled). **Base health rises 93 → 94:** the last two cosmetic API-precision
+> items are resolved, the HTTPS helper's returned/printed endpoints are now correct and
+> certificate-covered for every bind mode, and unit coverage grew 75→78. Two standing, unchanged
+> limitations keep base below 95 — native `xcodebuild … test` remains env-blocked (no iPadOS
+> runtime on this machine) and the GitHub Actions CI first live run is still unobserved (fires on
+> first push). **Base 94 − backlog 0 − decay 0 = 94.**
+>
+> **Next Step.** No local code defects remain. The two open items are both **external
+> verification prerequisites**, not committable deliverables: (1) run `xcodebuild … test` for the
+> native SwiftUI target once an iPadOS runtime is installed; (2) observe the first live GitHub
+> Actions CI run on first push. Either would raise base toward 95+ when executed in an enabled
+> environment. A new planning cycle should only open if new scope is introduced.
 
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v33).** Cycle 8 closed VERIFIED at v32; a **new
 > Cycle 9** opened to pick up the two cosmetic, non-gate polish items the v32 *Next Step*
@@ -1176,6 +1229,7 @@ doc/plan commits) in subsequent audits, inactivity decay will begin re-accruing 
 
 ## Revision History
 
+| v34 | 2026-09-02 | 94 | **Cycle 9 HTTPS helper API precision IMPLEMENTED & VERIFIED — Implementation Verification v9 = 98/100 (State 4, cycle complete)** (commit `28dc5b6`, "feat(§6): refine HTTPS advertised endpoints"). All plan v20 sections **COMPLIANT**; **all five** Rev-1 Path-to-100 items folded in. Both open audit v32 polish items closed: (#1) `--bind` kept as listen-interface selector distinct from repeatable `--host` SAN, directly `parseArgs`-tested (`--bind=127.0.0.1` + `--bind ::1` + combined), README flag table + bind/SAN prose; (#2) hard-coded loopback `url` replaced by `advertisedUrls`/`httpsUrl` (wildcard→sorted LAN IPv4 or localhost fallback; explicit→bracket-safe host via `isIP()===6`), additive `urls` with `url===urls[0]`, `lanUrls` retained, explicit non-wildcard bind folded into cert SAN (`serve-https.mjs:66-72,:83-85,:108-119`). Rev-1 Omission #1 correctly resolved: wildcard case now **assertion-only** (`test:105-116`), live GETs on explicit-loopback bind (`:118-136`). Path-to-100: `main()` consumes `result.urls`/`url` (`:128,:130`), negative unavailable-bind test (`EADDRNOTAVAIL`, `:138-144`), `httpsUrl` throw test (`:91-92`), README IPv6 `::` best-effort caveat. Verified on Node v26.3.0 (§6 direct-tool path, pinned Node 24 env-blocked): **78/78** unit (+3 vs 75), **13/13** e2e, `prettier --check .` clean, `build.mjs` **26315 gzip** (budget intact). **No regression** — only the intended wildcard `url` loopback→LAN flip (= polish #2); no field removed/retyped; default-wildcard SAN unchanged (no cert regen for default users). File manifest respected (only `serve-https.mjs`, `serve-https.test.mjs`, `README.md` as source; plan-doc checkboxes also flipped, benign). Two cosmetic non-100 reasons, neither a code defect: pinned-Node-24 gate not natively executed (Node 26 → approved direct-tool path); impl commit touched plan doc. **Backlog fully closed:** two Cycle-9 polish items `[/]`→`[x]`, **0 unchecked**. Deductions: code landed → decay **−1→0**; backlog **−0**; RA **−0**. Base **93→94** (last cosmetic API-precision items resolved, endpoints now correct+cert-covered for every bind mode, unit coverage 75→78; held off ≥95 by two unchanged env-blocked verification gaps: native `xcodebuild test` no iPadOS runtime, CI first-run unobserved). **Base 94 − 0 − 0 = 94.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v9. |
 | v33 | 2026-09-02 | 92 | **Cycle 9 opened — plan v20 APPROVED, Rev 1 = 96/100** (commit `12857d2`, "plan: v20 — refine HTTPS helper endpoint contract"). New version fully critiqued under the staleness rule; clears the ≥95 gate first review. v20 resolves exactly the two cosmetic non-gate polish items from the v32 Next Step and only those: (#1) keep/document/test `--bind` as the listen-interface selector distinct from repeatable `--host` SAN additions — direct `parseArgs` coverage for `--bind=<v>` and `--bind <v>` + a README flag table; (#2) replace hard-coded `startServer().url` = `https://127.0.0.1:<port>` (`serve-https.mjs:86`) with a deterministic advertised endpoint (wildcard → first sorted LAN IPv4 or localhost fallback; explicit → that host, IPv6 bracketed via `URL.hostname`+`isIP`), additive `urls` array with `url===urls[0]` invariant, `lanUrls` retained, explicit non-wildcard bind folded into the cert SAN. Every claim source-verified: `--bind`→`options.host` (`:27`), repeatable `--host` (`:24`), loopback `url` (`:86`), `certHosts` set (`:59`), `lanUrls` sort (`:35-48`), `main()` lanUrls-fallback (`:98,:102`). Scope adequate — no cap (both/only open audit polish items; RA #1–#8 DONE; backlog closed at v32; env-blocked native-test + first-CI-run gaps correctly deferred; §7 four integration contracts; §4/§13 alternatives). No gate-blocking commission. **96 not 97:** one flaw of omission — the existing default-wildcard live-request test (`serve-https.test.mjs:53-67`, injected LAN `192.168.50.7`, live GETs via `result.url`) becomes unreachable under the new contract (wildcard `url` flips to the un-bound injected LAN IP); Phase 2 describes the correct explicit-loopback-live / wildcard-assertion-only end state but never flags this test as a required rebind. Five Path-to-100 items (name the rebind; phase the `main()` edit; IPv6 `::` reachability caveat; negative unavailable-bind test; `httpsUrl` throw test). Only intended regression: wildcard `url` loopback→LAN (= polish #2); no field removed/retyped; default-wildcard SAN unchanged (no cert regen for default users). Loop advances **State 4 → State 2 (implement approved plan v20)**. Implementation Score **N/A** — nothing built (`serve-https.mjs` unchanged 121 lines, no `urls`/`advertisedUrls`/`httpsUrl`; test 67 lines no `--bind`/`urls`; README no flag table). No code since the v32 landing (`a8f0dbd`); the 3 commits since (audit v32, archive, plan v20) are doc-only → **first** idle cycle since the landing → **−1** decay (reset from 0). Backlog strict-unchecked `[ ]` = **0** (two Cycle-9 polish items now `[/]`) → **−0**. RA −0. Base holds 93 (state unchanged; plan approval is loop progress, not code). Base 93 − 0 − 1 = **92**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 9 Rev 1. |
 | v32 | 2026-09-02 | 93 | **Cycle 8 offline static-HTTPS helper IMPLEMENTED & VERIFIED — Implementation Verification v8 = 98/100 (State 4, cycle complete)** (commit `a8f0dbd`, "feat(§6): add offline HTTPS kiosk helper"). All 5 phases **COMPLIANT** vs approved plan v19; **all four** Path-to-100 items folded in. Verified by execution on Node v26.3.0 (§6 direct-tool path): **75/75** unit (`node --test tests/unit/*.test.mjs`), **13/13** e2e (incl. new real-module-load `https-server.spec.mjs`), `prettier --check .` clean, `build.mjs` **26315 gzip** (budget intact), + **live server smoke** (`serve-https.mjs --port=18443`): LAN-IPv4 auto-seeded into cert SAN, `key.pem` 0600 + `GET /.certs/key.pem`→**404** (Rev-1 key-disclosure fix confirmed on the wire), cert route serves `cert.pem`; emitted cert parses iOS-compliant (`CN=CheckIn007 Offline Kiosk`, self-signed, SAN `DNS:localhost,IP:127.0.0.1,IP:<lan>`, EKU `1.3.6.1.5.5.7.3.1`, `ca=false`, 820-day, self-sig verifies). `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/`serve-https.mjs` + 4 unit suites + 1 e2e landed; `package.json:11`→`node scripts/serve-https.mjs` (mkcert/`-S` removed, `http-server` retained, lockfile untouched); `.gitignore` adds `.certs/`; README rewritten. IPv4 predicate pinned to `node:net` `isIP`, IPv6 `--host`→iPAddress[7] 16-byte, golden-byte KeyUsage `030205a0` assertion, static-IP README note. Two cosmetic non-gate defects (undocumented/untested `--bind`; `startServer.url` hard-coded loopback) left as optional polish. **No regressions** (`serve`/CI/`http-server`/lockfile untouched; tests grew 63→75 unit, 12→13 e2e). **Backlog fully closed:** offline-HTTPS item `[/]`→`[x]`, **0 unchecked**. Deductions: code landed → decay **−2→0**; backlog **−0**; RA **−0**. Base **92→93** (backlog entirely closed + verified new capability; held off higher by two unchanged env-blocked gaps: native `xcodebuild test` no iPadOS runtime, CI first-run unobserved). **Base 93 − 0 − 0 = 93.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v8. |
 | v31 | 2026-09-02 | 90 | **Cycle 8 plan v19 APPROVED, Rev 2 = 98/100** (commit `dfd2909`, "plan: v19 — harden offline HTTPS helper"). Revised v18 → v19, re-critiqued under the staleness rule; clears the ≥95 gate. v19 closes **both** Rev-1 must-fix items + **all four** Rev-1 nits, each with a concrete mechanism + matching test, re-verified vs the live tree (`scan.mjs:32`, `package.json:11` mkcert line, `.gitignore:5-6`, `check-node-version.mjs:37` guarded tail). (1) **Commission #1 — private-key disclosure CLOSED** via three layered guards: `safeResolve` rejects any dot-prefixed segment (§Phase 3); `createStaticHandler` takes `forbiddenRoots` + `startServer` always passes the resolved cert-cache dir (§Phase 4); a `realpath()` symlink-escape check compares against real root + real forbidden roots (§8). Tests assert `GET /.certs/key.pem` **and** `/.certs/cert.pem` → 404 (+ a non-dot `private-cache` forbidden root); the key is reachable by no route, only `certRoute` streams `cert.pem`. (2) **Omission #1 — out-of-box failure CLOSED:** `startServer` seeds `certHosts = dedupe(['localhost','127.0.0.1', ...lanAddresses, ...hosts])`, so the default `serve:https` cert SAN matches every printed LAN URL — no flag (injected-snapshot test asserts SAN `IP Address:192.168.50.7`); `ensureCert` regenerates on SAN mismatch (DHCP) + prompts re-trust. Nits CLOSED: `key.pem` 0600; exact EKU OID `1.3.6.1.5.5.7.3.1`; UTCTime<2050 note; real browser `import('./probe.mjs')` e2e. Three non-blocking Path-to-100 gaps → 98 not 100: basic KeyUsage DER emitted but not test-asserted; `buildSanExtension` IPv4 predicate "IPv4-looking" not pinned; IPv6 `--host` unspecified. Scope adequate (single backlog item `[/]`; RA #1–#8 DONE; no cap). No regressions (`serve`/CI/`http-server`/`package-lock.json` untouched; test count grows). Loop advances **State 1 → State 2 (implement approved plan v19)**. Implementation Score **N/A** — `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/`serve-https.mjs` all absent; `package.json:11` still the mkcert line. No source since `61c456b`; the 3 commits since (plan v18, critique, plan v19) are doc-only → **second** consecutive idle cycle since the v29 landing → **−2** decay (was −1 at v30). Backlog strict-unchecked `[ ]` = **0** (offline-HTTPS `[/]`, rest `[x]`) → **−0**. RA −0. Base holds 92 (state unchanged; plan approval is loop progress, not code). Base 92 − 0 − 2 = **90**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 2. |

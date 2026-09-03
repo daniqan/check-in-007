@@ -140,6 +140,49 @@ implementation rather than re-revising.
 
 ---
 
+## Implementation Verification — v9 (Cycle 9)
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v20 @ commit `12857d2` (approved Rev 1 = 96/100)
+**Code:** `master` @ commit `28dc5b6` ("feat(§6): refine HTTPS advertised endpoints") audited on 2026-09-02
+**Verified on:** Node v26.3.0 via the plan-sanctioned §6 direct-tool path (pinned Node 24 unavailable in this environment — an approved diagnostic deviation, not a code defect).
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §2.1 Preserve `--bind` as listen-interface selector, distinct from repeatable `--host` SAN | COMPLIANT | `serve-https.mjs:28` `--bind`→`options.host`; `:25` `--host`→`options.hosts` push |
+| §2.2 Direct `parseArgs` coverage for `--bind=<v>` and `--bind <v>` | COMPLIANT | test `:42-48` (`--bind=127.0.0.1`), `:49-67` (`--bind ::1` + combined flags); defaults/missing/unknown/invalid-port retained `:68-71` |
+| §2.3 Deterministic advertised endpoint replaces hard-coded loopback | COMPLIANT | `advertisedUrls` `:66-72`; `startServer` `:108` builds from effective bind + actual port; `:114` `url = urls[0]` |
+| §2.4 Additive `urls`, `lanUrls` retained, `url === urls[0]` invariant | COMPLIANT | `:114-119`; no field removed/retyped (`url` string, `lanUrls` kept, `urls` new). Asserted `:113-114`, `:128-129` |
+| §2.5 Explicit non-wildcard bind folded into cert SAN; wildcards never SAN | COMPLIANT | `bindCertHosts = host==='0.0.0.0'||host==='::' ? [] : [host]` `:83`; `Set` dedupe `:85`. SAN coverage asserted `:115`, `:130` |
+| §2.6 Document all flags + bind/URL/SAN distinction | COMPLIANT | README flag table (5 flags) + wildcard/explicit/loopback/IPv6 prose |
+| §2.7 Run gates, add no dependency | COMPLIANT | see gate results; `package.json`/lockfile untouched |
+| §6 Phase 1 — pure `httpsUrl`/`advertisedUrls` | COMPLIANT | only `0.0.0.0`/`::` wildcards `:67`; defensive copy+sort+dedupe `:68` (immutability asserted `:99`); localhost fallback `:71`; IPv6 bracketed via `isIP()===6` `:58`; `url.origin` (no trailing slash) |
+| §6 Phase 2 — live-server result precision | COMPLIANT | explicit-loopback live GETs through `result.url` (home 200, `/.certs/key.pem`→404, traversal→404) `:118-136`; wildcard injected-LAN is assertion-only `:105-116` (correctly avoids the unreachable-IP hang flagged in Rev-1 Omission #1) |
+| §6 Phase 3 — README flag table | COMPLIANT | table + `npm run serve:https -- …` forwarding examples |
+| §6 Phase 4 — regression gate | COMPLIANT | ran via approved direct-tool path (Node 24 env-blocked) |
+| §5 File manifest | COMPLIANT | only `scripts/serve-https.mjs`, `tests/unit/serve-https.test.mjs`, `README.md` changed as source; no `src/`/`native/`/`data/`/`assets/`/`vendor/`/`package*`/lockfile diff. (`IMPLEMENTATION_PLAN.md` phase checkboxes also touched — the plan doc itself, not source; benign.) |
+| Path-to-100 (all 5) | COMPLIANT | (1) wildcard live test rebound to explicit loopback + wildcard demoted to assertions; (2) `main()` now consumes `result.urls`/`result.url` `:128,:130`; (3) IPv6 `::` best-effort/reachability caveat in README; (4) negative unavailable-bind test `:138-144` (`EADDRNOTAVAIL`); (5) `httpsUrl` throw-contract tests `:91-92` |
+
+**Gate results (Node v26.3.0, direct-tool path):**
+- `node --test tests/unit/*.test.mjs` → **78/78 pass** (was 75; +3 for bind/URL/unavailable-bind coverage)
+- `npx playwright test` → **13/13 pass** (incl. real HTTPS-module-load `https-server.spec.mjs`)
+- `npx prettier --check .` → **clean**
+- `node scripts/build.mjs` → **26315 gzip bytes** (≤750 KB gzip / ≤1.2 MB raw budget intact)
+
+**Regression check:** No behavioral, performance, API, or coverage regression. The only behavioral change is the intended one (wildcard-with-LAN `url` flips loopback→first sorted LAN URL = audit v32 polish #2). No field removed/retyped; default-wildcard cert SAN unchanged (`bindCertHosts=[]`), so existing default users see no cert regeneration. Test count grew 75→78 unit; e2e unchanged at 13. Extra defensive coding beyond spec: `httpsUrl` detects silent WHATWG hostname coercion (`:60-61`) and throws on invalid hosts.
+
+**Implementation Score:** 98/100
+
+## Defects
+
+None gate-blocking (≥95 — **VERIFIED, cycle complete**). Two cosmetic reasons it is not 100, neither a code defect:
+
+1. **[Environment, not code] Pinned-Node-24 gate not natively executed.** Phase 4 specifies the gates run on pinned Node 24; this host is Node v26.3.0, so gates ran through the plan-sanctioned §6 direct-tool path. The guarded-chain fail-closed behaviour and green gates are re-verified, but the exact `npm run lint/test/build` on Node 24 is unobserved here — the same standing environment limitation recorded since Cycle 7. Not fixable in code.
+2. **[Trivial] `IMPLEMENTATION_PLAN.md` edited in the implementation commit.** §14 says "only the three manifest files change." The extra file is the plan document itself (phase checkboxes flipped to ✅ Complete), not project source — expected generator bookkeeping, no source-scope violation.
+
+---
+
+## Implementation Verification — v9 (Cycle 9) — VERIFIED, cycle complete
+
 **Plan Score:** 96/100
-**Implementation Score:** N/A
-**Current Score**: 92/100
+**Implementation Score:** 98/100
+**Current Score**: 94/100
