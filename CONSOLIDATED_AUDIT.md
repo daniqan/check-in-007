@@ -1,13 +1,64 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 93/100
-**Audit Version:** v46
-**Audited:** target `845116d` (now on `origin/master`), audit HEAD `b6815f8` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; implementation IN PROGRESS but INCOMPLETE — target `845116d` is now PUSHED and an exact-`headSha` CI run exists but FAILED on a billing lock; the fully-executable native gate is STILL un-run; Native `BLOCKED`, CI `BLOCKED`, §14 = 0/6)
-**Stage:** Cycle 11, **State 2 — implement the approved plan (v23)** — *native half is FULLY EXECUTABLE (six iOS 26.4 iPads available) and still un-run (RA #9, 2nd idle cycle); CI half is now provably billing-blocked (target run `33711898714` failed to start)*
+**Current Score**: 89/100
+**Audit Version:** v47
+**Audited:** target `845116d`, audit HEAD `7b4d681` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; NATIVE GATE FINALLY RUN and it GENUINELY FAILS — `CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` returns 1 row not 2 then crashes index-out-of-range, INDEPENDENTLY REPRODUCED; web parity source `src/lib/csv.mjs` passes the same case → real Swift-port data-loss defect. CI exact-SHA run FAILED on billing. Native `FAIL`, CI `BLOCKED`, §14 = 0/6)
+**Stage:** Cycle 11, **State 1 — revise the plan (v23)** — *native gate run + honestly recorded FAIL (RA #9 discharged); the failure is a genuine OUT-OF-SCOPE product defect (RA #11) that v23 §2 forbids fixing, so v23 cannot complete as written; a new fix-cycle is required + a bounded terminal disposition for the billing-blocked CI*
 
 **Plan Score:** 96/100
 **Implementation Score:** N/A
-**Current Score**: 93/100
+**Current Score**: 89/100
+
+<!-- audit-entry v47 -->
+> **STATE 1 — NATIVE GATE FINALLY RUN, AND IT GENUINELY FAILS ON A REAL PRODUCT DEFECT (v47). Score 93 → 89.**
+> The decisive change since v46 is commit `7b4d681` (`test(§6.1): record native simulator gate failure`),
+> which records the first-ever native `xcodebuild test` execution. **RA #9 (native gate un-run) is
+> discharged** — but the run **FAILS**, and I **independently reproduced the failure** rather than trusting
+> the record:
+> - **Native — RUN → FAIL (reproduced).** `xcodebuild -project native/CheckIn007.xcodeproj -scheme
+>   CheckIn007 -destination 'platform=iOS Simulator,id=A155995F-EC83-41BE-95B2-1A5F390ABF59'
+>   -only-testing:CheckIn007Tests/CSVCodecTests test` →
+>   `CSVCodecTests.swift:9: error: … testParsesBomCrlfQuotedCommasAndDoubledQuotes : XCTAssertEqual failed:
+>   ("1") is not equal to ("2")` then `Swift/ContiguousArrayBuffer.swift:692: Fatal error: Index out of
+>   range` → `** TEST FAILED **`. `CSVCodec.parseRows` returns **1 row instead of 2** for
+>   `"\u{FEFF}name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n"`, then the test crashes on `rows[1]`.
+>   The generator's committed evidence matches reality **exactly** — honest, not fabricated.
+> - **This is a genuine parity defect, not a bad test.** The web reference `src/lib/csv.mjs` uses the
+>   byte-identical algorithm and PASSES the equivalent case (`tests/unit/csv.test.mjs:5`,
+>   `'﻿name,table\r\n"Renée, A.","Table ""7"""\r\n\r\n'` → 2 rows), inside the 78/78-green web suite.
+>   The Swift port diverges → **silent data loss on native guest-import** for BOM+CRLF+quoted+doubled-quote
+>   CSV. Raised as **RA #11 (P1)**. A second issue — a stall in
+>   `CameraPrivacyTests.testStartOnSimulatorDoesNotCrashAndStaysNonRunning` after runner restart — is
+>   recorded in the evidence; not independently reproduced here, so flagged lower-confidence.
+> - **Generator handling was plan-compliant.** §6 Phase 1 acceptance ("Any crash/failure stops; do not
+>   edit source/tests to continue") and §2 (product/test edits out of scope) were honored: the gate was
+>   run, `FAIL` recorded, no PASS claimed, no gate weakened (§2/§8). But the failure is an **out-of-scope
+>   product defect**, so **plan v23 cannot complete as written** — its success precondition (native passes)
+>   is false and the fix it needs is scoped out. Loop moves to **State 1 (revise v23)** + a new fix-cycle.
+> - **CI — exact-SHA run FAILED on billing (unchanged).** Run `33711898714` (`head_sha 845116d`, `push`,
+>   `master`, `failure`; job not started, billing lock). §6 Phase 2 step 5 UNMET; §2/§8 forbid banking it.
+> - **§14 = 0/6** (correctly — no gate passed). Backlog **0** unchecked / 15 `[x]`.
+>
+> **Disposition — State 1.** (1) **RA #11 — open a new fix-cycle** to correct `CSVCodec.parseRows` to match
+> the web behavior (2 rows for the parity case); acceptance = full `CheckIn007Tests` green (six suites / 32
+> unit / 4 UI, zero failures) on an iOS 26.4 iPad, plus the Camera stall resolved/characterized. Do **not**
+> weaken the test — the web (2-row) behavior is the source of truth. (2) **Revise v23** to add the bounded
+> terminal disposition for the billing-blocked CI (Rev-1 Path-to-100 #1). Do not bank run `33711898714`.
+>
+> **Deductions.** **Base health 94 → 90**: the native suite is now PROVEN to not pass — a real
+> `CSVCodec.parseRows` data-loss divergence from the web source of truth (Code correctness 9 → 7) plus a
+> native suite that does not go green and a second stalling test (Testing rigor 10 → 8); the long-standing
+> "native parity suites mirror web" assumption is falsified for this case. Prior audits (v34–v46) held base
+> at 94 on the *unverified* assumption the native tests would pass; that assumption is now disproven, so the
+> correction is downward and honest. RA: **#9 DISCHARGED** (gate run) → −0; **#11** raised this cycle at
+> staleness 0 → −0; **#10** (CI billing) advanced (push done, exact-SHA run exists) and is externally
+> blocked, not stalled → −0. Backlog `[ ]` = **0** → −0. **Inactivity decay stays 0** — real work landed
+> (native gate executed + honest FAIL evidence committed). **−1** for the still-open MODERATE CI-billing
+> impediment. **Base 90 − 1 (CI billing) − backlog 0 − RA 0 − decay 0 = 89.** Score 93 → 89: the drop is the
+> newly-proven native defect surfacing; running the gate was genuine progress (it is why decay stays 0 and
+> RA #9 cleared), but discovering a real bug lowers verified system health. The score recovers when RA #11
+> is fixed (native green) and the CI path is either unblocked or bounded. See `IMPLEMENTATION_PLAN_CRITIQUE.md`
+> Implementation Verification v10.
 
 <!-- audit-entry v46 -->
 > **STATE 2 — TARGET PUSHED + EXACT-SHA CI RUN NOW EXISTS (FAILED ON BILLING); NATIVE GATE STILL UN-RUN (v46). Score holds 93.**
@@ -1473,54 +1524,71 @@ Cycle 9 HTTPS-helper precision + Cycle 6 native SwiftUI client; Cycle 11 is plan
 
 | Criterion | Score | Note |
 |-----------|-------|------|
-| Code correctness | 9/10 | 78/78 unit + 13/13 e2e green on Node v26.3.0; HTTPS helper advertised-endpoint math + cert SAN correct for every bind mode; audio/virtualization paths unchanged and clamp all invalid inputs |
-| Plan compliance | 10/10 | Cycles 1–10 all VERIFIED; Cycle 11 plan v23 APPROVED (96/100) but NOT STARTED (Impl v3 = N/A) — no compliance regression, nothing built to violate the spec |
-| Document coherence | 9/10 | Config/CSS/build/README/`VERIFICATION_EVIDENCE.md` agree with code; two external gates honestly recorded `BLOCKED` (not overstated as PASS) |
-| Testing rigor | 10/10 | 78 unit + 13 e2e green; native parity suites mirror web sources of truth; privacy probe test-enforces `getUserMedia audio === false` |
+| Code correctness | 7/10 | Web: 78/78 unit + 13/13 e2e green. **NEW (v47): native `CSVCodec.parseRows` PROVEN-buggy** — returns 1 row not 2 for BOM+CRLF+quoted+doubled-quote CSV (independently reproduced on iPad (A16)); diverges from the byte-identical web source `src/lib/csv.mjs` (which passes) → silent data loss on native guest-import. HTTPS/audio/virtualization paths unchanged. |
+| Plan compliance | 10/10 | Cycles 1–10 all VERIFIED; Cycle 11 v23 executed faithfully — native gate run, `FAIL` recorded honestly, no PASS claimed, no gate weakened (§2/§8 honored). No compliance regression. |
+| Document coherence | 9/10 | Config/CSS/build/README agree with code; `VERIFICATION_EVIDENCE.md` now honestly records the native `FAIL` and CI billing `FAIL` (not overstated as PASS). |
+| Testing rigor | 8/10 | Web suite 78 unit + 13 e2e green. **NEW (v47): the native suite does NOT go green** — `CSVCodecTests` fails (proven) and `CameraPrivacyTests` stalls (recorded); the "native parity suites mirror web" claim is falsified for the CSV case. Coverage exists but is now demonstrably not passing on-device. |
 | Safety architecture | 10/10 | Privacy test-enforced; comprehensive error handling; HTTPS helper blocks private-key disclosure (layered dotfile/realpath guards); audio failures non-fatal |
-| Monitoring & observability | 9/10 | Check-in log + admin CSV/JSON export/copy + offline multi-device log merge; committed CI workflow present (unobserved live — env-blocked) |
-| Feature completeness | 10/10 | All four flow states + admin + roster virtualization + multi-device log merge + scan audio + offline HTTPS kiosk + native SwiftUI client shipped & test-proven |
-| Risk management | 9/10 | Deps pinned (Playwright 1.62.1 / Prettier 3.9.6 / acorn 8.18.0), artifact budget enforced (26,315 gzip), privacy test-enforced; two external verification gaps remain environment-blocked, not code defects |
+| Monitoring & observability | 9/10 | Check-in log + admin CSV/JSON export/copy + offline multi-device log merge; committed CI workflow present but exact-SHA run FAILED on a billing lock (not yet observed green) |
+| Feature completeness | 9/10 | All web flow states + admin + roster virtualization + multi-device log merge + scan audio + offline HTTPS kiosk shipped & test-proven. Native SwiftUI client ships but its guest-import CSV path is proven-defective (RA #11). |
+| Risk management | 9/10 | Deps pinned (Playwright 1.62.1 / Prettier 3.9.6 / acorn 8.18.0), artifact budget enforced (26,315 gzip), privacy test-enforced; native CSV data-loss defect open (RA #11); CI billing-blocked |
 
-**Base Score:** 94/100 (held from v34 — the shipped system is untouched since the Cycle-9 code landing
-`28dc5b6`; Cycle 11 is plan-only. Held below higher by the two unchanged environment-blocked external
-verification gaps: native `xcodebuild … test` never run — `native-ios-sdk-not-installed`, `simctl list
-runtimes` empty — and the committed GitHub Actions `CI` never observed live — no Git remote. Both are
-environment blocks, not code defects. Re-confirmed healthy: native inventory six suites / 32 methods /
-4 UI unchanged; no regressions.)
+**Base Score:** 90/100 (was 94 v34–v46). **Corrected downward this cycle:** prior audits held base at 94 on
+the *unverified* assumption the native tests would pass; the native gate has now been RUN and it PROVABLY
+does not pass — `CSVCodec.parseRows` returns the wrong row count for a BOM/CRLF/quoted/doubled-quote CSV
+(independently reproduced; diverges from the passing web reference `src/lib/csv.mjs`) — a genuine data-loss
+correctness defect (Code correctness 9 → 7), and the native suite does not go green (Testing rigor 10 → 8,
+also reflecting the `CameraPrivacyTests` stall). Web system unchanged and healthy. This is a *newly-revealed*
+latent defect (the code was always this way; native tests could never run before), not a regression.
 
-**Deductions (v46):**
-- Required Actions: −0 (all actions #1–#8 remain DONE; RA #9 native and RA #10 CI now at **staleness 2** —
-  P1 numeric deduction begins at staleness 3, so −0 this cycle. RA #10 **advanced** — the push half is done
-  and an exact-`headSha` run now exists — so it is not "stalled"; RA #9 native shows **no** progress and is
-  on notice: a −2 deduction triggers at v47 if still un-run.)
+**Deductions (v47):**
+- Required Actions: −0 (**RA #9 DISCHARGED** — native gate finally run; **RA #11** raised this cycle
+  (native CSV bug) at staleness 0 → −0; **RA #10** (CI billing) advanced — push done + exact-SHA run exists —
+  and is externally blocked on billing, not stalled → −0. Actions #1–#8 remain DONE.)
 - Backlog: −0 (`BACKLOG.md` strict-unchecked `- [ ]` count = **0**; all 15 items `[x]`)
-- Inactivity: −0 (active implementation progress this cycle — the target was **pushed** to `origin/master`
-  and an exact-`headSha` CI run was triggered, i.e. §6 Phase 2 steps 3–4 were executed. Not a neglect cycle.)
+- Inactivity: −0 (real work landed — the native gate was executed and its honest `FAIL` committed
+  (`7b4d681`). Not a neglect cycle.)
 - New-finding drag: −1 (open MODERATE CI-billing lock — the Cycle-11-**target** Actions run `33711898714`
-  (`head_sha 845116d`) also failed: *"the job was not started because your account is locked due to a billing
-  issue"* — the finding is now demonstrated against the exact target SHA, not merely a prior non-target commit)
+  (`head_sha 845116d`) failed: *"the job was not started because your account is locked due to a billing
+  issue"*.)
 
-**Current Score**: 93/100
+**Current Score**: 89/100
 
-Trajectory: Cycle 11's plan (v23, external execution closure) remains **APPROVED at 96/100** (Rev 1) and
-is unchanged under the staleness rule. **State 2 (implement the approved plan) — CI-path progress this cycle,
-native path still idle.** The target `845116d` is now **pushed** (`origin/master == 845116d`, §6 Phase 2 step
-3) and an **exact-`headSha` CI run exists** (`33711898714`, §6 Phase 2 step 4) — but it **FAILED** because the
-GitHub account is **billing-locked** ("the job was not started…"), so §6 Phase 2 step 5 (success) is unmet and
-no artifact/parity exists. Implementation Verification v9 = **N/A** — the plan is binary success-only and no
-PASS closure surface exists; Native `BLOCKED` / CI `BLOCKED`, all six §14 boxes `[ ]`, README unchanged, and
-the fully-executable native gate (six iOS 26.4 iPads) was **still not run** (RA #9, 2nd idle cycle). Net vs.
-v45 (93): base holds at 94; decay stays 0 (active CI-path progress); −1 for the open CI-billing finding (now
-demonstrated against the exact target SHA). **Base 94 − 1 − 0 − 0 = 93.** The levers are concrete and
-billing-split: **land the native PASS** (Phase 0–1, fully executable today, billing-independent — RA #9) and
-**clear the GitHub billing lock** for the CI PASS + artifact parity (RA #10, push already done); if billing
-cannot be cleared, revise v23 per Rev-1 Path-to-100 #1 to accept native-PASS + CI-permanently-environment-blocked
-as a bounded terminal disposition. **RA #9's native gate is the score-driver: a −2 P1 deduction triggers at
-v47 if it remains un-run.**
+Trajectory: Cycle 11's plan (v23) remains **APPROVED at 96/100** (Rev 1), but the loop moves to **State 1
+(revise the plan)** because v23 can no longer complete as written. The native gate — un-run for two idle
+cycles — was **finally executed this cycle** (RA #9 discharged) and it **genuinely FAILS**:
+`CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` gets 1 row not 2, then crashes index-out-of-range
+(**independently reproduced** on iPad (A16)). The web reference `src/lib/csv.mjs` passes the same case, so
+this is a **real Swift-port data-loss defect** (RA #11) — an *out-of-scope* product bug that v23 §2 forbids
+fixing, so v23 hits its designed STOP state. CI's exact-`headSha` run `33711898714` still FAILED on the
+billing lock (§6 Phase 2 step 5 unmet). Implementation Verification v10 = **N/A** — no PASS closure surface,
+and the failure is a proven out-of-scope defect rather than merely "not run." Net vs. v46 (93): **base
+corrected 94 → 90** (the native suite is now proven-not-green), decay stays 0 (real work landed — gate run +
+honest FAIL committed), −1 for the open CI-billing finding. **Base 90 − 1 − 0 − 0 = 89.** The levers:
+**(RA #11) open a new fix-cycle to correct `CSVCodec.parseRows`** to match the web behavior (native suite
+green) — the score-driver; and **revise v23** to add a bounded terminal disposition for the billing-blocked
+CI (Rev-1 Path-to-100 #1). Do not weaken the failing test (web 2-row behavior is the source of truth) or
+bank run `33711898714` as a PASS (§2/§8).
 
 ## Findings
 
+- **HIGH (v47) — native `CSVCodec.parseRows` data-loss defect (RA #11), PROVEN by execution.**
+  `native/CheckIn007/Services/CSVCodec.swift` returns **1 row instead of 2** for
+  `"\u{FEFF}name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n"` (BOM + CRLF + quoted comma + doubled
+  quotes). I independently reproduced the failure — `xcodebuild … -only-testing:CheckIn007Tests/CSVCodecTests
+  test` on iPad (A16) `A155995F-…` → `XCTAssertEqual failed: ("1") is not equal to ("2")` then
+  `Swift/ContiguousArrayBuffer.swift:692: Fatal error: Index out of range` (the test then crashes on
+  `rows[1]`). The web reference `src/lib/csv.mjs` — a byte-identical hand-rolled state machine the Swift file
+  claims to "mirror" — PASSES the equivalent case (`tests/unit/csv.test.mjs:5`, inside the 78/78-green
+  suite), so this is a genuine **Swift-port parity divergence**, not a bad test: native guest-import silently
+  drops/merges a row for this class of CSV. The generator recorded this failure HONESTLY (`7b4d681`) and did
+  not fabricate a PASS or weaken any gate (§2/§8 honored) — but the fix is out of scope for plan v23 (§2), so
+  a new fix-cycle is required. Loop → **State 1 (revise v23)** + fix-cycle for RA #11.
+- **MODERATE (v47) — native `CameraPrivacyTests` stall (part of RA #11).** The `7b4d681` evidence records
+  that after the runner restart, `CameraPrivacyTests.testStartOnSimulatorDoesNotCrashAndStaysNonRunning`
+  stalled and the run was terminated. Not independently reproduced this session (I ran only `CSVCodecTests`),
+  so lower-confidence; must be resolved or characterized during the RA #11 fix-cycle so the full native suite
+  can be observed green.
 - **APPROVED (plan v14, Cycle 5 Rev 3)** — Node 24 LTS toolchain plan scores **98/100** (≥95 gate
   cleared). Verified vs. `git show ff40b18`: v14 does exactly and only what Rev 2 asked. (1) The
   Rev-2 gate-blocker is **resolved** — the executable tail swaps `import.meta.main` for the
@@ -1739,12 +1807,11 @@ v47 if it remains un-run.**
 
 ## Required Actions
 
-Actions #1–#8 are all DONE (resolved at staleness 1, none stalled). Actions #9–#10 were raised at v44;
-both are now at **staleness 2** (P1 numeric deduction begins at staleness 3 → −0 this cycle). RA #10
-**advanced** this cycle — the target push landed and an exact-`headSha` CI run now exists (only the billing
-lock remains) — so it is not stalled. RA #9 (native) shows **no progress** for a second consecutive cycle
-despite full executability: no numeric deduction yet, but a **−2 P1 deduction triggers at v47** if the
-native tests remain un-run.
+Actions #1–#8 are all DONE. **RA #9 (native gate un-run) is DISCHARGED this cycle** — the gate was finally
+run — but the run FAILED on a genuine product defect, raised as **new RA #11 (P1, native `CSVCodec.parseRows`
+data-loss bug)** at staleness 0. **RA #10** (CI billing) advanced (push done + exact-SHA run exists) and is
+externally blocked on billing, not stalled → −0. No numeric RA deductions this cycle. RA #11 is the
+score-driver going forward: it is a real correctness defect and must be fixed in a new cycle.
 
 | # | Priority | Status | Raised | Resolved | Score Impact | Directive |
 |---|----------|--------|--------|----------|--------------|-----------|
@@ -1756,8 +1823,9 @@ native tests remain un-run.
 | 6 | P2 | **DONE** | v8 | v9 | −0 | **D2/D3**: orientation one-entry e2e + export-equals-log clipboard e2e — ADDRESSED (tests #3, #5 pass) |
 | 7 | P3 | **DONE** | v8 | v9 | −0 | **D4/D5**: 20-cycle no-leak e2e + reduced-motion e2e — ADDRESSED (tests #6, #7 pass) |
 | 8 | P3 | **DONE** | v8 | v9 | −0 | **D6**: `ADMIN.HOLD_MS` + `ROSTER.SEARCH_DEBOUNCE_MS` in `roster.mjs` — ADDRESSED (grep invariant holds) |
-| 9 | P1 | **OPEN — no progress (2nd idle cycle)** | v44 | — | −0 (staleness 2; **−2 triggers at v47**) | **Run plan v23 Phase 1 native tests — NOW, no excuse.** Target commit `845116d` is minted and pushed, but the native tests are **still not run** (evidence Native = `BLOCKED`). Six iOS 26.4 iPads are available (e.g. `A155995F-EC83-41BE-95B2-1A5F390ABF59`). Run `xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination 'platform=iOS Simulator,id=A155995F-EC83-41BE-95B2-1A5F390ABF59' -derivedDataPath <TEMP> -resultBundlePath <TEMP>.xcresult test`; require six suites / 32 unit methods / 4 UI / exit 0 / zero failures; flip Native `BLOCKED → PASS`. This gate does **not** depend on GitHub billing — it is the single highest-value lever and the score-driver next cycle. |
-| 10 | P1 | **OPEN — push done; CI billing-blocked** | v44 | — | −0 (staleness 2; **advanced, not stalled**) | **Push half DONE; now clear the GitHub Actions billing lock.** Target `845116d` is now **pushed** (`origin/master == 845116d`) and CI fires at the **exact** SHA — run `33711898714` (`head_sha 845116d`, event `push`, branch `master`) — but its conclusion is `failure`: *"the job was not started because your account is locked due to a billing issue."* The only remaining obstacle is the billing lock; clear it, re-drive the exact-`headSha` `CI` run to success + `dist-index-html` byte parity. Do not bank the failed run as a PASS (§2/§8). If billing cannot be cleared, revise v23 (Rev-1 Path-to-100 #1) to accept native-PASS + CI-permanently-environment-blocked as a bounded terminal disposition. |
+| 9 | P1 | **DONE — gate run (v47)** | v44 | v47 | −0 | **Run plan v23 Phase 1 native tests — DONE.** The native `xcodebuild test` gate was executed against iPad (A16) `A155995F-…` (commit `7b4d681`). It RAN and recorded `FAIL` (see RA #11); the un-run gap is closed. The gate is no longer the blocker — its result is. |
+| 10 | P1 | **OPEN — push done; CI billing-blocked** | v44 | — | −0 (advanced, not stalled) | **Push half DONE; now clear the GitHub Actions billing lock.** Target `845116d` is **pushed** (`origin/master == 845116d`) and CI fires at the **exact** SHA — run `33711898714` (`head_sha 845116d`, event `push`, branch `master`) — but its conclusion is `failure`: *"the job was not started because your account is locked due to a billing issue."* The only remaining obstacle is the billing lock; clear it, re-drive the exact-`headSha` `CI` run to success + `dist-index-html` byte parity. Do not bank the failed run as a PASS (§2/§8). If billing cannot be cleared, revise v23 (Rev-1 Path-to-100 #1) to accept native-PASS + CI-permanently-environment-blocked as a bounded terminal disposition. |
+| 11 | P1 | **OPEN — raised v47 (native CSV data-loss bug)** | v47 | — | −0 (staleness 0) | **Fix `native/CheckIn007/Services/CSVCodec.swift` to match the web reference — needs a new cycle (out of v23 scope).** PROVEN by execution (independently reproduced): `CSVCodec.parseRows("﻿name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n")` returns **1 row, not 2**, causing `CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` to fail (`1 != 2`) and crash index-out-of-range on `rows[1]`. The byte-identical web parser `src/lib/csv.mjs` passes the equivalent case (`tests/unit/csv.test.mjs:5`), so the Swift port has a real parity divergence → silent data loss on native guest-import. Acceptance: `CheckIn007Tests` fully green (six suites / 32 unit / 4 UI / exit 0 / zero failures) on an iOS 26.4 iPad, **without** weakening the test (web 2-row behavior is the source of truth). Also resolve/characterize the recorded `CameraPrivacyTests.testStartOnSimulatorDoesNotCrashAndStaysNonRunning` stall. |
 
 ## Next Step
 

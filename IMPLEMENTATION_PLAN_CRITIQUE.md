@@ -1,3 +1,76 @@
+### Implementation Verification — v10
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
+**Code:** `master` — target `845116d`; audit HEAD `7b4d681` (`test(§6.1): record native simulator gate failure`) — audited on 2026-09-03
+
+**Verdict: NATIVE GATE FINALLY RUN (RA #9 discharged) — and it GENUINELY FAILS on a REAL product defect;
+CI still billing-blocked. Cycle 11 CANNOT complete under v23's success-only scope. Loop → State 1 (revise
+v23) + a NEW fix-cycle for the native bug.** The material change since v9 is that commit `7b4d681` records
+a **native `xcodebuild test` execution** (evidence `docs/VERIFICATION_EVIDENCE.md` Cycle-11 section) — the
+gate that had been un-run for two idle cycles is now run. Crucially, **the recorded failure is TRUE and
+HONEST: I reproduced it independently** (`xcodebuild … -only-testing:CheckIn007Tests/CSVCodecTests test`
+against booted iPad (A16) `A155995F-…`):
+
+```
+CSVCodecTests.swift:9: error: -[…testParsesBomCrlfQuotedCommasAndDoubledQuotes] :
+    XCTAssertEqual failed: ("1") is not equal to ("2")
+Swift/ContiguousArrayBuffer.swift:692: Fatal error: Index out of range
+** TEST FAILED **
+```
+
+`CSVCodec.parseRows` returns **1 row instead of 2** for the input
+`"\u{FEFF}name,table\r\n\"Vale, Bianca\",\"Table \"\"3\"\"\"\r\n"`, after which the test crashes accessing
+`rows[1]`. This is a **genuine correctness defect** — the web reference `src/lib/csv.mjs` (byte-identical
+algorithm) PASSES the equivalent case (`tests/unit/csv.test.mjs:5`, part of the 78/78 green suite), so the
+Swift port has a **real parity divergence** that silently drops/merges a row on native guest-import for
+BOM + CRLF + quoted-comma + doubled-quote CSV. The evidence also records a second issue — a stall in
+`CameraPrivacyTests.testStartOnSimulatorDoesNotCrashAndStaysNonRunning` after the runner restart (not
+independently reproduced here; flagged lower-confidence).
+
+**The generator behaved correctly under the plan:** §6 Phase 1 acceptance says "Any … crash, or failure
+stops; do not edit source/tests to continue," and §2 scopes product/test edits OUT. The generator ran the
+gate, recorded `FAIL` honestly, did **not** fabricate a PASS or weaken any gate (§2/§8 honored). But the
+consequence is that **plan v23 has hit its designed STOP state and cannot reach completion** — its success
+precondition (native tests pass) is false, and the fix it requires (correct `CSVCodec.parseRows`) is
+explicitly out of scope. This is no longer a "not started / not run" N/A (v7–v9); it is a **proven
+out-of-scope product defect that blocks success-only closure.**
+
+#### Environment (re-verified this cycle)
+
+- **Native — UNBLOCKED, RUN, FAILED.** iOS 26.4 (23E244) installed; iPad (A16) `A155995F-…` booted;
+  Xcode 26.4. `xcodebuild … test` executes; `CSVCodecTests` fails as above (**independently reproduced**).
+- **Target pushed.** `origin/master == 845116d`. Audit/evidence commit `7b4d681` is 1 ahead (docs-only).
+- **CI — exact-SHA run exists, FAILED on billing.** Run `33711898714` (`head_sha 845116d`, `push`,
+  `master`, conclusion `failure`; "Web gate" job not started, billing lock). §6 Phase 2 step 5 UNMET.
+
+#### Section-by-section compliance (approved plan v23 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 0 — Authorization, local gates, target | **COMPLIANT** | Target `845116d` minted (docs-only), local web gates recorded PASS (78/78 unit, 13/13 e2e, build 26,315 gzip / `dist/index.html` 70,584 B SHA `8d5a9c65…`) in the Cycle-11 evidence block. |
+| §6 Phase 1 — Native iPad execution | **RUN → FAIL (compliant handling)** | Gate executed on iPad (A16); `CSVCodecTests.testParsesBomCrlfQuotedCommasAndDoubledQuotes` fails (1≠2 rows + index-out-of-range crash); Camera test stalled. **RA #9 discharged** (no longer un-run). No PASS claimed; no source/test edited — §6 Phase 1 acceptance + §2 honored. |
+| §6 Phase 2 — Exact-SHA CI execution | **PARTIAL / FAILED** | Push DONE (step 3 ✓); exact-`headSha` run `33711898714` exists (step 4 ✓); run FAILED on billing — step 5 UNMET, no artifact/parity. §2/§8 forbid banking it as PASS. |
+| §6 Phase 3 — Finalize evidence | **N/A** | Both externals recorded `FAIL`/`BLOCKED` honestly; no PASS finalization possible. |
+| §14 Completion Checklist | **0 / 6 checked** | Correctly all `[ ]` — no gate passed. |
+
+#### Directive (State 1 — plan v23 can no longer complete as written; two actions required)
+
+1. **Open a NEW fix-cycle for the native CSV parity bug (RA #11 — the score-driver).** `CSVCodec.parseRows`
+   diverges from `src/lib/csv.mjs` for BOM+CRLF+quoted+doubled-quote input, silently returning the wrong
+   row count (data loss on native guest-import). This is a genuine product defect that v23 §2 forbids
+   fixing, so it needs its own plan/cycle. Acceptance: `CheckIn007Tests` passes all six suites / 32 unit
+   methods / 4 UI, zero failures, on an iOS 26.4 iPad; and re-confirm the `CameraPrivacyTests` stall is
+   resolved or characterized. Do **not** "fix" the test by weakening its expectation — the web behavior
+   (2 rows) is the source of truth.
+2. **Revise v23 to add the bounded terminal disposition for CI (Rev-1 Path-to-100 #1).** The push is done
+   and CI fires at the exact SHA; only the billing lock blocks success. If billing cannot be cleared,
+   accept native-PASS + CI-permanently-environment-blocked as an explicit terminal state rather than
+   leaving the cycle pending indefinitely. Do not bank run `33711898714` as a PASS (§2/§8).
+
+**Implementation Score:** N/A
+
+---
+
 ### Implementation Verification — v9
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
