@@ -160,3 +160,20 @@ Node-24 execution and the first live CI run are deferred to first-push — is pl
 resets to 0. **Only one strictly-unchecked `[ ]` item remains** — the on-device static-HTTPS
 helper (an unrelated native subsystem, a candidate for a future cycle) → backlog −0. See
 `CONSOLIDATED_AUDIT.md` v29.
+
+**Cycle 8 is open** (State 1 — revise the plan): the **last** remaining item — "On-device
+static-HTTPS helper so the live camera works on a fully offline iPad (§10 Q2)" — is now in
+progress (`[/]`), addressed by `IMPLEMENTATION_PLAN.md` v18 (a dependency-free pure-Node
+self-signed-cert HTTPS kiosk replacing the mkcert `serve:https` line). **Plan v18 was critiqued
+at 93/100 — NOT APPROVED** (Cycle 8 Rev 1). It is strong and source-grounded (scan
+secure-context gate, mkcert line, guarded-tail idiom, Apple TLS-trust rules all verified) but
+held below the ≥95 gate by two concrete items: (1) a **flaw of commission** — the "hardened"
+static handler serves its own TLS **private key** by default (`GET /.certs/key.pem`, because
+the cert dir sits inside the served root and `.pem` is in the MIME map); (2) a **flaw of
+omission** — the default cert SAN omits the LAN IP the iPad connects to, so Safari's
+name-mismatch blocks the secure context and the feature fails out of the box even after the
+trust walkthrough. **Next action: revise plan v18 to ≥95** — default the served root off the
+cert dir (and/or deny dotfiles) + assert `GET /.certs/key.pem`→404, and auto-add discovered
+LAN IPv4s to the cert SAN (or make `--host` mandatory + warn). Strict-unchecked `[ ]` = 0 (this
+item is `[/]`, everything else `[x]`) → backlog −0; first idle cycle since the v29 landing →
+decay −1. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 1 and `CONSOLIDATED_AUDIT.md` v30.

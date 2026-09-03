@@ -1,9 +1,55 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 92/100
-**Audit Version:** v29
-**Audited:** HEAD `61c456b` on 2026-09-02 (Cycle 7 — Node 24 LTS pin + GitHub Actions CI IMPLEMENTED & VERIFIED)
-**Stage:** Cycle 7, **State 4 — cycle complete (Implementation Verification v7 = 97/100, VERIFIED)**
+**Current Score**: 91/100
+**Audit Version:** v30
+**Audited:** HEAD `2b5e8d3` on 2026-09-02 (Cycle 8 — offline static-HTTPS helper, plan v18 critiqued)
+**Stage:** Cycle 8, **State 1 — revise the plan (Plan Critique Cycle 8 Rev 1 = 93/100, NOT APPROVED)**
+
+> **STATE 1 — REVISE THE PLAN (v30).** Cycle 7 completed (v29); a **new** Cycle-8 plan opened.
+> `IMPLEMENTATION_PLAN.md` was replaced with **v18 (commit `2b5e8d3`, "plan: v18 (Cycle 8) —
+> on-device offline static-HTTPS helper for iPad live camera")** — a new version, fully
+> critiqued under the staleness rule. **Plan Critique Cycle 8 Rev 1 = 93/100 — NOT APPROVED**
+> (below the ≥95 gate). v18 is strong, source-grounded, and dependency-free: it correctly
+> diagnoses the secure-context gate (`src/screens/scan.mjs:32` `window.isSecureContext`),
+> replaces the mkcert `serve:https` line (`package.json:11`) with a pure-Node self-signed-cert
+> HTTPS kiosk (`node:crypto` SPKI + a ~150-line DER encoder, RSA-2048/SHA-256, SAN + serverAuth
+> EKU + CA:FALSE + ≤825-day validity per Apple HT210176), reuses the vetted guarded-tail idiom
+> (`scripts/check-node-version.mjs:37`), and specifies four deep test suites. Every load-bearing
+> claim re-verified vs the live tree (scan gate, mkcert line, `.gitignore:5-6` `*.pem`/`*.key`,
+> README mkcert block lines 25-27, guarded-tail idiom). **Held below the gate by two concrete,
+> mechanically-fixable items:**
+> - **[Commission — private-key disclosure]** `startServer` defaults `root = process.cwd()` and
+>   `certDir = '.certs'` (relative), so `key.pem` is written **inside the served tree**; the
+>   "hardened" `createStaticHandler` serves any in-root file (traversal check blocks only
+>   *escapes*, not in-root dotfiles) and `MIME` maps `.pem`, so `GET /.certs/key.pem` returns
+>   the RSA **private key** over the wire — contradicting the plan's own §2.3/§7.5 hardening
+>   claims and letting any offline-LAN device impersonate the kiosk origin. *Fix:* default root
+>   to `dist/` and/or store the cert dir outside the served root and/or deny dotfile/`.certs/`
+>   paths; add a unit test asserting `GET /.certs/key.pem` → 404.
+> - **[Omission — feature fails out of the box]** the default cert SAN is only
+>   `localhost`/`127.0.0.1`, but the iPad connects by **LAN IP**; a trusted cert whose SAN does
+>   not match the connected IP still yields a Safari name-mismatch that blocks the secure
+>   context, so `getUserMedia` fails even after the full trust walkthrough. `--host <lan-ip>` is
+>   framed "optionally" but is mandatory for the LAN case. *Fix:* auto-add discovered
+>   non-internal LAN IPv4s to the SAN by default (preferred), or make `--host` documented-
+>   mandatory + warn at startup on a SAN/URL mismatch; add a covering test.
+>
+> Two Path-to-100 nits: write `key.pem` mode `0o600` (§Phase 2 sets only dir 0700); pin the
+> exact `X509Certificate.keyUsage` OID-string EKU assertion (Node returns
+> `'1.3.6.1.5.5.7.3.1'`, not `'serverAuth'`). **Scope adequate:** this is the **single**
+> remaining backlog item (already `[/]`); RA #1–#8 all DONE/none stalled; no scope cap. No
+> regressions (`serve`/CI/`http-server` dep/`package-lock.json` all untouched; test count
+> grows). Loop advances **State 4 → State 1 (revise plan v18 to ≥95)**. Implementation Score
+> **N/A** — no code written (`scripts/lib/der.mjs`, `dev-cert.mjs`, `static-server.mjs`,
+> `scripts/serve-https.mjs` all absent; `package.json:11` still the mkcert line).
+>
+> **Deductions.** No source since the v29 code landing (`61c456b`); the only commit since
+> (`2b5e8d3`, plan v18) is doc/plan-only → **first** idle cycle since the landing → **−1**
+> decay (reset from 0). Backlog strict-unchecked `[ ]` = **0** (the offline-HTTPS item is
+> `[/]`; everything else `[x]`) → **−0**. RA −0. Base health holds **92** (system state
+> unchanged — plan critique is loop progress, not code; native `xcodebuild … test` still
+> env-blocked, CI first-run still unobserved, same as v29). **Base 92 − backlog 0 − decay 1 =
+> 91.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 1.
 
 > **STATE 4 — CYCLE COMPLETE (v29).** Approved plan v17 (Cycle 7 Rev 1 = 97/100) was
 > **implemented** in commit `61c456b` (9 files) and audited against the contract
@@ -991,6 +1037,8 @@ resets the inactivity decay from −4 → 0. Do **not** re-touch the VERIFIED cy
 cycle re-accrues −1 inactivity decay (currently −4; cap −5 — one idle cycle from the floor).
 
 ## Revision History
+
+| v30 | 2026-09-02 | 91 | **Cycle 8 opened — plan v18 critiqued Rev 1 = 93/100 — NOT APPROVED** (commit `2b5e8d3`, "plan: v18 (Cycle 8) — on-device offline static-HTTPS helper for iPad live camera"). New version fully critiqued under the staleness rule. v18 targets the **single** remaining backlog item (offline-HTTPS helper, already `[/]`): a dependency-free pure-Node self-signed-cert HTTPS kiosk replacing the mkcert `serve:https` line — `der.mjs` (ASN.1/DER) + `dev-cert.mjs` (RSA-2048/SHA-256, SAN+serverAuth EKU+CA:FALSE+≤825-day per Apple HT210176, SPKI reused from Node) + `static-server.mjs` (hardened handler) + `serve-https.mjs` (guarded-tail CLI + `startServer`), 4 test suites, README rewrite. Every load-bearing claim source-verified: `scan.mjs:32` secure-context gate; `package.json:11` mkcert line; `.gitignore:5-6` `*.pem`/`*.key`; README mkcert block (25-27); `check-node-version.mjs:37` guarded-tail idiom. Held below ≥95 by two concrete items: (1) **flaw of commission — private-key disclosure:** default `root=cwd` + relative `certDir='.certs'` writes `key.pem` inside the served tree; the handler serves in-root files (traversal check blocks only escapes) and `MIME` maps `.pem`, so `GET /.certs/key.pem` returns the **private key** — contradicts the plan's §2.3/§7.5 hardening claims. *Fix:* default root `dist/` and/or cert dir outside root and/or deny dotfiles + test `GET /.certs/key.pem`→404. (2) **flaw of omission — out-of-box failure:** default SAN omits the LAN IP the iPad connects to → Safari name-mismatch blocks the secure context even after trust; `--host` framed "optional" but mandatory. *Fix:* auto-add discovered LAN IPv4s to SAN (or make `--host` mandatory + warn). Two Path-to-100 nits (`key.pem` mode 0600; exact `X509Certificate.keyUsage` OID-string EKU assertion). Scope adequate (single backlog item `[/]`; RA #1–#8 DONE; no cap). No regressions (`serve`/CI/`http-server`/`package-lock.json` untouched). Loop advances **State 4 → State 1 (revise plan v18)**. Implementation Score **N/A** — `der.mjs`/`dev-cert.mjs`/`static-server.mjs`/`serve-https.mjs` all absent; `package.json:11` still the mkcert line. No source since `61c456b`; only commit since (plan v18) is doc-only → **first** idle cycle since the v29 landing → **−1** decay (reset from 0). Backlog strict-unchecked `[ ]` = **0** (offline-HTTPS `[/]`, rest `[x]`) → **−0**. RA −0. Base holds 92 (state unchanged; plan critique is loop progress, not code). Base 92 − 0 − 1 = **91**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 8 Rev 1. |
 
 | Version | Date | Score | Summary |
 |---------|------|-------|---------|
