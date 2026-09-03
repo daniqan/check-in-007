@@ -3,6 +3,25 @@
 Improvement opportunities beyond the current plan's scope. Unchecked items reduce the audit
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
+> **Cycle 17 opened (audit v63):** `IMPLEMENTATION_PLAN.md` v30 **APPROVED at 96/100** (Cycle 17
+> Rev 1) but **NOT yet implemented** (State 2 — none of the §5 NEW files exist). It targets the two
+> code-actionable audit findings (RA #14 verification-lane hardening; RA #16 cycle-artifact guard),
+> which are tracked as Required Actions in `CONSOLIDATED_AUDIT.md`, **not** duplicated here. The
+> backlog is otherwise fully closed. One genuine deferred *improvement* the plan leaves as
+> Path-to-100 is captured below (CI cycle-artifact guard vs. the pre-critique plan commit). System
+> health 84 → 83 (first idle-code cycle since the Cycle-16 `43663ee` work → decay −1). See
+> `CONSOLIDATED_AUDIT.md` v63 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 17 Rev 1.
+
+## Cycle-artifact guard polish (opened audit v63)
+- [ ] Reconcile the CI `check-cycle-artifacts` guard with the pre-critique planning window (plan v30
+  Path-to-100 #1). The guard runs in CI *without* the `CHECKIN007_ALLOW_EMPTY_CRITIQUE` override, so
+  a generator new-cycle/plan commit — which necessarily lands with a 0-byte
+  `IMPLEMENTATION_PLAN_CRITIQUE.md` before the discriminator scores — would redden CI on that commit.
+  Scope the CI check to pull requests / pushes to the default branch, or exempt commits whose *only*
+  change is `IMPLEMENTATION_PLAN.md`, so the guard still surfaces genuine drift (RA #16) without
+  flagging every routine plan commit. Deferred from Cycle 17 (the guard itself ships; this hardening
+  is Path-to-100, non-blocking).
+
 ## iPad / iOS robustness (opened audit v56)
 > These are deferred *improvements* around the newly-reported iPad roster-scroll defect. The
 > **core fix itself is a defect**, tracked as **RA #14 (P0/HIGH)** in `CONSOLIDATED_AUDIT.md` and
