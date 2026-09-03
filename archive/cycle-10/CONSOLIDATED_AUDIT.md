@@ -316,3 +316,58 @@
 > check-in flow) — **RESOLVED & verified this cycle** (methods 1–2 reach `scan.status`/`result.title`). Camera —
 > DONE.
 
+<!-- audit-entry v51 -->
+> **STATE 2 — CYCLE-13 PLAN v26 APPROVED (96/100): BOTH NATIVE-RED CAUSES NOW IN SCOPE; AWAITING IMPLEMENTATION (v51). Score 88 → 87.**
+> The only change since v50 is commit `7c51af4` (`plan: v26 - cover both native UI failure paths`), a docs-only
+> new plan revision. `git diff --name-only fa180f4..HEAD -- native/ src/ tests/` is **empty** — no code landed.
+> - **Plan v26 is APPROVED at 96/100** (see `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-13 Rev 2). It is the correct
+>   State-1 answer to the Rev-1 (72/100) critique: it now covers **both** independent native-red causes rather
+>   than one.
+>   - **RA #12 (methods 3–4):** retains the correct `app.otherElements[A11yId.mark007]` → `app.buttons[...]`
+>     query fix. Verified: exactly two sites (`CheckIn007UITests.swift:61,80`); `RosterView.swift:43–46` carries
+>     `.isButton`, so `app.buttons` is right.
+>   - **RA #13 (methods 1–2):** §4.1 gives the roster-row label `.frame(maxWidth: .infinity, alignment:
+>     .leading)` + `.contentShape(Rectangle())` so the synthesized center `.tap()` reaches the button action
+>     (methods 1–2 fail at `scan.status`/`result.title` because the tap lands on dead hit-space of the
+>     intrinsic-width `.buttonStyle(.plain)` label); §4.2 moves `.accessibilityIdentifier(A11y.resultTitle)` off
+>     the child `Text` onto the `.accessibilityElement(children: .combine)` VStack so the combined `StaticText`
+>     is queryable.
+> - **v26's `result.title` root-cause is MORE ACCURATE than my own Rev-1 critique.** Rev 1 hand-waved that
+>   `result.title` "should resolve under `staticTexts`." Verified in source: `ResultView.swift:23` puts the
+>   identifier on the **child** `Text(displayName)`, and the enclosing VStack applies `.combine` at `:35` —
+>   combined children are absorbed, so `app.staticTexts[A11yId.resultTitle]` (test lines 32/51) cannot find it
+>   even when ResultView is on screen. This is the decisive RA #13 half and v26 gets it right.
+> - **One residual (held the plan at 96, not 98):** §4.1's hit-region cause is asserted ("a captured post-tap
+>   hierarchy still shows the roster") but not recorded in the durable evidence trail; the Rev-1 run recorded
+>   only "`scan.status` not found." Handled honestly via §13 Q1 decision-gate (STOP on failure, no bypass) and
+>   the new failure-only `requireExists` hierarchy helper (§4.4). Non-blocking.
+> - **Inventory / environment / CI verified.** Six unit suites = 7+3+8+6+5+4 = **33** + **4** UI = 37; Xcode
+>   26.4 / iOS 26.4 / iPad (A16) `A155995F-…`; run `33711898714` honestly retained as `BLOCKED (external
+>   billing)`, not banked. No assertion weakened; §2 forbids AppModel/camera/timing/styling/`.isButton` changes.
+> - **Not implemented.** `CheckIn007UITests.swift:61,80` still query `otherElements`; `ResultView.swift:23`
+>   still identifies the `.combine` child; `RosterView.swift:58–68` `rosterRow` still lacks the full-width
+>   `contentShape`. Implementation Verification **v14 = N/A** (State 2, unstarted).
+> - **RA #11 (CSV) + camera remain DONE — do not re-open. Backlog `[ ]` = 0** / 15 `[x]`.
+>
+> **Disposition — State 2 (implement approved plan v26).** Land the three source edits (RA #13 activation +
+> identity, RA #12 query), add the `requireExists` diagnostics, run all four UI methods + the full native scheme
+> (37 passes, exit 0) + web gates, and record durable evidence. Do **not** weaken any assertion, add coordinate
+> taps, or touch AppModel/camera; keep CI `BLOCKED`. If the §4.1 `contentShape` fix does not restore activation,
+> STOP and capture the hierarchy per §13 Q1.
+>
+> **Required Actions status.** **#12** (P1, `mark007` query) staleness 2 — P1 stall deduction begins at
+> staleness 3 → **−0**; now covered by an approved plan (ADDRESSED-in-plan, pending code). **#13** (P1,
+> check-in-flow UI red) staleness 1 → **−0**; now covered by approved plan v26. **#10** (CI billing) external,
+> not stalled → **−0**. #1–#9, #11 DONE.
+>
+> **Deductions.** **Base health 91** (unchanged from v50 — no code landed, so verified system health is
+> unchanged: native suite still red, CI still blocked; approving a plan does not raise health until implemented).
+> RA: **−0** (nothing stalled ≥3). Backlog `[ ]` = 0 → **−0**. **Inactivity decay −2**: second consecutive
+> no-code cycle (v50 = first at −1; the only commits in both cycles are docs-only plan revisions v25→v26).
+> Approving a rejected plan into an implementation-ready one is genuine loop progress, but the mechanical decay
+> tracks *code*, and none has landed for two cycles — the pressure to implement is legitimate. **−1** open
+> MODERATE CI-billing lock; **−1** open native UI-red gate (still two-cause, unimplemented). **Base 91 − 1 (CI
+> billing) − 1 (native UI-red) − 2 (decay) − backlog 0 − RA 0 = 87.** Score 88 → 87: the −1 is pure decay for a
+> second code-less cycle; it recovers the moment v26's fixes land and the native suite goes green. See
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-13 Rev 2 + Implementation Verification v14.
+
