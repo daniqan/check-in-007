@@ -196,9 +196,10 @@ test('scroll probe is hidden in normal mode and reflects real roster scroll when
   await waitForRoster(page);
   const probe = page.locator('#scroll-probe-status');
   await expect(probe).toHaveText('scroll-probe:0');
-  await page.locator('.roster-list').evaluate((element) => {
-    element.scrollTop = 200;
-    element.dispatchEvent(new Event('scroll'));
+  // The non-virtualized roster scrolls the document (root scroller), not the list.
+  await page.evaluate(() => {
+    window.scrollTo(0, 200);
+    window.dispatchEvent(new Event('scroll'));
   });
   await expect(probe).toHaveText(/scroll-probe:[1-9][0-9]*/);
 });

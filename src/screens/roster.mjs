@@ -21,8 +21,18 @@ export function createScrollProbe(list, { enabled, documentRef = document } = {}
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
   status.setAttribute('aria-label', 'scroll-probe:0');
+  // The non-virtualized roster scrolls the DOCUMENT (root scroller); the
+  // virtualized roster scrolls the list itself. Report whichever is active.
+  const win = documentRef.defaultView;
+  const readDocumentScroll = () => {
+    if (!win) return 0;
+    const fromWindow = Number(win.scrollY);
+    if (Number.isFinite(fromWindow)) return fromWindow;
+    return Number(documentRef.scrollingElement?.scrollTop) || 0;
+  };
   const update = () => {
-    const value = Math.max(0, Math.round(Number(list.scrollTop) || 0));
+    const listTop = Number(list.scrollTop) || 0;
+    const value = Math.max(0, Math.round(Math.max(listTop, readDocumentScroll())));
     const text = `scroll-probe:${value}`;
     status.textContent = text;
     status.setAttribute('aria-label', text);
@@ -30,9 +40,15 @@ export function createScrollProbe(list, { enabled, documentRef = document } = {}
   update();
   host.append(status);
   list.addEventListener('scroll', update, { passive: true });
+  if (win && typeof win.addEventListener === 'function') {
+    win.addEventListener('scroll', update, { passive: true });
+  }
   return {
     dispose() {
       list.removeEventListener('scroll', update);
+      if (win && typeof win.removeEventListener === 'function') {
+        win.removeEventListener('scroll', update);
+      }
       status.remove();
     },
   };
@@ -41,16 +57,18 @@ export function createScrollProbe(list, { enabled, documentRef = document } = {}
 export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtimeFlags = {} }) {
   root.innerHTML = `
     <section class="screen roster-screen" aria-labelledby="roster-title">
-      <header class="topbar">
-        <button class="logo-hit" type="button" aria-label="Open admin controls">007</button>
-        <div>
-          <p>EVENT OPERATIONS</p>
-          <h1 id="roster-title">AGENT ROSTER</h1>
-        </div>
-      </header>
-      <label class="search-label" for="guest-search">Search guest roster</label>
-      <input id="guest-search" class="search" type="search" autocomplete="off" placeholder="Search agents" />
-      <p id="result-count" class="status" role="status" aria-live="polite"></p>
+      <div class="roster-header">
+        <header class="topbar">
+          <button class="logo-hit" type="button" aria-label="Open admin controls">007</button>
+          <div>
+            <p>EVENT OPERATIONS</p>
+            <h1 id="roster-title">AGENT ROSTER</h1>
+          </div>
+        </header>
+        <label class="search-label" for="guest-search">Search guest roster</label>
+        <input id="guest-search" class="search" type="search" autocomplete="off" placeholder="Search agents" />
+        <p id="result-count" class="status" role="status" aria-live="polite"></p>
+      </div>
       <ul class="roster-list" aria-label="Ticketed guests"></ul>
       <p class="storage-note" role="status"></p>
     </section>
@@ -168,6 +186,7 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
 
   const update = () => {
     list.scrollTop = 0;
+    window.scrollTo(0, 0);
     render(filterGuests(guests, search.value));
   };
   const handleSearchInput = () => {
@@ -204,7 +223,6 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
 
   render(guests);
   probe = createScrollProbe(list, { enabled: runtimeFlags.scrollProbe });
-  search.focus({ preventScroll: true });
 
   return () => {
     mounted = false;

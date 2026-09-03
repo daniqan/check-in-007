@@ -135,3 +135,39 @@ Cycle 17 adds structured smoke-test evidence at `test-results/ios-scroll-result.
 diagnostics for missing `xcrun`, `xcodebuild`, simulator runtime/device, artifact, HTTPS trust, and
 probe failures. This improves auditability only; it does not resolve the bug without a PASS from the
 iPadOS touch path.
+
+---
+
+## UPDATE — Applied fix: root (document) scrolling for the roster
+
+**Decisive clue (user, on iPad):** "touch sometimes scrolls the *page* but not the list;
+sometimes neither." → iOS routes the gesture to the ROOT scroller and does not recognize the
+inner list as a scroll target. Cycle-17 device evidence (list `scrollTop` stayed 0 even with
+the roster transform removed) confirms the inner-`overflow:auto`-inside-`position:fixed`
+pattern itself is what iPadOS fails on — no single property tweak fixes it.
+
+**Change (isolates the roster from the inner-scroller pattern entirely):**
+- `src/styles.css`: `body` no longer `overflow:hidden`; `.roster-screen` is
+  `position:relative; min-height:100dvh` (in document flow, not fixed); the non-virtualized
+  `.roster-list` is `overflow:visible; flex:none` (NOT a scroller) — the document scrolls.
+  `.roster-list.is-virtualized` (>500 rows) keeps a bounded inner scroller
+  (`overflow:auto; height:70dvh`) so windowing via `scrollTop`/`clientHeight` still works.
+- `src/screens/roster.mjs`: scroll probe now reports `max(list.scrollTop, window.scrollY)`
+  and also listens to `window` scroll, so the iOS UI-test oracle
+  (`WebRosterScrollUITests.swift`, "positive scrollTop after a touch drag") remains valid —
+  it will read the document scroll. Search reset also `window.scrollTo(0,0)`. Removed the
+  roster's `search.focus()` auto-focus (kiosk should not pop the keyboard; also removes the
+  iOS focused-input-in-fixed quirk).
+- `tests/e2e/checkin.spec.mjs`: probe test scrolls the window instead of the list.
+
+**Verified (WebKit 26 + Chromium, headless):** roster in flow (document `scrollHeight` >
+viewport), document scrolls on input (`scrollY` 600), list not a scroller, probe reports
+document scroll; virtualized path: 620 guests → 14 rows rendered, inner scroller 504px,
+scroll-to-bottom renders Agent 619, filter → non-virtualized, `scrollTop 0`. Unit 100/101
+(the 1 = env temp-file unlink), prettier clean, build OK.
+
+**UX note:** the header/search now scroll with the page (whole roster is the page). A
+`position: sticky` header is a possible follow-up, deliberately NOT included to avoid
+reintroducing iOS sticky quirks into the fix. Final confirmation must be on a real iPad.
+
+**Follow-up applied:** header + search + count wrapped in a `position: sticky; top: 0` `.roster-header` (opaque themed background, full-bleed, carries the top safe-area inset). Verified pinned at `top: 0` after 900px document scroll with rows passing beneath; search works while scrolled.

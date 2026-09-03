@@ -1,9 +1,9 @@
-# Check-In 007 - iPad Roster Scroll Repair Plan v32 (Cycle 18)
+# Check-In 007 - iPad Roster Scroll Repair Plan v33 (Cycle 18)
 
 ## 1. Overview
 
 Cycle 18 is re-scoped to the audit-assigned P0/P1 findings from `CONSOLIDATED_AUDIT.md`
-v66 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 18 Rev 1. The current web app is healthy
+v67 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 18 Rev 2. The current web app is healthy
 on desktop gates, but the newly working iOS lane produced device evidence that the roster
 does not scroll on an iOS 26.4 Simulator (`scrollTop` stayed `0` after the drag), and a
 second run exposed nondeterministic Mobile Safari address-entry automation. This plan
@@ -34,9 +34,9 @@ Source trace:
    installed simulator line, `iPad (A16)`, while keeping environment overrides intact.
 3. Add unit coverage for the default-device contract and keep the test-runner environment
    forwarding regression covered.
-4. Root-cause the on-device non-scroll with isolated CSS/DOM experiments against
-   `.roster-screen` and `.roster-list`; land only the smallest experiment that produces a
-   required PASS on the installed iOS 26.4 Simulator.
+4. Root-cause the on-device non-scroll with isolated CSS experiments that keep
+   `.roster-list` as the bounded internal scroll source; land only the smallest experiment
+   that produces a required PASS on the installed iOS 26.4 Simulator.
 5. Update runbook, bug note, README, and verification evidence with the new default
    device, the harness hardening, the selected scroll fix, and the real required PASS JSON.
 
@@ -68,16 +68,17 @@ scripts/ios-scroll-smoke.mjs
     +-- dist/check-in-007.<hash>.html?scrollProbe=1
           |
           +-- src/app.mjs readRuntimeFlags()
-          +-- src/screens/roster.mjs createScrollProbe()
-          +-- src/styles.css .roster-screen / .roster-list scroll fix
+          +-- src/screens/roster.mjs createScrollProbe(list)
+          +-- src/styles.css .roster-screen / .roster-list bounded-list scroll fix
 ```
 
 The iOS smoke script remains the Node orchestrator: it builds the current hashed kiosk
 artifact, serves it over the existing HTTPS helper unless an external base URL is supplied,
 passes the probe URL into XCUITest through both plain and `TEST_RUNNER_` environment keys,
 and writes `test-results/ios-scroll-result.json`. The Swift UI test owns only Mobile
-Safari automation and the touch-drag oracle. The web app owns the actual scroll container
-contract and the query-gated probe.
+Safari automation and the touch-drag oracle. The web app owns the roster scroll contract:
+`.roster-list` stays the only scroll container, and both `createScrollProbe(list)` and
+virtualization continue to read `list.scrollTop` and the list `scroll` event.
 
 Failure domains stay separated:
 
@@ -96,7 +97,9 @@ Failure domains stay separated:
 
 Chosen: update `WebRosterScrollUITests.open()` to retry Mobile Safari address entry until
 an address/search field exists, has focus after a tap, and accepts the URL. Use a bounded
-loop and predicate-based focus checks instead of `safari.textFields.firstMatch`.
+loop and predicate-based focus checks instead of `safari.textFields.firstMatch`. Pin the
+retry behavior to named constants: `ADDRESS_FIELD_TOTAL_TIMEOUT = 8`, `ADDRESS_FIELD_TAP_RETRIES = 3`,
+and `ADDRESS_FIELD_FOCUS_TIMEOUT = 1.5`.
 
 Why: RA #19 currently makes the lane nondeterministic; without a reliable harness, a
 scroll PASS or FAIL cannot be trusted. Fixing the harness first distinguishes genuine
@@ -134,6 +137,10 @@ private func tapAddressFieldCandidate(timeout: TimeInterval) -> XCUIElement? {
     /// Returns nil after the bounded retry window.
     ...
 }
+
+private let ADDRESS_FIELD_TOTAL_TIMEOUT: TimeInterval = 8
+private let ADDRESS_FIELD_TAP_RETRIES = 3
+private let ADDRESS_FIELD_FOCUS_TIMEOUT: TimeInterval = 1.5
 ```
 
 ### 4.2 Default to an installed iPad simulator, not a stale model
@@ -180,11 +187,13 @@ production CSS/DOM change. The planned sequence is:
 
 1. Baseline after RA #19 and default-device fixes, proving the harness reliably reaches the
    scroll oracle.
-2. First candidate: keep the existing fade-only roster transform behavior and change the
-   roster from a fixed-position internal scroller to a document-backed roster screen:
-   `body` can scroll only while the active screen is roster, `.roster-screen` is the normal
-   document-height host, and `.roster-list` remains the only semantic list with
-   `-webkit-overflow-scrolling: touch`.
+2. First candidate: keep `.roster-list` as the bounded internal scroller and remove only
+   the remaining risky scroll ancestors/layering around it. `.roster-screen` keeps
+   `position: fixed`, `transform: none`, and a full-viewport flex column. `.roster-list`
+   keeps `flex: 1`, `min-height: 0`, `overflow-y: auto`, `overflow-x: hidden`,
+   `-webkit-overflow-scrolling: touch`, and the existing row/grid semantics so
+   `list.scrollTop` remains the single oracle for the probe, search reset, and
+   virtualization.
 3. If candidate 1 fails, revert it and try the smallest layer-promotion candidate on
    `.roster-list` (`transform: translateZ(0)` and/or `will-change: scroll-position`) with
    no display/grid change.
@@ -192,45 +201,46 @@ production CSS/DOM change. The planned sequence is:
 
 Why: `docs/IPAD_SCROLL_BUG.md` says the prior bundled block/kick/touch-action experiment
 made scrolling worse. The new device evidence also shows transform removal alone is
-insufficient. A document-backed roster path is the next strongest WebKit-specific
-hypothesis because it avoids a fixed full-screen ancestor plus internal flex scroller for
-the primary iPad screen while preserving fixed overlays for loading/scan/result.
+insufficient. The clean next hypothesis is not to move scrolling to the document; that
+would starve the current `createScrollProbe(list)` and virtualized rendering paths. The
+plan instead preserves the existing list-scroll contract and changes only CSS that can
+affect WebKit touch handoff to that bounded list.
 
 Rejected alternatives:
 
 - Reapply the previous bundled block/kick/touch-action change: already recorded as worse.
 - Change virtualization logic first: the default 40-guest failing path is not virtualized.
+- Switch to document/body scrolling: it contradicts the current PASS oracle and
+  virtualization, both of which are deliberately list-scroll based.
 - Replace the web roster with native SwiftUI for this defect: too broad and bypasses the
   deployed web kiosk path RA #14 is about.
 
-Tradeoff: document-backed roster scrolling changes page-level overflow while on the roster
-screen. The implementation must prove other screens still keep their fixed centered
-layout, the admin overlay remains reachable, search resets scroll, and the virtualized
-large-roster path still works.
+Tradeoff: keeping an internal scroller means iOS must be made to move that exact element
+rather than the document. The benefit is that the probe, `list.scrollTop = 0` search reset,
+and `handleVirtualScroll` remain unchanged and testable against one scroll source.
 
 Skeletal contract:
 
 ```css
 body {
-  /* Default remains no document scroll for overlay screens. */
+  /* Document scrolling remains disabled; the roster list is the only scroll source. */
   overflow: hidden;
 }
 
-body.is-roster-scroll-mode {
-  /* Enabled only while the roster screen is mounted. Lets iOS use the document scroll path. */
-  overflow-y: auto;
-}
-
 .roster-screen {
-  /* Candidate 1 production target: no transformed/fixed ancestor for the roster scroller. */
-  position: relative;
-  min-height: 100dvh;
+  /* Candidate 1 production target: a fixed, untransformed viewport host. */
+  position: fixed;
+  inset: 0;
   transform: none;
+  min-height: 0;
 }
 
 .roster-list {
-  /* Preserve semantic list, row sizing, scroll probe target, and iOS momentum behavior. */
+  /* Explicit bounded list scroller; createScrollProbe and virtualization read this element. */
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   ...
 }
@@ -238,9 +248,9 @@ body.is-roster-scroll-mode {
 
 ```js
 export function mountRoster(root, options) {
-  /** Mounts the roster screen, enables body roster-scroll mode while mounted,
-      renders either small or virtualized roster rows, installs the scroll probe,
-      and removes body mode during cleanup. */
+  /** Mounts the roster screen, renders either small or virtualized roster rows,
+      keeps `.roster-list` as the single scroll source, installs the list-based
+      scroll probe, and removes listeners during cleanup. */
   ...
 }
 ```
@@ -261,12 +271,12 @@ explicitly invalid for this WebKit-touch defect.
 
 ```text
 IMPLEMENTATION_PLAN.md                               (MOD) - replace v31 guard-polish scope with this RA #14/#19 repair plan
-src/styles.css                                       (MOD) - selected isolated iPad roster scroll CSS fix; preserve overlay screens
-src/screens/roster.mjs                               (MOD) - enable/cleanup roster-specific body scroll mode if candidate 1 is selected
+src/styles.css                                       (MOD) - selected isolated bounded-list iPad roster scroll CSS fix; preserve overlay screens
+src/screens/roster.mjs                               (MOD) - preserve list-based probe/search/virtualization contracts while scroll CSS changes
 native/CheckIn007UITests/WebRosterScrollUITests.swift (MOD) - deterministic Safari URL-entry focus/retry helpers
 scripts/ios-scroll-smoke.mjs                         (MOD) - installed default iPad simulator constants and unchanged override support
 tests/unit/ios-scroll-smoke.test.mjs                 (MOD) - default-device and env-forwarding regression coverage
-tests/unit/roster.test.mjs                           (MOD) - body scroll-mode setup/cleanup regression coverage if roster body mode lands
+tests/unit/roster.test.mjs                           (MOD) - list-based probe, search reset, and virtualization scroll-source regression coverage
 tests/e2e/checkin.spec.mjs                           (MOD) - preserve desktop layout, probe, search reset, large-roster virtualization, and transform assertions under the selected fix
 README.md                                            (MOD) - update iOS scroll default device and evidence guidance
 docs/IOS_SCROLL_RUNBOOK.md                           (MOD) - update commands/evidence examples for iPad (A16) and harness behavior
@@ -324,14 +334,16 @@ Acceptance criteria:
 
 ### Phase 3 - Isolated iPad scroll fix
 
-1. Apply candidate 1 only: document-backed roster scroll mode.
-   - `mountRoster()` adds `document.body.classList.add('is-roster-scroll-mode')` after
-     mounting and removes it during cleanup.
-   - `.roster-screen` becomes a non-fixed full-viewport document host.
+1. Apply candidate 1 only: bounded internal `.roster-list` scroll repair.
+   - Keep `body { overflow: hidden; }`; do not add a roster body-scroll class.
+   - Keep `.roster-screen` fixed, full-viewport, and untransformed.
+   - Give `.roster-list` the explicit scroll contract: `flex: 1`, `min-height: 0`,
+     `overflow-y: auto`, `overflow-x: hidden`, and `-webkit-overflow-scrolling: touch`.
    - Loading, scan, and result screens remain fixed and preserve their current transition
      transform behavior.
-   - `.roster-list` keeps row rendering, gap, semantics, probe target, and
-     `-webkit-overflow-scrolling: touch`.
+   - `createScrollProbe(list)`, `list.scrollTop = 0` search reset, and
+     `handleVirtualScroll` continue to target `.roster-list`; no document/window scroll
+     source is introduced.
 2. Run desktop regression gates listed in Section 10.
 3. Run the required iOS smoke. If it passes, keep candidate 1 and document it as the
    selected fix.
@@ -345,8 +357,9 @@ Acceptance criteria:
 
 - A kept production scroll fix has required-mode iOS JSON evidence with `status: "passed"`.
 - If no fix passes, docs explicitly leave RA #14 open and describe the next candidate.
-- Desktop e2e still proves the roster has no transform ancestor, the scroll probe updates,
-  search resets list scroll, and large-roster virtualization remains functional.
+- Desktop e2e still proves the roster has no transform ancestor, `.roster-list` remains
+  the probe scroll source, search resets list scroll, and large-roster virtualization
+  remains functional.
 
 ### Phase 4 - Documentation and evidence
 
@@ -389,13 +402,16 @@ Acceptance criteria:
      app UI tests are untouched.
 
 3. Web roster to page layout:
-   - Contract: while roster is mounted, the selected scroll container must be reachable by
-     iPad touch and by the existing `createScrollProbe(list)` oracle; when roster unmounts,
-     body/document overflow state must return to the overlay-screen default.
-   - Failure mode: leaked body class could make scan/result screens document-scrollable;
-     unit/e2e tests must catch setup/cleanup leaks.
-   - Migration path: if candidate 1 is kept, desktop e2e and unit tests pin body class
-     cleanup and screen transforms.
+   - Contract: `.roster-list` is the single selected scroll container. It must be reachable
+     by iPad touch, expose positive `list.scrollTop` to `createScrollProbe(list)`, receive
+     the `scroll` events used by `handleVirtualScroll`, and accept `list.scrollTop = 0`
+     during search resets. Body/document overflow stays hidden.
+   - Failure mode: if the document or a parent element scrolls instead, the probe remains
+     `scroll-probe:0` and virtualized rows stop updating; unit/e2e tests must fail that
+     regression.
+   - Migration path: no runtime API migration; the implementation changes only CSS around
+     the existing list-scroll contract and keeps `src/screens/roster.mjs` behavior stable
+     except for tests that pin the contract more directly.
 
 4. Documentation to audit:
    - Contract: `docs/IPAD_SCROLL_BUG.md` and `docs/VERIFICATION_EVIDENCE.md` must trace the
@@ -418,12 +434,16 @@ Acceptance criteria:
   evidence only.
 - Candidate fix fails: revert that isolated candidate before trying the next; never stack
   unrelated CSS changes to chase a PASS.
-- Roster cleanup: body scroll-mode class must be removed on every roster unmount, including
-  admin close, scan transition, and test-driven `setState()` changes.
-- Search update: search still sets `list.scrollTop = 0`; if body/document scroll is
-  selected, implementation must also reset the relevant document scroll position.
+- Roster cleanup: event listeners and the scroll probe must be removed on every roster
+  unmount, including admin close, scan transition, and test-driven `setState()` changes;
+  there is no body-scroll class to leak.
+- Search update: search continues to set `list.scrollTop = 0`; tests must assert the probe
+  and virtualized view follow that same list scroll source.
 - Virtualized roster: spacer height and absolute row positioning must still allow scrolling
   to row 619 in desktop e2e and not break the probe target.
+- Dynamic viewport changes: candidate 1 must not depend on `100dvh` for scroll geometry;
+  `.roster-list` is bounded by the fixed flex viewport, so Mobile Safari URL-bar `dvh`
+  changes cannot move the authoritative scroll source to the document.
 - Reduced motion: transition timing changes must not reintroduce a transform ancestor for
   `.roster-screen`.
 - Build/cache: required iOS verification must use the current hashed artifact with
@@ -436,17 +456,17 @@ Runtime complexity remains unchanged for normal roster rendering:
 - Non-virtualized default roster: rendering remains `O(n)` for the filtered 40-row list,
   with one scroll listener for the probe only when `?scrollProbe=1` is present.
 - Virtualized roster: scroll handling remains bounded by `O(v + overscan)`, where `v` is
-  visible rows; candidate 1 must not change `computeVirtualWindow()` or row-height
-  constants.
+  visible rows; candidate 1 must not change `computeVirtualWindow()`, row-height constants,
+  or the list `scroll` event source.
 - Harness changes add at most a small bounded retry loop in one XCUITest path and no app
   runtime cost.
 - The smoke script still performs one build, one local HTTPS server startup unless
   `CHECKIN007_IOS_BASE_URL` is supplied, one Xcode test invocation, and one JSON write.
 
-Memory impact is negligible: any added body-class state is a string token, Swift helpers
-hold only transient `XCUIElement` references, and JSON evidence stays under the existing
+Memory impact is negligible: Swift helpers hold only transient `XCUIElement` references,
+CSS-only candidate fixes add no app data, and JSON evidence stays under the existing
 bounded error text limit (`IOS_SCROLL_ERROR_LIMIT = 2000`). Cleanup requirements prevent
-document overflow/class leaks across state transitions.
+probe/listener leaks across state transitions.
 
 Stability targets:
 
@@ -463,16 +483,17 @@ Unit tests:
   `iOS`; preflight passes with those defaults when stubs include them; explicit
   `CHECKIN007_IOS_DEVICE`/function arguments override the default; existing
   `TEST_RUNNER_` env forwarding stays covered.
-- `tests/unit/roster.test.mjs`: if candidate 1 lands, assert `mountRoster()` adds body
-  scroll mode, cleanup removes it, and cleanup is idempotent.
+- `tests/unit/roster.test.mjs`: assert `createScrollProbe(list)` continues to read
+  `list.scrollTop`, not document scroll; search reset leaves `list.scrollTop === 0`; and
+  virtualized rendering still derives its window from the list scroll position.
 - Existing `roster.test.mjs` probe tests continue asserting `scroll-probe` starts at 0,
   updates from real `list.scrollTop`, and disposes.
 
 E2E tests:
 
 - Existing `roster has no transform ancestor while other screens keep scale entrance`
-  remains green and is updated only if candidate 1 changes the expected position/overflow
-  details.
+  remains green and asserts `.roster-screen` stays fixed/untransformed while `.roster-list`
+  is the overflowing element.
 - Existing `scroll probe is hidden in normal mode and reflects real roster scroll when
   enabled` remains green.
 - Existing large-roster virtualization test still scrolls to Agent 619 and confirms search
@@ -484,6 +505,15 @@ Required iOS verification:
 ```bash
 CHECKIN007_IOS_DEVICE='iPad (A16)' CHECKIN007_IOS_RUNTIME='iOS' CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll
 ```
+
+The implementation must classify an iOS smoke run mechanically:
+
+- Harness/page-load/certificate failure: no initial `scroll-probe:0` appears; fix or record
+  that infrastructure failure without judging RA #14.
+- Genuine scroll failure: initial `scroll-probe:0` appears, the XCUITest drag completes,
+  and no positive probe text appears before timeout.
+- Closure PASS: initial `scroll-probe:0` appears, the drag completes, positive
+  `scroll-probe:N` appears, and JSON status is `passed` in required mode.
 
 Valid closure requires `test-results/ios-scroll-result.json` with:
 
@@ -556,10 +586,11 @@ Rollback procedure:
      not speculative churn.
    - Confirmation needed: discriminator review of this plan.
 
-2. If candidate 1 fails but candidate 2 passes, should docs remove the document-scroll
-   candidate?
+2. If the bounded-list candidate fails but layer promotion passes, should docs remove the
+   failed bounded-list attempt?
    - Proposed resolution: keep a concise failed-candidate note in `docs/IPAD_SCROLL_BUG.md`
-     so future cycles do not repeat it.
+     so future cycles do not repeat it, while documenting the layer-promotion candidate as
+     the selected fix.
    - Confirmation needed: actual required-mode result.
 
 3. Should the v31 guard-polish item be folded into this cycle after RA #14/#19 pass?
