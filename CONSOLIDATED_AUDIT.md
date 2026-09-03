@@ -1,13 +1,50 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 93/100
-**Audit Version:** v38
-**Audited:** HEAD `d8a9949` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100)
-**Stage:** Cycle 11, **State 2 — implement the approved plan (v23)**
+**Current Score**: 92/100
+**Audit Version:** v39
+**Audited:** HEAD `8f285fc` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; implementation NOT STARTED)
+**Stage:** Cycle 11, **State 2 — implement the approved plan (v23)** — *blocked on unavailable operator authorization; recommend State 1 (revise v23) to add a bounded withdrawal disposition*
 
 **Plan Score:** 96/100
 **Implementation Score:** N/A
-**Current Score**: 93/100
+**Current Score**: 92/100
+
+<!-- audit-entry v39 -->
+> **STATE 2 — APPROVED PLAN NOT YET IMPLEMENTED; BLOCKED ON AUTHORIZATION (v39).** Cycle 11's plan
+> **v23 (commit `d8a9949`)** remains **APPROVED at 96/100** (Rev 1) and unchanged under the staleness
+> rule. **Implementation Verification v2 = N/A — implementation NOT STARTED.** HEAD is `8f285fc`, the
+> Rev-1 *critique* commit; every commit after the plan landed is documentation (critique + audit v38).
+> No work product of plan v23 exists:
+>
+> - **No Cycle-11 target commit.** `docs/VERIFICATION_EVIDENCE.md` still carries the Cycle-10 records
+>   (Local Web Gates `PASS`, Native `BLOCKED`, CI `BLOCKED`); `grep -c "Cycle 11"` = **0**. README status
+>   unchanged. All **6 §14 completion boxes `[ ]`.** The three manifest files show no diff vs. Cycle 10.
+> - **Both blocking pre-implementation gates unsatisfiable here.** §4.1 / §6 Phase 0.2–0.3 / §13 Q1–Q2
+>   make two operator authorizations hard gates: (a) `xcodebuild -downloadPlatform iOS` and (b) an exact
+>   GitHub `owner/repo` + push. Neither is available — `xcrun simctl list runtimes` empty
+>   (`native-ios-sdk-not-installed`), `git remote -v` = none, non-interactive session cannot run an
+>   approval exchange. §2 forbids weakening the gates or accepting `BLOCKED` as completion, so **no
+>   source edit is warranted** and none was made.
+> - **Base tree re-verified unchanged.** Native inventory still six suites / **32** methods (6+3+6+8+4+5)
+>   / **4** UI — matching §6 Phase 1 step 5. No regressions; system health identical to v37/v38.
+>
+> **Disposition — State 2 cannot advance in this environment; recommend State 1 (revise v23).** This is
+> not a "fix your code" case (there is nothing built and the plan forbids fabricating a pass). Per the
+> Rev-1 critique's primary gap (Remaining issue #1 / Path-to-100 #1), leaving Cycle 11 in unbounded
+> "pending" is the wrong terminal state. The sanctioned lever is to **revise plan v23 to add a bounded
+> withdrawal disposition**: if either authorization is declined/unavailable, withdraw the plan and
+> re-classify the two external gaps as permanently environment-blocked, audit-closeable Next Steps
+> (folding in Path-to-100 #2 required-step reconciliation and #3 event-pinning). Alternatively, if the
+> operator supplies both exact authorizations, implement Phases 0–3 verbatim.
+>
+> **Deductions.** No code since the v37 landing (`0a29610`); the single commit since v38 (`8f285fc`,
+> critique) is doc-only → **second consecutive idle cycle since the v37 reset → −2** decay (was −1 at
+> v38). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE, none stalled). Base
+> health holds **94** (system state unchanged; the two env-blocked verification gaps are unchanged from
+> v34–v38). **Base 94 − backlog 0 − RA 0 − decay 2 = 92.** The only lever that both raises the score and
+> resets the decay is to land real work product — either implement approved plan v23 (both
+> authorizations granted) **or** revise v23 to add the bounded withdrawal disposition and close the two
+> gaps as environment-blocked. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v2.
 
 <!-- audit-entry v38 -->
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v38).** Cycle 10 closed VERIFIED at v37 (94/100). A **new
@@ -1416,49 +1453,46 @@ in commit `75c8279`, confirmed by execution — no action was stalled (resolved 
 
 ## Next Step
 
-Cycle 10 is at **State 2 — implement the approved plan**. `IMPLEMENTATION_PLAN.md` v22 (commit
-`506b590`) is critiqued at **97/100 — APPROVED** (clears the ≥95 gate). All three v21 Rev-1 blockers
-are resolved and all four Rev-1 Path-to-100 items folded in; scope is exact (docs-only evidence capture
-for the two open external-verification gaps; zero open Required Actions, zero unchecked backlog items).
-**Implement v22 as written — do not revise the plan and do not weaken the external gates:**
+Cycle 11 is at **State 2 — implement the approved plan**, but implementation is **NOT STARTED** and is
+**blocked on two operator authorizations that are unavailable in this environment**.
+`IMPLEMENTATION_PLAN.md` v23 (commit `d8a9949`) is critiqued at **96/100 — APPROVED**; Implementation
+Verification v2 = **N/A** (nothing built — HEAD `8f285fc` is the critique commit; no Cycle-11 target
+commit; `docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED`; all six §14 boxes `[ ]`).
 
-1. Freeze the target SHA via the Phase 0 preflight; run the selected local Node path (operator-approved
-   `nvm install && nvm use` + `npm run …`, *or* the sanctioned direct-tool bypass on Node 26.3.0 —
-   `npm ci` / `npx prettier --check .` / `node --test tests/unit/*.test.mjs` / `npx playwright test` /
-   `node scripts/build.mjs`); record actual Node/npm versions and guard-bypass status.
-2. Create `docs/VERIFICATION_EVIDENCE.md` (BLOCKED placeholders) and the README link; that commit is
-   the immutable target SHA.
-3. Native (Phase 1): after operator approval for `-downloadPlatform iOS`, select an available iPad
-   UDID, run scheme `CheckIn007` `test` in temp DerivedData/result-bundle; record six named suites / 32
-   methods / four UI, exit, and `PASS`/`FAIL`/`BLOCKED`. No iPhone substitute.
-4. CI (Phase 2): after operator approval of the exact `owner/repo`/branch, add the remote and normal
-   push; select the `CI` run by exact `headSha`, require every non-conditional gate step to succeed,
-   download `dist-index-html` and byte/hash-compare with a fresh local same-SHA build on the Phase-0
-   interpreter. Record `PASS`/`FAIL`/`BLOCKED`.
-5. Finalize evidence + README status (Phase 3); keep the finalization commit local unless a separate
-   push is approved (its second-SHA CI run is not the join target). Final diff = only the three
-   manifest files.
+The two hard pre-implementation gates (§4.1 / §6 Phase 0.2–0.3 / §13 Q1–Q2) cannot be satisfied here:
 
-Completing §14's "Plan implemented" gate (each external result recorded as PASS/FAIL/BLOCKED, docs-only
-diff) completes Cycle 10 (State 4) even when an external result is honestly BLOCKED. The two audit
-findings close only when §14's "Audit findings closed" gate is met — **both** externals `PASS`.
+- **`xcodebuild -downloadPlatform iOS` approval** — no iOS runtime installed
+  (`native-ios-sdk-not-installed`; `xcrun simctl list runtimes` empty); non-interactive session cannot
+  obtain approval.
+- **Exact GitHub `owner/repo` + push approval** — `git remote -v` = none across every prior cycle; no
+  approved destination.
 
-Two standing external-verification gaps remain unchanged and continue to hold base health at 94
-rather than higher — both are environment-blocked, not code defects, and are precisely what Cycle 10
-seeks to record durable evidence for:
+**Recommended action — State 2 → State 1 (revise plan v23).** Per the Rev-1 critique's primary gap
+(Remaining issue #1 / Path-to-100 #1), do **not** leave the loop in unbounded "pending." Revise v23 to
+add a **bounded terminal disposition** for the declined/unavailable-authorization branch: withdraw the
+plan and re-classify the two external gaps as permanently environment-blocked, audit-closeable Next
+Steps. Fold in the two remaining consistency nits while revising — reconcile the §4.6 ↔ §6 Phase 2
+step-5 required-step list (Path-to-100 #2) and pin the CI run event to `push` (Path-to-100 #3).
+**Alternatively**, if the operator supplies both exact authorizations, implement Phases 0–3 verbatim —
+do not weaken the external gates and do not accept `BLOCKED`/`FAIL` as completion (§2).
+
+The two standing external-verification gaps remain unchanged and continue to hold base health at 94
+rather than higher — both are environment-blocked, not code defects:
 
 - **Native `xcodebuild … test` unrun** — no iPadOS simulator/runtime is installed on this machine
   (`native-ios-sdk-not-installed`); the web-parity gates and `xcodebuild -list` stand in.
 - **GitHub Actions CI first live run unobserved** — `.github/workflows/ci.yml` fires on first push;
   no Git remote is configured. The first real run is the definitive YAML parse/gate check.
 
-Do **not** weaken v22's external gates to make them pass — the exact-SHA join, byte-parity, and
-skipped-step-as-failure rigor is the plan's strength. No code landed this cycle (**second** consecutive
-idle cycle since the v34 landing `28dc5b6`) → inactivity decay −2. Implementing approved plan v22 and
-landing the docs-only evidence is the single lever that both raises the score and resets the decay.
+No code landed this cycle (**second** consecutive idle cycle since the v37 landing `0a29610`) →
+inactivity decay −2. Landing real work product — either implementing approved plan v23 (both
+authorizations granted) **or** revising v23 to add the bounded withdrawal disposition — is the single
+lever that both raises the score and resets the decay.
 
 ## Revision History
 
+| v39 | 2026-09-03 | 92 | **Cycle 11 plan v23 APPROVED but NOT IMPLEMENTED — Implementation Verification v2 = N/A (State 2, blocked on unavailable authorization)** (HEAD `8f285fc`, the Rev-1 critique commit). Plan **v23 (`d8a9949`)** stays APPROVED at 96/100, unchanged under the staleness rule. **No work product exists:** no Cycle-11 target commit; `docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED` (`grep -c "Cycle 11"` = 0); README unchanged; all six §14 boxes `[ ]`; three manifest files show no diff vs. Cycle 10. **Both blocking pre-implementation gates (§4.1/§6 Phase 0.2–0.3/§13 Q1–Q2) unsatisfiable here:** `xcodebuild -downloadPlatform iOS` approval (no iOS runtime — `native-ios-sdk-not-installed`, `simctl list runtimes` empty) and exact GitHub `owner/repo` + push approval (`git remote -v` = none; non-interactive session). §2 forbids weakening gates or accepting `BLOCKED` as completion → **no source edit warranted or made**. Base tree re-verified unchanged (native inventory still six suites / **32** methods / **4** UI; no regressions). **Disposition:** State 2 cannot advance in this environment; per Rev-1 critique's primary gap (Path-to-100 #1), recommend **State 1 — revise v23** to add a bounded withdrawal disposition (re-classify the two external gaps as permanently environment-blocked, audit-closeable), folding in Path-to-100 #2 (§4.6 ↔ Phase 2 step-5 reconciliation) and #3 (pin event to `push`); alternatively implement Phases 0–3 verbatim if both authorizations are granted. **Deductions:** no code since v37 landing (`0a29610`); only commit since v38 is doc-only (`8f285fc`) → **second** consecutive idle cycle → decay **−2** (was −1 at v38). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE). Base health holds **94**. **Base 94 − 0 − 0 − 2 = 92.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v2. |
+| v38 | 2026-09-03 | 93 | **Cycle 11 opened — plan v23 APPROVED, Rev 1 = 96/100** (commit `d8a9949`, "plan: v23 — close external execution findings"). New execution plan critiqued fresh; clears the ≥95 gate first review. v23 converts Audit v37's two environment-gated Next Steps (native `xcodebuild test` unrun; committed `CI` never observed live) from *documented-as-blocked* into *proven-PASS-or-explicitly-pending*, with operator-approval gates for both external mutations, exact-`headSha` CI join, bounded 30-min polling, skipped-required-step = failure, and triple byte/size/SHA-256 artifact parity. Every load-bearing claim re-verified (native six suites / 32 methods / 4 UI; `ci.yml` triggers + `dist-index-html` upload; §11 environment verbatim). **Scope adequate — no cap** (0 open RA, 0 unchecked backlog; targets exactly the two open Next Steps). **No regressions** (manifest docs-only; §2 forbids product/test/Xcode/CI/deps/lockfile/`dist/` edits). **96 not 98:** primary gap is a *process* omission — no bounded terminal disposition if authorization is declined, leaving the loop in unbounded pending State 2 (Path-to-100 #1); plus two consistency nits (§4.6 ↔ Phase 2 step-5 required-step list; run event not pinned to `push`). Loop advances **State 1 → State 2 (implement approved plan v23)**. Implementation Score **N/A** — nothing built. No code since the v37 landing (`0a29610`); commits since (archive, plan v23) are archive/plan-only → **first** idle cycle since the reset → **−1** decay. Backlog `[ ]` = **0** → **−0**. RA −0. Base holds 94. Base 94 − 0 − 1 = **93**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 11 Rev 1. |
 | v36 | 2026-09-02 | 92 | **Cycle 10 plan v22 APPROVED, Rev 2 = 97/100** (commit `506b590`, "plan: v22 — resolve external verification gates"). New version fully re-critiqued under the staleness rule; clears the ≥95 gate. v22 resolves all three v21 Rev-1 blockers with ground-truth-accurate detail and folds in all four Rev-1 Path-to-100 items: (1) native suite count → **six**, all named (`CSVCodec`/`CameraPrivacy`/`CheckInStore`/`GuestCatalog`/`LogMerger`/`ScanAudioPlayer`) + "32 test methods" (verified: 6+3+8+6+5+4 = 32; four UI); (2) §6 Phase 0.2 rewritten into an explicit Node decision gate — operator-approved `nvm install && nvm use` *or* the audited direct-tool bypass on the actual Node 26.3.0 (`npm ci`/`npx prettier --check .`/`node --test tests/unit/*.test.mjs`/`npx playwright test`/`node scripts/build.mjs`), "bypasses only `check-node-version.mjs`," actual version recorded (new §13 Q3, §11 updated) — commands verified to mirror `package.json:13-17` minus the guard, guard fail-closed (`SUPPORTED_NODE_MAJOR = 24`), host `v26.3.0`; (3) §14 split into "Plan implemented (PASS/FAIL/BLOCKED recorded, docs-only diff)" vs. "Audit findings closed (both PASS)," State-4 completion keyed on the former so a BLOCKED environment still completes the cycle. Path-to-100 folded in: finalization commit stays local unless separately approved + its second-SHA run excluded from the join (§6 Phase 3/§12/§14.6); iPad-fallback → §8 BLOCKED cross-ref (§6 Phase 1); parity-build interpreter named (§4.6/§6 Phase 2 #6/§7.4); "under 20 KB" estimate dropped (§9). **Scope adequate — no cap** (audit v35: 0 open RA, 0 unchecked backlog; v22 targets exactly the two open Next-Step gaps; §7 four integration contracts; §4/§13 alternatives; CI trigger `[main, master]` matches §7.3 + current `master`). **No regressions** (manifest docs-only; §2 forbids product/tests/Xcode/CI/deps/lockfile/`dist/` edits). **97 not 98:** three cosmetic Path-to-100 nits (cross-Node-version parity relies on unstated `build.mjs` determinism; `npm ci` runs unguarded on Node 26 without noting the exemption; approved branch splits `test:unit`/`test:e2e` unexplained) — none blocks a correct verbatim execution. Loop advances **State 1 → State 2 (implement approved plan v22)**. Implementation Score **N/A** — nothing built (`docs/VERIFICATION_EVIDENCE.md` absent; README link/status not added; plan checkboxes unchecked). No code since the v34 landing (`28dc5b6`); the commits since (archive, plan v21, critique v21, plan v22) are all doc/plan-only → **second** consecutive idle cycle since the landing → **−2** decay (was −1 at v35). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0. Base holds 94 (state unchanged; plan approval is loop progress, not code). Base 94 − 0 − 2 = **92**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 10 Rev 2. |
 | v35 | 2026-09-02 | 93 | **Cycle 10 opened — plan v21 critiqued Rev 1 = 93/100 — NOT APPROVED** (commit `49be77d`, "plan: v21 — close external verification gaps"). New version fully critiqued under the staleness rule. v21 is a docs-only evidence-capture cycle (`docs/VERIFICATION_EVIDENCE.md` NEW, `README.md` MOD, plan checkboxes MOD) for the two open v34 Next-Step external-verification gaps — native `xcodebuild … test` (no iPadOS runtime, `native-ios-sdk-not-installed`) and the unobserved GitHub Actions first live run (no Git remote). Structurally excellent: operator-approval gates for both external mutations, exact-`headSha` CI join, bounded 30-min polling, skipped-required-step = failure, artifact byte-parity. **Scope adequate — no cap** (audit v34: 0 open RA, backlog 0 unchecked; v21 targets exactly the two open items; §7 four integration contracts; §4/§13 alternatives). **No regressions** (manifest docs-only; §2 forbids product/tests/Xcode/CI/deps/lockfile/`dist/` edits). **Held below ≥95 by three mechanically-fixable items, all live-tree-verified:** (1) commission — §6 Phase 1/§10 say "five unit suites" but `native/CheckIn007Tests/` has **six** (`CSVCodec`/`CameraPrivacy`/`CheckInStore`/`GuestCatalog`/`LogMerger`/`ScanAudioPlayer`, 32 `func test`, synchronized group → all members); "four UI tests" correct; wrong count corrupts an evidence-fidelity cycle. (2) omission — §6 Phase 0.2/§14 item 1 assume local pinned Node 24.20.0, but machine is **Node v26.3.0**, no nvm Node 24, and `check-node-version.mjs` fails closed on major ≠ 24 → Phase 0 (the first gate) fails as written; no Node-24 acquisition/bypass gate though the iOS runtime + git remote are gated. (3) omission — §14 completion checklist has no BLOCKED terminal state though §3/§6/§8/§13 Q4 treat BLOCKED as legitimate; given absent runtime/remote, BLOCKED is likely → unsatisfiable completion gate. Path to ≥95: fix count to six; add local-Node-24 gate (nvm install or sanction direct-tool bypass + rewrite §6.0.2/§14.1, record actual Node version); split §14 into "implemented (PASS/FAIL/BLOCKED recorded)" vs. "findings closed (both PASS)". Loop advances **State 4 → State 1 (revise plan v21)**. Implementation Score **N/A** — nothing built (`docs/VERIFICATION_EVIDENCE.md` absent). No code since the v34 landing (`28dc5b6`); the 2 commits since (archive, plan v21) are doc-only → **first** idle cycle since the landing → **−1** decay (reset from 0). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0. Base holds 94 (state unchanged; plan critique is loop progress, not code). Base 94 − 0 − 1 = **93**. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 10 Rev 1. |
 | v34 | 2026-09-02 | 94 | **Cycle 9 HTTPS helper API precision IMPLEMENTED & VERIFIED — Implementation Verification v9 = 98/100 (State 4, cycle complete)** (commit `28dc5b6`, "feat(§6): refine HTTPS advertised endpoints"). All plan v20 sections **COMPLIANT**; **all five** Rev-1 Path-to-100 items folded in. Both open audit v32 polish items closed: (#1) `--bind` kept as listen-interface selector distinct from repeatable `--host` SAN, directly `parseArgs`-tested (`--bind=127.0.0.1` + `--bind ::1` + combined), README flag table + bind/SAN prose; (#2) hard-coded loopback `url` replaced by `advertisedUrls`/`httpsUrl` (wildcard→sorted LAN IPv4 or localhost fallback; explicit→bracket-safe host via `isIP()===6`), additive `urls` with `url===urls[0]`, `lanUrls` retained, explicit non-wildcard bind folded into cert SAN (`serve-https.mjs:66-72,:83-85,:108-119`). Rev-1 Omission #1 correctly resolved: wildcard case now **assertion-only** (`test:105-116`), live GETs on explicit-loopback bind (`:118-136`). Path-to-100: `main()` consumes `result.urls`/`url` (`:128,:130`), negative unavailable-bind test (`EADDRNOTAVAIL`, `:138-144`), `httpsUrl` throw test (`:91-92`), README IPv6 `::` best-effort caveat. Verified on Node v26.3.0 (§6 direct-tool path, pinned Node 24 env-blocked): **78/78** unit (+3 vs 75), **13/13** e2e, `prettier --check .` clean, `build.mjs` **26315 gzip** (budget intact). **No regression** — only the intended wildcard `url` loopback→LAN flip (= polish #2); no field removed/retyped; default-wildcard SAN unchanged (no cert regen for default users). File manifest respected (only `serve-https.mjs`, `serve-https.test.mjs`, `README.md` as source; plan-doc checkboxes also flipped, benign). Two cosmetic non-100 reasons, neither a code defect: pinned-Node-24 gate not natively executed (Node 26 → approved direct-tool path); impl commit touched plan doc. **Backlog fully closed:** two Cycle-9 polish items `[/]`→`[x]`, **0 unchecked**. Deductions: code landed → decay **−1→0**; backlog **−0**; RA **−0**. Base **93→94** (last cosmetic API-precision items resolved, endpoints now correct+cert-covered for every bind mode, unit coverage 75→78; held off ≥95 by two unchanged env-blocked verification gaps: native `xcodebuild test` no iPadOS runtime, CI first-run unobserved). **Base 94 − 0 − 0 = 94.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v9. |

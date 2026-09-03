@@ -146,3 +146,54 @@ two operator authorizations; if those are refused, the plan should be revised to
 withdrawal disposition (Path-to-100 #1) rather than being left pending indefinitely. Implementation
 Score is **N/A** — nothing is built yet (no new Cycle-11 target commit, evidence still `BLOCKED`,
 README not yet finalized, §14 boxes unchecked).
+
+---
+
+### Implementation Verification — v2
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
+**Code:** `master` @ HEAD `8f285fc` audited on 2026-09-03
+
+**Verdict: NOT STARTED.** No implementation of approved plan v23 exists. HEAD (`8f285fc`) is the
+Rev-1 *critique* commit; the only commits after the plan landed (`d8a9949`) are documentation
+(the critique + audit v38). No Cycle-11 target commit was minted, and the three manifest files are
+untouched relative to their Cycle-10 state. This is not a defective implementation to be scored —
+it is an **unstarted** one. Implementation Score is therefore **N/A**, and the cycle remains in
+**State 2 (implement the approved plan)** — but see the disposition below: State 2 cannot be
+advanced in the current environment.
+
+#### Section-by-section compliance (approved plan v23 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 0 — Authorization, local gates, target | **MISSING** | No approval obtained/recorded; no Cycle-11 evidence placeholder appended; no docs-only target commit minted. No Phase-0 preflight/inventory recorded. |
+| §6 Phase 1 — Native iPad execution | **MISSING** | `xcodebuild -downloadPlatform iOS` not run; `xcrun simctl list runtimes` still empty (`native-ios-sdk-not-installed`); no `.xcresult`, no recorded counts/exit. |
+| §6 Phase 2 — Exact-SHA CI execution | **MISSING** | `git remote -v` = none; no push; no `CI` run selected/observed; no `dist-index-html` artifact parity check. |
+| §6 Phase 3 — Finalize evidence | **MISSING** | `docs/VERIFICATION_EVIDENCE.md` unchanged — Native `BLOCKED`, CI `BLOCKED` (Cycle-10 records; **no Cycle-11 section**, `grep -c "Cycle 11"` = 0). README status unchanged. |
+| §5 File Manifest | **UNTOUCHED** | `IMPLEMENTATION_PLAN.md` / `docs/VERIFICATION_EVIDENCE.md` / `README.md` all at their Cycle-10 state; no diff. |
+| §14 Completion Checklist | **0 / 6 checked** | Every box `[ ]`. Both blocking authorization gates (§13 Q1–Q2) unsatisfied. |
+
+#### Blocking condition (why State 2 cannot advance here)
+
+Plan v23 makes two operator authorizations **hard pre-implementation gates** (§4.1, §6 Phase 0.2–0.3,
+§13 Q1–Q2): (a) `xcodebuild -downloadPlatform iOS`, and (b) an exact GitHub `owner/repo` + push route.
+Neither is obtainable in this environment: no iOS runtime is installed (`native-ios-sdk-not-installed`;
+`simctl list runtimes` empty), no Git remote exists across every prior cycle, and this is a
+non-interactive session that cannot run an approval exchange. Per §14, absent approval "leaves Cycle 11
+pending" — which is exactly the **unbounded pending State 2** the Rev-1 critique flagged as its primary
+gap (Remaining issue #1 / Path-to-100 #1). No source edit is warranted (§2 forbids weakening the gates
+or accepting `BLOCKED` as completion), and the base tree is verified unchanged (native inventory still
+six suites / **32** methods / **4** UI, matching §6 Phase 1 step 5).
+
+#### Directive (State 2 → State 1: revise the plan)
+
+This is **not** a "fix your code" situation — there is no code to fix and the plan forbids fabricating a
+pass. The single sanctioned action is to **revise plan v23 to add a bounded terminal disposition for
+the declined/unavailable-authorization branch** (Path-to-100 #1): if either authorization is declined or
+the infrastructure is unavailable, *withdraw* the plan and re-classify the two external gaps as
+permanently environment-blocked, audit-closeable Next Steps — rather than leaving the loop implementing a
+plan that cannot be implemented in this environment. Reconciling the §4.6 ↔ §6 Phase 2 step-5 required-step
+list (Path-to-100 #2) and pinning the run event to `push` (Path-to-100 #3) can fold into the same revision.
+Alternatively, if the operator *does* supply both exact authorizations, implement Phases 0–3 verbatim.
+
+**Implementation Score:** N/A

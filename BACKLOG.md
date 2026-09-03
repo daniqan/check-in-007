@@ -224,6 +224,15 @@ closed** — every item above is `[x]`, strict-unchecked `[ ]` = **0** → backl
 add or reopen a backlog item: its two targets are Audit v37's environment-gated **Next Steps** (run
 native `xcodebuild … test`; observe an exact-SHA live `CI` run), which are tracked as audit findings,
 not backlog improvements. `IMPLEMENTATION_PLAN.md` v23 (commit `d8a9949`) was **APPROVED at 96/100**
-(Cycle 11 Rev 1) and awaits implementation. Because no code has landed since the v37 reset (only an
-archive + the v23 plan commit), inactivity decay is −1 (first idle cycle). See
-`IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 11 Rev 1 and `CONSOLIDATED_AUDIT.md` v38.
+(Cycle 11 Rev 1) and awaits implementation.
+
+**Audit v39 update:** approved plan v23 remains **NOT IMPLEMENTED** — Implementation Verification v2 =
+**N/A** (no Cycle-11 target commit; evidence still Native `BLOCKED` / CI `BLOCKED`; §14 all `[ ]`).
+Implementation is blocked on two operator authorizations unavailable in this environment
+(`xcodebuild -downloadPlatform iOS`; exact GitHub `owner/repo` + push). The backlog stays **fully
+closed** (strict-unchecked `[ ]` = 0 → backlog −0); Cycle 11 still adds no backlog item — its two
+targets are audit Next Steps, not backlog improvements. Because no code has landed since the v37 reset
+(the only commit since v38 is the Rev-1 critique), inactivity decay is now **−2 (second idle cycle)**.
+Recommended lever: revise v23 to add a bounded withdrawal disposition (or grant the two
+authorizations). See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v2 and
+`CONSOLIDATED_AUDIT.md` v39.
