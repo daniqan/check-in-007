@@ -1,3 +1,73 @@
+### Implementation Verification — v9
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
+**Code:** `master` — target `845116d` (now on `origin/master`); audit HEAD `b6815f8` — audited on 2026-09-03
+
+**Verdict: STILL NOT COMPLETE — Phase 2 push landed and an exact-SHA CI run now exists, but it FAILED
+(billing); the fully-executable native gate is STILL un-run.** Two real advances since v8: (1) the target
+commit `845116d` is now **published** — `git rev-parse origin/master` = `845116d41375cd6422f49bb2a53f23bcec3109e9`,
+satisfying **§6 Phase 2 step 3 (normal push)**; (2) that push triggered workflow `CI` run **`33711898714`**
+whose `head_sha` is the **exact target** `845116d…`, event `push`, branch `master` — satisfying **§6 Phase 2
+step 4 (select the exact-`headSha` run)**. But the run's **conclusion is `failure`**: its sole job "Web gate
+(Node 24 LTS)" was **not started** — annotation *"The job was not started because your account is locked due
+to a billing issue"* (~2 s, zero steps executed). So **§6 Phase 2 step 5 (require `web` + every required step
+to succeed) FAILS**, and §2/§8 forbid banking a failed run as a PASS. Meanwhile **§6 Phase 1 (native) is still
+un-run** despite the environment being fully executable. Every completion gate remains open: **Native
+`BLOCKED`, CI `BLOCKED`, §14 = 0/6.** Implementation Score stays **N/A** — the plan is a binary success-only
+cycle and no PASS closure surface exists — but the disposition sharpens: the CI half is now provably
+environment-blocked (a Cycle-11-target run exists and failed on billing), while the native half has **no
+excuse and is on its second idle cycle.**
+
+#### Environment (re-verified this cycle)
+
+- **Native — UNBLOCKED and still idle.** `xcodebuild … -showdestinations` lists **six iOS 26.4 iPad
+  simulators** (`iPad (A16) A155995F-EC83-41BE-95B2-1A5F390ABF59`, iPad Air 11"/13" M4, iPad Pro 11" M5,
+  iPad Pro 13" M5, iPad mini A17 Pro); `simctl list runtimes` shows **iOS 26.4 (23E244) available**; 46 GiB
+  free; Xcode 26.4. `xcodebuild … test` could run against a UDID immediately. It was **not run** — evidence
+  Native section (L29) still reads `BLOCKED`; no `.xcresult`, no counts, no exit code.
+- **Target commit PUSHED.** `origin/master == 845116d` (was `1f7d589` at v8). The v45 audit commit `b6815f8`
+  remains local-only (1 ahead) — immaterial, docs-only.
+- **CI — exact-SHA run now exists, and it FAILED on billing.** `gh api repos/daniqan/check-in-007/actions/
+  runs/33711898714 --jq '.head_sha,.conclusion,.event,.head_branch'` → `845116d…` / `failure` / `push` /
+  `master`. Annotation confirms the billing lock. This is the **correct target SHA** but a **failed** run, so
+  it satisfies §6 Phase 2's identity gate yet **not** its success gate. No `dist-index-html` artifact was
+  produced; no byte-parity comparison is possible.
+
+#### Section-by-section compliance (approved plan v23 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 0 — Authorization, local gates, target | **PARTIAL** | Target commit **minted** (`845116d`, docs-only — COMPLIANT with §4.5/§5). Still no fresh local-gate run recorded **for the target SHA**; the "Local Web Gates" evidence block holds Cycle-10 counts (Node 26; 78 unit / 13 e2e) and the Cycle-11 section is a placeholder. |
+| §6 Phase 1 — Native iPad execution | **MISSING** | `xcodebuild … test` **never run**, though six bootable iOS 26.4 iPads are available. **No environment excuse remains — second idle cycle for this gate (RA #9).** |
+| §6 Phase 2 — Exact-SHA CI execution | **PARTIAL / FAILED** | Push **DONE** (step 3 ✓, `origin/master == 845116d`); exact-`headSha` run **exists** (step 4 ✓, run `33711898714`). But the run **FAILED** on a billing lock — step 5 (required-step success) **UNMET**; no artifact, no byte parity. §2/§8 forbid banking it as PASS. |
+| §6 Phase 3 — Finalize evidence | **MISSING** | Native `BLOCKED` (evidence L29) and CI `BLOCKED` (L43) unchanged; README status unchanged. |
+| §14 Completion Checklist | **0 / 6 checked** | Every box `[ ]` (`grep -c '^- \[ \]'` = 6). |
+
+Base tree re-verified unchanged: native inventory still six suites / **32** methods / **4** UI — matching §6
+Phase 1 step 5. No regressions; backlog 0 unchecked.
+
+#### Directive (State 2 — run the native half NOW; the CI half is environment-blocked)
+
+1. **Run §6 Phase 1 against a booted iPad (RA #9) — the single highest-value action, with zero excuse left.**
+   `xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination
+   'platform=iOS Simulator,id=A155995F-EC83-41BE-95B2-1A5F390ABF59' -derivedDataPath <TEMP>
+   -resultBundlePath <TEMP>/CheckIn007.xcresult test`. Inspect the `.xcresult` with `xcresulttool`; require
+   the exact §6 Phase 1 step-5 counts (six named suites, **32** unit methods, **four** UI tests, exit 0, zero
+   failures); flip Native `BLOCKED → PASS`. This gate does not depend on GitHub billing.
+2. **Clear the GitHub Actions billing lock, then re-drive the CI gate (RA #10 — push half already done).**
+   The target is published and CI already fires at the exact SHA; the *only* remaining obstacle is the billing
+   lock. Once cleared, re-run/re-trigger the exact-`headSha` `CI` run to success and prove `dist-index-html`
+   byte parity (§6 Phase 2 steps 5–6). **Do not** bank run `33711898714` (or `33710152352`) as CI evidence
+   (§2/§8).
+3. **If billing cannot be cleared**, the Rev-1 primary gap (Remaining issue #1 / Path-to-100 #1) now has a
+   concretely-demonstrated trigger (a Cycle-11-target run that failed only on billing): revise v23 to add a
+   **bounded terminal disposition** accepting native-PASS + CI-permanently-environment-blocked, so full
+   closure is not held hostage to a billing lock outside the implementer's control.
+
+**Implementation Score:** N/A
+
+---
+
 ### Implementation Verification — v8
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)

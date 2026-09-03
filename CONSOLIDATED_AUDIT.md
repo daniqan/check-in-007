@@ -1,13 +1,52 @@
 # Consolidated Audit — Check-In 007
 
 **Current Score**: 93/100
-**Audit Version:** v45
-**Audited:** HEAD `845116d` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; implementation IN PROGRESS but INCOMPLETE — the §4.5/§6-Phase-0 target commit `845116d` is now minted, but the now-fully-executable native gate was NOT run, the target is un-pushed, and CI remains billing-locked; Native `BLOCKED`, CI `BLOCKED`, §14 = 0/6)
-**Stage:** Cycle 11, **State 2 — implement the approved plan (v23)** — *native half is FULLY EXECUTABLE (a booted iOS 26.4 iPad is available) and still un-run; CI half needs the target pushed AND the billing lock cleared*
+**Audit Version:** v46
+**Audited:** target `845116d` (now on `origin/master`), audit HEAD `b6815f8` on 2026-09-03 (Cycle 11 — External Execution Closure, plan v23 APPROVED Rev 1 = 96/100; implementation IN PROGRESS but INCOMPLETE — target `845116d` is now PUSHED and an exact-`headSha` CI run exists but FAILED on a billing lock; the fully-executable native gate is STILL un-run; Native `BLOCKED`, CI `BLOCKED`, §14 = 0/6)
+**Stage:** Cycle 11, **State 2 — implement the approved plan (v23)** — *native half is FULLY EXECUTABLE (six iOS 26.4 iPads available) and still un-run (RA #9, 2nd idle cycle); CI half is now provably billing-blocked (target run `33711898714` failed to start)*
 
 **Plan Score:** 96/100
 **Implementation Score:** N/A
 **Current Score**: 93/100
+
+<!-- audit-entry v46 -->
+> **STATE 2 — TARGET PUSHED + EXACT-SHA CI RUN NOW EXISTS (FAILED ON BILLING); NATIVE GATE STILL UN-RUN (v46). Score holds 93.**
+> Two real advances since v45, both on the CI path, and one persistent gap on the native path:
+> - **Target PUSHED.** `git rev-parse origin/master` = `845116d41375cd6422f49bb2a53f23bcec3109e9` — the
+>   Cycle-11 target is now published, satisfying **§6 Phase 2 step 3 (normal push)**. (The v45 audit commit
+>   `b6815f8` is 1 ahead, local-only, docs-only — immaterial.)
+> - **Exact-`headSha` CI run now exists — and FAILED on billing.** `gh api …/actions/runs/33711898714
+>   --jq '.head_sha,.conclusion,.event,.head_branch'` → `845116d…` / `failure` / `push` / `master`. This is
+>   the **correct target SHA** (satisfies §6 Phase 2 step 4's identity gate) but its sole job "Web gate
+>   (Node 24 LTS)" was **not started** — annotation *"The job was not started because your account is locked
+>   due to a billing issue"* (~2 s, zero steps). So **§6 Phase 2 step 5 (required-step success) FAILS**; no
+>   `dist-index-html` artifact, no byte parity. §2/§8 forbid banking a failed run as a PASS. The CI half is
+>   now **provably** billing-blocked against the exact target — no longer a mere "unobserved" gap.
+> - **Native — `BLOCKED`, and STILL un-run (2nd idle cycle).** `xcodebuild … -showdestinations` +
+>   `simctl list runtimes` confirm **six available iOS 26.4 iPads** (iOS 26.4 `23E244`), 46 GiB free,
+>   Xcode 26.4. Yet `xcodebuild … test` was **never run** — no `.xcresult`, no counts, no exit code; evidence
+>   Native section (L29) still `BLOCKED`. **There is no environment excuse for this gate, and it does not
+>   depend on GitHub billing.** This is RA #9's second consecutive idle cycle.
+> - **§14 Completion Checklist = 0/6** (`grep -c '^- \[ \]' IMPLEMENTATION_PLAN.md` = 6). README unchanged.
+> - **Base tree unchanged / no regressions.** Native inventory still six suites / **32** methods / **4** UI —
+>   matching §6 Phase 1 step 5. Backlog **0** unchecked / 15 `[x]`.
+>
+> **Disposition — run the native half NOW (RA #9); it is fully executable and billing-independent.** The
+> single highest-value lever is `xcodebuild … test` against a booted iPad UDID: verify the exact §6 Phase 1
+> counts and flip Native `BLOCKED → PASS`. For the CI half (**RA #10**, push already done): clear the GitHub
+> Actions billing lock, then re-drive the exact-`headSha` run to success + prove `dist-index-html` byte
+> parity — or, if billing is unresolvable, invoke the Rev-1 Path-to-100 #1 bounded terminal disposition
+> (revise v23 to accept native-PASS + CI-permanently-environment-blocked). Do **not** weaken any gate or bank
+> a failed run (§2/§8).
+>
+> **Deductions.** Active implementation progress this cycle (target pushed + exact-`headSha` CI triggered =
+> §6 Phase 2 steps 3–4 executed) → **inactivity decay stays 0**. Backlog strict-unchecked `[ ]` = **0** →
+> **−0**. RA −0 (#1–#8 DONE; #9–#10 at staleness 2, P1 deduction begins at staleness 3 — but **RA #9 is on
+> notice: −2 triggers at v47** if native stays un-run). Base health holds **94** (shipped system unchanged),
+> **−1** for the still-open MODERATE CI-billing impediment (now demonstrated against the exact target SHA).
+> **Base 94 − 1 (CI billing) − backlog 0 − RA 0 − decay 0 = 93.** Score holds at 93: genuine CI-path progress
+> (push + exact-SHA run) does not raise shipped-system health, and the two closure gates remain open — the
+> earned next step is the native PASS. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v9.
 
 <!-- audit-entry v45 -->
 > **STATE 2 — IMPLEMENTATION IN PROGRESS BUT INCOMPLETE; TARGET COMMIT MINTED, NATIVE GATE STILL UN-RUN (v45). Score holds 93.**
@@ -1450,31 +1489,35 @@ runtimes` empty — and the committed GitHub Actions `CI` never observed live �
 environment blocks, not code defects. Re-confirmed healthy: native inventory six suites / 32 methods /
 4 UI unchanged; no regressions.)
 
-**Deductions (v44):**
-- Required Actions: −0 (all actions #1–#8 remain DONE; new RA #9–#10 raised this cycle at staleness 0)
+**Deductions (v46):**
+- Required Actions: −0 (all actions #1–#8 remain DONE; RA #9 native and RA #10 CI now at **staleness 2** —
+  P1 numeric deduction begins at staleness 3, so −0 this cycle. RA #10 **advanced** — the push half is done
+  and an exact-`headSha` run now exists — so it is not "stalled"; RA #9 native shows **no** progress and is
+  on notice: a −2 deduction triggers at v47 if still un-run.)
 - Backlog: −0 (`BACKLOG.md` strict-unchecked `- [ ]` count = **0**; all 15 items `[x]`)
-- Inactivity: −0 (**reset** from the −5 cap: a code-adjacent commit landed since v43 — `1f7d589`
-  touches `.gitignore` — **and** the environment materially advanced this cycle: iOS 26.4 runtime + 6
-  iPad sims installed, `origin` remote linked & authed, HEAD pushed. Not a neglect cycle.)
-- New-finding drag: −1 (open MODERATE CI-billing lock — Actions run `33710152352` failed:
-  *"account is locked due to a billing issue"* — a demonstrated failing CI, worse than the prior
-  merely-"unobserved" status)
+- Inactivity: −0 (active implementation progress this cycle — the target was **pushed** to `origin/master`
+  and an exact-`headSha` CI run was triggered, i.e. §6 Phase 2 steps 3–4 were executed. Not a neglect cycle.)
+- New-finding drag: −1 (open MODERATE CI-billing lock — the Cycle-11-**target** Actions run `33711898714`
+  (`head_sha 845116d`) also failed: *"the job was not started because your account is locked due to a billing
+  issue"* — the finding is now demonstrated against the exact target SHA, not merely a prior non-target commit)
 
 **Current Score**: 93/100
 
 Trajectory: Cycle 11's plan (v23, external execution closure) remains **APPROVED at 96/100** (Rev 1) and
-is unchanged under the staleness rule. **State 2 (implement the approved plan) is now GENUINELY ACTIONABLE
-for the native half** — the two environment blockers that stalled v39–v43 are resolved (iOS 26.4 + 6 iPad
-sims installed; `origin` remote linked & authed; HEAD pushed). Implementation Verification v7 = **N/A** —
-still nothing built (no Cycle-11 target commit; the only new commit is the `.gitignore` "ignore" edit;
-`docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED`; all six §14 boxes `[ ]`; native
-`xcodebuild test` never run despite the now-available simulator). A **new** blocker replaced the old one on
-the CI path: the GitHub account is **billing-locked**, so Actions cannot run (§6 Phase 2 unsatisfiable until
-cleared). Net vs. v43 (89): base holds at 94; inactivity resets −5 → 0 (big mover); a new −1 for the open
-CI-billing finding. **Base 94 − 1 − 0 − 0 = 93.** The levers now are concrete and no longer
-authorization-gated: **land the native PASS** (Phase 0–1, fully executable today) and **clear the GitHub
-billing lock** for the CI PASS + artifact parity; if billing cannot be cleared, revise v23 per Rev-1
-Path-to-100 #1 to accept native-PASS + CI-permanently-environment-blocked as a bounded terminal disposition.
+is unchanged under the staleness rule. **State 2 (implement the approved plan) — CI-path progress this cycle,
+native path still idle.** The target `845116d` is now **pushed** (`origin/master == 845116d`, §6 Phase 2 step
+3) and an **exact-`headSha` CI run exists** (`33711898714`, §6 Phase 2 step 4) — but it **FAILED** because the
+GitHub account is **billing-locked** ("the job was not started…"), so §6 Phase 2 step 5 (success) is unmet and
+no artifact/parity exists. Implementation Verification v9 = **N/A** — the plan is binary success-only and no
+PASS closure surface exists; Native `BLOCKED` / CI `BLOCKED`, all six §14 boxes `[ ]`, README unchanged, and
+the fully-executable native gate (six iOS 26.4 iPads) was **still not run** (RA #9, 2nd idle cycle). Net vs.
+v45 (93): base holds at 94; decay stays 0 (active CI-path progress); −1 for the open CI-billing finding (now
+demonstrated against the exact target SHA). **Base 94 − 1 − 0 − 0 = 93.** The levers are concrete and
+billing-split: **land the native PASS** (Phase 0–1, fully executable today, billing-independent — RA #9) and
+**clear the GitHub billing lock** for the CI PASS + artifact parity (RA #10, push already done); if billing
+cannot be cleared, revise v23 per Rev-1 Path-to-100 #1 to accept native-PASS + CI-permanently-environment-blocked
+as a bounded terminal disposition. **RA #9's native gate is the score-driver: a −2 P1 deduction triggers at
+v47 if it remains un-run.**
 
 ## Findings
 
@@ -1697,8 +1740,11 @@ Path-to-100 #1 to accept native-PASS + CI-permanently-environment-blocked as a b
 ## Required Actions
 
 Actions #1–#8 are all DONE (resolved at staleness 1, none stalled). Actions #9–#10 were raised at v44;
-both are now at **staleness 1** (no deduction until staleness 3). #9's native half is now fully executable
-(booted iOS 26.4 iPad available) yet un-run — escalate the directive tone, no numeric deduction yet.
+both are now at **staleness 2** (P1 numeric deduction begins at staleness 3 → −0 this cycle). RA #10
+**advanced** this cycle — the target push landed and an exact-`headSha` CI run now exists (only the billing
+lock remains) — so it is not stalled. RA #9 (native) shows **no progress** for a second consecutive cycle
+despite full executability: no numeric deduction yet, but a **−2 P1 deduction triggers at v47** if the
+native tests remain un-run.
 
 | # | Priority | Status | Raised | Resolved | Score Impact | Directive |
 |---|----------|--------|--------|----------|--------------|-----------|
@@ -1710,8 +1756,8 @@ both are now at **staleness 1** (no deduction until staleness 3). #9's native ha
 | 6 | P2 | **DONE** | v8 | v9 | −0 | **D2/D3**: orientation one-entry e2e + export-equals-log clipboard e2e — ADDRESSED (tests #3, #5 pass) |
 | 7 | P3 | **DONE** | v8 | v9 | −0 | **D4/D5**: 20-cycle no-leak e2e + reduced-motion e2e — ADDRESSED (tests #6, #7 pass) |
 | 8 | P3 | **DONE** | v8 | v9 | −0 | **D6**: `ADMIN.HOLD_MS` + `ROSTER.SEARCH_DEBOUNCE_MS` in `roster.mjs` — ADDRESSED (grep invariant holds) |
-| 9 | P1 | **OPEN** | v44 | — | −0 (staleness 1) | **Run plan v23 Phase 1 native tests — NOW, no excuse.** Target commit `845116d` is minted (Phase 0.5 done) but the native tests were **not run**. A booted iOS 26.4 iPad `A155995F-EC83-41BE-95B2-1A5F390ABF59` is available. Run `xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination 'platform=iOS Simulator,id=A155995F-EC83-41BE-95B2-1A5F390ABF59' -derivedDataPath <TEMP> -resultBundlePath <TEMP>.xcresult test`; require six suites / 32 unit methods / 4 UI / exit 0 / zero failures; flip Native `BLOCKED → PASS`. This is the single highest-value lever. |
-| 10 | P1 | **OPEN** | v44 | — | −0 (staleness 1) | **Push the target, then resolve GitHub Actions billing lock — CI cannot run.** Target `845116d` is **not yet pushed** (`origin/master` = `1f7d589`, HEAD 2 ahead); push it so a Cycle-11-target run can exist. Run `33710152352` (push, `headSha 1f7d589`) failed: *"the job was not started because your account is locked due to a billing issue."* Clear the billing lock, then observe the exact-`headSha` `CI` run to success + `dist-index-html` byte parity. Do not bank the failed run as a PASS (§2/§8). If billing cannot be cleared, revise v23 (Rev-1 Path-to-100 #1) to accept native-PASS + CI-permanently-environment-blocked as a bounded terminal disposition. |
+| 9 | P1 | **OPEN — no progress (2nd idle cycle)** | v44 | — | −0 (staleness 2; **−2 triggers at v47**) | **Run plan v23 Phase 1 native tests — NOW, no excuse.** Target commit `845116d` is minted and pushed, but the native tests are **still not run** (evidence Native = `BLOCKED`). Six iOS 26.4 iPads are available (e.g. `A155995F-EC83-41BE-95B2-1A5F390ABF59`). Run `xcodebuild -project native/CheckIn007.xcodeproj -scheme CheckIn007 -destination 'platform=iOS Simulator,id=A155995F-EC83-41BE-95B2-1A5F390ABF59' -derivedDataPath <TEMP> -resultBundlePath <TEMP>.xcresult test`; require six suites / 32 unit methods / 4 UI / exit 0 / zero failures; flip Native `BLOCKED → PASS`. This gate does **not** depend on GitHub billing — it is the single highest-value lever and the score-driver next cycle. |
+| 10 | P1 | **OPEN — push done; CI billing-blocked** | v44 | — | −0 (staleness 2; **advanced, not stalled**) | **Push half DONE; now clear the GitHub Actions billing lock.** Target `845116d` is now **pushed** (`origin/master == 845116d`) and CI fires at the **exact** SHA — run `33711898714` (`head_sha 845116d`, event `push`, branch `master`) — but its conclusion is `failure`: *"the job was not started because your account is locked due to a billing issue."* The only remaining obstacle is the billing lock; clear it, re-drive the exact-`headSha` `CI` run to success + `dist-index-html` byte parity. Do not bank the failed run as a PASS (§2/§8). If billing cannot be cleared, revise v23 (Rev-1 Path-to-100 #1) to accept native-PASS + CI-permanently-environment-blocked as a bounded terminal disposition. |
 
 ## Next Step
 
@@ -1737,14 +1783,15 @@ be banked as a PASS (§2/§8).
 **Recommended action — implement, don't revise-to-withdraw.** This is no longer the all-blocked situation
 of v39–v43:
 
-1. **Do RA #9 now — the native gate has no excuse left.** Mint the Cycle-11 docs-only target commit
-   (§6 Phase 0), run the local web gates, then run `xcodebuild … -destination 'platform=iOS Simulator,
+1. **Do RA #9 now — the native gate has no excuse left and does not depend on billing.** The target commit
+   is already minted and pushed; run `xcodebuild … -destination 'platform=iOS Simulator,
    id=<iPad-UDID>' … test` (e.g. iPad Pro 13-inch M5 `45CAACE4-8B3E-4358-86A8-F0BC7322303E`), inspect the
    `.xcresult` (six suites / 32 unit methods / 4 UI / exit 0 / zero failures), and flip Native
-   `BLOCKED → PASS`.
-2. **Do RA #10 for full closure — clear the GitHub Actions billing lock**, then re-push the Cycle-11 target
-   and observe the exact-`headSha` `CI` run to success + `dist-index-html` byte parity. Full Cycle-11
-   completion (§14, both gates PASS) requires this.
+   `BLOCKED → PASS`. **This is the score-driver — a −2 P1 deduction triggers at v47 if it stays un-run.**
+2. **Do RA #10 for full closure — the push is done; clear the GitHub Actions billing lock.** The target
+   `845116d` is published and CI already fires at the exact SHA (run `33711898714`); the only obstacle is
+   the billing lock. Once cleared, re-drive the exact-`headSha` `CI` run to success + prove `dist-index-html`
+   byte parity. Full Cycle-11 completion (§14, both gates PASS) requires this. Do not bank the failed run.
 3. **If billing cannot be cleared**, the Rev-1 critique's still-open Path-to-100 #1 now has a concrete
    trigger: revise v23 to add a **bounded terminal disposition** accepting native-PASS +
    CI-permanently-environment-blocked, folding in Path-to-100 #2 (§4.6 ↔ §6 Phase 2 step-5 required-step
@@ -1759,6 +1806,8 @@ clearing the billing lock — both concrete and no longer authorization-gated.
 
 ## Revision History
 
+| v46 | 2026-09-03 | 93 | **Cycle 11 target PUSHED + exact-`headSha` CI run now exists (FAILED on billing); native gate STILL un-run — Implementation Verification v9 = N/A; score holds 93.** Two CI-path advances since v45: (1) the target is published — `git rev-parse origin/master` = `845116d…` (§6 Phase 2 step 3 DONE); (2) the push triggered `CI` run `33711898714` whose `head_sha` is the **exact** target `845116d…` (event `push`, branch `master`) — satisfying §6 Phase 2 step 4's identity gate. **But that run's conclusion is `failure`:** its sole job "Web gate (Node 24 LTS)" was **not started** — *"account is locked due to a billing issue"* (~2 s, zero steps) → §6 Phase 2 step 5 (required-step success) **UNMET**; no `dist-index-html` artifact, no byte parity; §2/§8 forbid banking it. **Native gate STILL un-run (2nd idle cycle, RA #9):** six iOS 26.4 iPads available, 46 GiB free, Xcode 26.4 — yet `xcodebuild … test` never run; evidence Native `BLOCKED`, CI `BLOCKED`; §14 = 0/6; README unchanged. Base tree unchanged (six suites / **32** methods / **4** UI; no regressions; backlog **0** unchecked). **Disposition:** run the native half NOW (RA #9 — billing-independent, no excuse); for the CI half (RA #10, push done) clear the billing lock then re-drive the exact-SHA run + prove parity, else invoke Rev-1 Path-to-100 #1 bounded terminal disposition. **Deductions:** active progress (push + exact-SHA CI trigger) → **decay stays 0**; backlog `[ ]` = **0** → −0; RA −0 (#1–#8 DONE; #9–#10 at staleness 2 — **RA #9 −2 triggers at v47** if native stays un-run); base **94**, −1 open CI-billing finding (now demonstrated against the exact target). **Base 94 − 1 − 0 − 0 = 93.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v9. |
+| v45 | 2026-09-03 | 93 | **Cycle 11 target commit `845116d` MINTED (§4.5/§6 Phase 0.5 done); native gate un-run, target un-pushed, CI billing-locked — Implementation Verification v8 = N/A; score holds 93.** One plan-relevant commit landed since v44: `845116d` *"chore(§6.0): mint Cycle 11 verification target"* (docs-only, +6 lines to `docs/VERIFICATION_EVIDENCE.md`) — genuine Phase-0.5 progress and nothing else. Native `BLOCKED` (un-run despite a booted iPad), target 2 commits ahead of `origin/master` (un-pushed), CI still billing-locked (run `33710152352`, non-target `1f7d589`, failed); §14 = 0/6. **Deductions:** plan-relevant commit + booted iPad → decay stays 0; backlog −0; RA −0 (#9–#10 staleness 1); base 94 − 1 CI-billing = **93.** See Implementation Verification v8. |
 | v44 | 2026-09-03 | 93 | **Cycle 11 environment UNBLOCKED; plan v23 STILL NOT IMPLEMENTED — Implementation Verification v7 = N/A; inactivity decay reset −5 → 0.** The operator resolved both long-standing blockers: **iOS 26.4 (23E244) runtime + 6 iPad sims installed** (`native-ios-sdk-not-installed` gone; Xcode 26.4, 48 GiB free) and **`origin` remote linked & authed** (`github.com/daniqan/check-in-007.git`; `gh` scopes `repo`,`workflow`; HEAD pushed). So §13 Q1–Q2 pre-implementation gates are now satisfiable in principle. **But nothing of plan v23 is built:** the only commit since v43 is `1f7d589` "ignore" (a one-line `.gitignore` edit, not the §4.5 target); `git diff d8a9949..HEAD` over the three manifest files is **empty**; `docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED` (`grep -c "Cycle 11"` = 0); README unchanged; all 6 §14 boxes `[ ]`; native `xcodebuild test` never run despite the available sim. **NEW blocker (MODERATE):** the push triggered `CI` run `33710152352` (event `push`, `headSha 1f7d589`) which **FAILED in ~2 s** — *"account is locked due to a billing issue"*; Actions cannot run. That run targets the `ignore` commit, not a Cycle-11 target, and FAILED → satisfies nothing in §6 Phase 2; must not be banked as PASS (§2/§8). **Disposition:** State 2 is now genuinely actionable — **implement Phase 0–1** (native gate has no excuse; RA #9) and **clear the GitHub billing lock** for the CI PASS (RA #10); if billing can't be cleared, revise v23 per Rev-1 Path-to-100 #1 for a bounded native-PASS + CI-env-blocked disposition. **Deductions:** code-adjacent commit + material environment advance → **decay resets −5 → 0** (not a neglect cycle); backlog `[ ]` = **0** → −0; RA −0 (all #1–#8 DONE; new #9–#10 at staleness 0); base health holds **94**, −1 for the open CI-billing finding. **Base 94 − 1 − 0 − 0 = 93.** Recovery 89 → 93. See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v7. |
 | v40 | 2026-09-03 | 91 | **Cycle 11 plan v23 STILL NOT IMPLEMENTED — Implementation Verification v3 = N/A; third consecutive idle cycle** (HEAD unchanged at `736fc85`, zero new commits since audit v39). Plan **v23 (`d8a9949`)** stays APPROVED at 96/100, unchanged under the staleness rule. **No work product exists:** no Cycle-11 target commit; `docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED` (`grep -c "Cycle 11"` = 0); README unchanged; all six §14 boxes `[ ]`; three manifest files show no diff vs. Cycle 10 (tree byte-identical to what v2 audited). **Both blocking pre-implementation gates (§4.1/§6 Phase 0.2–0.3/§13 Q1–Q2) remain unsatisfiable here:** `xcodebuild -downloadPlatform iOS` approval (no iOS runtime — `native-ios-sdk-not-installed`, `simctl list runtimes` empty) and exact GitHub `owner/repo` + push approval (`git remote -v` = none; non-interactive session). §2 forbids weakening gates or accepting `BLOCKED` as completion → **no source edit warranted or made**. Base tree re-verified unchanged (native inventory still six suites / **32** methods / **4** UI; no regressions). **Disposition:** State 2 cannot advance in this environment; per Rev-1 critique's primary gap (Path-to-100 #1), recommend **State 1 — revise v23** to add a bounded withdrawal disposition (re-classify the two external gaps as permanently environment-blocked, audit-closeable), folding in Path-to-100 #2 (§4.6 ↔ Phase 2 step-5 reconciliation) and #3 (pin event to `push`); alternatively implement Phases 0–3 verbatim if both authorizations are granted. **Deductions:** no code since v37 landing (`0a29610`); zero commits since v39 → **third** consecutive idle cycle → decay **−3** (was −2 at v39, −1 at v38; cap −5). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE). Base health holds **94**. **Base 94 − 0 − 0 − 3 = 91.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v3. |
 | v39 | 2026-09-03 | 92 | **Cycle 11 plan v23 APPROVED but NOT IMPLEMENTED — Implementation Verification v2 = N/A (State 2, blocked on unavailable authorization)** (HEAD `8f285fc`, the Rev-1 critique commit). Plan **v23 (`d8a9949`)** stays APPROVED at 96/100, unchanged under the staleness rule. **No work product exists:** no Cycle-11 target commit; `docs/VERIFICATION_EVIDENCE.md` still Native `BLOCKED` / CI `BLOCKED` (`grep -c "Cycle 11"` = 0); README unchanged; all six §14 boxes `[ ]`; three manifest files show no diff vs. Cycle 10. **Both blocking pre-implementation gates (§4.1/§6 Phase 0.2–0.3/§13 Q1–Q2) unsatisfiable here:** `xcodebuild -downloadPlatform iOS` approval (no iOS runtime — `native-ios-sdk-not-installed`, `simctl list runtimes` empty) and exact GitHub `owner/repo` + push approval (`git remote -v` = none; non-interactive session). §2 forbids weakening gates or accepting `BLOCKED` as completion → **no source edit warranted or made**. Base tree re-verified unchanged (native inventory still six suites / **32** methods / **4** UI; no regressions). **Disposition:** State 2 cannot advance in this environment; per Rev-1 critique's primary gap (Path-to-100 #1), recommend **State 1 — revise v23** to add a bounded withdrawal disposition (re-classify the two external gaps as permanently environment-blocked, audit-closeable), folding in Path-to-100 #2 (§4.6 ↔ Phase 2 step-5 reconciliation) and #3 (pin event to `push`); alternatively implement Phases 0–3 verbatim if both authorizations are granted. **Deductions:** no code since v37 landing (`0a29610`); only commit since v38 is doc-only (`8f285fc`) → **second** consecutive idle cycle → decay **−2** (was −1 at v38). Backlog strict-unchecked `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE). Base health holds **94**. **Base 94 − 0 − 0 − 2 = 92.** See `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v2. |
