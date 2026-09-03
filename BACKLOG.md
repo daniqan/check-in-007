@@ -3,6 +3,20 @@
 Improvement opportunities beyond the current plan's scope. Unchecked items reduce the audit
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
+## iPad / iOS robustness (opened audit v56)
+> These are deferred *improvements* around the newly-reported iPad roster-scroll defect. The
+> **core fix itself is a defect**, tracked as **RA #14 (P0/HIGH)** in `CONSOLIDATED_AUDIT.md` and
+> drives Cycle 15 — it is deliberately NOT duplicated here. See `docs/IPAD_SCROLL_BUG.md`.
+- [ ] Real-device / iOS-Simulator touch-momentum-scroll regression test wired into CI. The
+  iPad roster-scroll defect (RA #14) is **unreproducible in headless Chromium and desktop WebKit**,
+  so the current e2e/unit suite cannot catch this class of bug — a genuine coverage gap. Needs a
+  touch-capable iOS runner (e.g. Simulator via `xcrun simctl` + WebKit, or a device farm) asserting
+  the roster actually scrolls under a synthesized touch-drag.
+- [ ] iOS standalone / Add-to-Home-Screen cache-busting for the single-file build. iOS Safari and
+  installed web-apps cache `index.html` aggressively; stale loads were observed while debugging the
+  scroll issue and forced new filenames / manual "Clear Website Data" between tests. A cache-bust
+  (hashed asset name, `Cache-Control`, or a version query) would make kiosk redeploys reliable.
+
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
 - [x] Multi-device check-in log consolidation / merge tooling (§9) — done in `3168a28`: pure `src/lib/log-merge.mjs` (parse/normalize/dedupe/sort) + `store.mjs` preview/merge APIs + admin Merge-Logs UI; Implementation Verification v4 = 98/100 VERIFIED (38 unit + 10 e2e green)
