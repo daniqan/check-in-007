@@ -3,6 +3,16 @@
 Improvement opportunities beyond the current plan's scope. Unchecked items reduce the audit
 score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not here.
 
+> **Cycle 18 OPENED (audit v66, State 1 — REVISE THE PLAN):** `IMPLEMENTATION_PLAN.md` v31 (the
+> cycle-artifact-guard CI reconciliation, a backlog polish item) is drafted but **NOT APPROVED —
+> Plan Critique Cycle 18 Rev 1 = 74/100**. It explicitly out-of-scopes **RA #14 (P0/HIGH,
+> device-evidenced FAILING)** and **RA #19 (P1/HIGH)** — the two findings v65 assigned to Cycle 18 —
+> even though an iOS 26.4 Simulator is now installed and both are code-actionable. Scope-adequacy cap
+> (≤75) + a feasibility flaw (F-23) → 74. **Next action: re-scope v31 to RA #14 + RA #19.** F-15
+> recurred a 6th time (`d8e50fb` blanked the critique; restored). System health 84 → 80 (RA #14 stall
+> −3, idle-code decay −1). See `CONSOLIDATED_AUDIT.md` v66 and `IMPLEMENTATION_PLAN_CRITIQUE.md`
+> Cycle 18 Rev 1.
+>
 > **Cycle 17 COMPLETE (audit v65, State 4):** `IMPLEMENTATION_PLAN.md` v30 (**APPROVED 96/100**) is
 > implemented and **VERIFIED** — the State-3 blocking defect (D1/F-19/RA #18, iOS probe-env propagation) is
 > **FIXED and execution-proven** in `c669930` (`testRunnerEnvironment()` injects the `TEST_RUNNER_`-prefixed
@@ -25,7 +35,15 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
   Scope the CI check to pull requests / pushes to the default branch, or exempt commits whose *only*
   change is `IMPLEMENTATION_PLAN.md`, so the guard still surfaces genuine drift (RA #16) without
   flagging every routine plan commit. Deferred from Cycle 17 (the guard itself ships; this hardening
-  is Path-to-100, non-blocking).
+  is Path-to-100, non-blocking). **In progress via plan v31 (Cycle 18) — but v31 is NOT approved
+  (74/100) and its `isPlanOnlyPlanningChange` classifier (exactly `['IMPLEMENTATION_PLAN.md']`) is too
+  narrow for the real new-cycle commits, which also touch `BACKLOG.md`/`archive/` (audit v66, F-23).
+  This item stays `[/]`; it also should not preempt the open P0/P1 (RA #14/#19).**
+- [ ] Make the `check-cycle-artifacts` guard a **commit-time** hook (local `pre-commit`/`pre-push`
+  invoking `npm run check:cycle-artifacts`), not just a CI gate. F-15 (empty root critique) recurred a
+  6th time at `d8e50fb` because the CI-only guard cannot stop a local commit from blanking
+  `IMPLEMENTATION_PLAN_CRITIQUE.md`; a commit-time hook closes that loop (audit v66, F-15). Non-blocking
+  improvement, distinct from the CI-reconciliation item above.
 
 ## iPad / iOS robustness (opened audit v56)
 > These are deferred *improvements* around the newly-reported iPad roster-scroll defect. The
