@@ -1,161 +1,158 @@
-# External Verification Closure Plan Critique — Cycle 10, Revision 1
+# External Verification Closure Plan Critique — Cycle 10, Revision 2
 
-**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `49be77d`
-**Plan Under Review:** IMPLEMENTATION_PLAN.md v21 (Cycle 10)
-**Score:** **93 / 100** (first review of v21)
-**Status:** NOT APPROVED (below the ≥95 gate — State 1: revise the plan)
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `506b590`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v22 (Cycle 10)
+**Score:** **97 / 100** (previous: 93 — v21 Rev 1)
+**Status:** APPROVED (clears the ≥95 gate — State 2: implement the approved plan)
 
-An exceptionally rigorous evidence-capture plan for the two standing external-verification gaps
-(native `xcodebuild … test` unrun, GitHub Actions CI first live run unobserved). Approval gates,
-exact-SHA joins, artifact byte-parity, and error taxonomy are all strong. It is held below the gate
-by three concrete, mechanically-fixable items: a wrong native unit-suite count in an evidence-fidelity
-plan, a silent assumption that pinned Node 24 is runnable locally (it is not — this machine is Node
-v26.3.0 and the guard fails closed), and a completion checklist that admits no BLOCKED terminal state
-even though the plan's own design treats BLOCKED as legitimate.
+v22 resolves all three Rev-1 blockers with source-accurate detail and folds in all four Rev-1
+Path-to-100 items. Every load-bearing fact re-verified against the live tree. This is an
+implementation-ready, correctly-scoped, docs-only evidence-capture cycle for the two standing
+external-verification gaps. Do not weaken the external gates to force a PASS — the exact-SHA join,
+byte-parity, and skipped-step-as-failure rigor is the plan's core value.
 
-## Remaining issues
+## Issues resolved in revision 2
 
-1. **Wrong native unit-suite count — "five unit suites" is actually six.** §6 Phase 1 (line 157) and
-   §10 (line 272) both instruct the implementer to record/verify "five unit suites and four UI tests."
-   `native/CheckIn007Tests/` contains **six** test suite files — `CSVCodecTests`, `CameraPrivacyTests`,
-   `CheckInStoreTests`, `GuestCatalogTests`, `LogMergerTests`, `ScanAudioPlayerTests` (32 `func test`
-   methods total). The project uses an Xcode file-system-synchronized root group (no per-file
-   membership list in `project.pbxproj`), so all six compile into the test target. "Four UI tests" is
-   correct (`CheckIn007UITests.swift` has exactly four `func test` methods). For a cycle whose sole
-   deliverable is *accurate, durable evidence*, an expected count that is off by one is a
-   self-defeating defect: an implementer who records "five suites discovered" produces false evidence,
-   and an acceptance criterion demanding "all five" mis-describes the passing state. *Fix:* change
-   "five unit suites" to "six unit suites" in §6 Phase 1 and §10 (or, better, state the exact suite
-   names so the count is self-checking).
+1. **Native unit-suite count corrected to six, and made self-checking (Rev-1 issue #1 — commission).**
+   §6 Phase 1 (line 171) and §10 (line 293) now say "six unit suites" and Phase 1 **names all six**
+   (`CSVCodecTests`, `CameraPrivacyTests`, `CheckInStoreTests`, `GuestCatalogTests`, `LogMergerTests`,
+   `ScanAudioPlayerTests`) plus "32 test methods." Verified against ground truth: `ls
+   native/CheckIn007Tests/` returns exactly those six files, and `grep -c 'func test'` yields
+   6+3+8+6+5+4 = **32** methods; `CheckIn007UITests.swift` has exactly **4**. The count is now correct
+   and self-documenting — an implementer recording "six suites / 32 methods / four UI" produces
+   accurate evidence.
 
-2. **Local pinned-Node-24 availability is assumed, not gated — and it is false on this machine.**
-   §6 Phase 0 step 2 says "On pinned Node 24.20.0 run `npm ci`, `npm run lint`, `npm run test:unit`,
-   `npm run test:e2e`, and `npm run build`," §14 item 1 makes "Local Node 24 gates pass" an acceptance
-   criterion, and §11 lists "Node 24.20.0" as if present. But the running interpreter here is **Node
-   v26.3.0** (`/opt/homebrew/bin/node`), there is **no nvm Node 24 installed** (`~/.nvm/versions/node`
-   absent), and every one of those `npm run` scripts is prefixed by `node scripts/check-node-version.mjs`,
-   whose guard requires `major === 24` and **exits non-zero on any other major** (`SUPPORTED_NODE_MAJOR
-   = 24`). As written, Phase 0 step 2 — the very first gate, and the immutable-target-SHA commit
-   depends on it — fails closed on this machine before any external work begins. Every prior cycle
-   (v6/v8/v9 verifications, audit v34) explicitly worked around this via a plan-sanctioned "§6/§5
-   direct-tool path" (`node --test tests/unit/*.test.mjs`, `npx playwright test`, `node scripts/build.mjs`
-   run directly, bypassing the guard) and repeatedly documented pinned Node 24 as "env-blocked." This
-   plan gives the iOS runtime and the git remote careful operator-approval gates but is silent on the
-   equally-blocking Node-24 prerequisite. *Fix:* add a Node-24 branch parallel to §13 Q2 — either (a)
-   require operator-approved installation of Node 24.20.0 (nvm) as a named preflight/decision gate, or
-   (b) sanction the same direct-tool bypass prior cycles used, and rewrite §6 Phase 0 step 2 + §14 item
-   1 so the guard-gated `npm run build` is replaced by the direct `node scripts/build.mjs` invocation
-   (note the guard cannot pass on Node 26, so "pinned Node 24 gates pass" as literally worded is
-   unsatisfiable here). §11's "Node 24.20.0" line should record the *actual* running version and the
-   chosen path, not an aspirational one.
+2. **Local Node selection is now an explicit decision gate with a sanctioned bypass (Rev-1 issue #2 —
+   omission).** §6 Phase 0 step 2 is rewritten: it states the host is Node 26.3.0 at
+   `/opt/homebrew/bin/node`, that pinned 24.20.0 is not installed, and that the guard "intentionally
+   rejects Node 26," then offers two branches — (a) operator-approved `nvm install && nvm use` then the
+   `npm run …` scripts, or (b) the audited direct-tool path `npm ci` / `npx prettier --check .` /
+   `node --test tests/unit/*.test.mjs` / `npx playwright test` / `node scripts/build.mjs`, explicitly
+   "bypasses only `scripts/check-node-version.mjs`," with the actual version recorded. New §13 Q3 makes
+   this a formal decision gate; §11 records the actual running version rather than assuming 24.20.0.
+   Verified the direct-tool commands mirror the guarded npm scripts exactly minus the guard:
+   `package.json` `lint` = `check-node-version && prettier --check .`, `test:unit` =
+   `node --test tests/unit/*.test.mjs`, `test:e2e` = `playwright test`, `build` = `check-node-version &&
+   node scripts/build.mjs`. Confirmed the guard is fail-closed (`SUPPORTED_NODE_MAJOR = 24`,
+   `parseNodeMajor(version) === 24`) and the live interpreter is `v26.3.0`.
 
-3. **Completion checklist has no BLOCKED terminal state, risking an unsatisfiable gate.** §14's seven
-   checkboxes all assert PASS/success ("native unit/UI tests pass," "Exact-SHA CI run and every
-   required step succeed," "CI artifact is byte-identical"). Yet the plan's own design (§3, §6 Phase 1
-   line 157, §6 Phase 3, §8, §13 Q4) explicitly treats `BLOCKED` as a legitimate recorded outcome when
-   the operator withholds platform-download / remote approval or the environment can't run the check —
-   and given `native-ios-sdk-not-installed` and the absent git remote, `BLOCKED` is the *likely*
-   outcome. As written there is no way to mark the cycle's implementation "done" without both external
-   PASSes, which the environment may never permit, so the plan can be fully and correctly executed yet
-   never satisfy its own completion criteria. *Fix:* split §14 into (a) "plan implemented" acceptance —
-   the durable evidence scaffold exists, local gates ran, and each external gate is recorded as one of
-   PASS/FAIL/BLOCKED with rationale, the diff is docs-only — versus (b) "audit findings closed" —
-   both external gates PASS. Cycle completion (State 4) should key on (a); audit-finding closure on (b).
-   This mirrors §1's own framing ("without changing application behavior") and §13 Q4.
+3. **Completion checklist now has a legitimate BLOCKED terminal state (Rev-1 issue #3 — omission).**
+   §14 is split into two gates: "**Plan implemented — cycle completion gate**" (each external result
+   recorded as `PASS | FAIL | BLOCKED` with rationale, docs-only diff — the note explicitly says
+   "Completing every item above is sufficient to mark this plan implemented even when an external
+   result is honestly `FAIL` or `BLOCKED`") versus "**Audit findings closed — external success gate**"
+   (both externals `PASS`). State-4 cycle completion keys on the former; audit-finding closure on the
+   latter. This matches §1's framing and §13 Q4/Q5, and — given `native-ios-sdk-not-installed` and the
+   absent Git remote — makes the cycle completable without an environment that may never be available.
+
+### Path-to-100 items also folded in
+
+4. **Finalization-commit push behavior specified (Rev-1 Omission #3 / Path #4).** §6 Phase 3 now
+   states the evidence-finalization commit "remains local in this cycle and is not pushed without a new,
+   explicit publication approval," and that any second-SHA CI run "is incidental and must not replace or
+   be joined to the target-SHA run." Reinforced in §12 and §14 item 6. The CI join SHA is now
+   unambiguous.
+5. **iPad-fallback cross-reference added (Rev-1 Path #5).** §6 Phase 1's happy path now says "If the
+   installed platform exposes no available iPad destination, follow the `No iPad device` path in §8 and
+   record `BLOCKED`; an iPhone is not an acceptable substitute."
+6. **Parity-build interpreter named (Rev-1 Path #6).** §4.6, §6 Phase 2 #6, and §7.4 all state the
+   local same-SHA parity build uses "the interpreter/path recorded in Phase 0 (currently Node 26.3.0
+   plus `node scripts/build.mjs` …)," so the byte comparison is reproducible without guessing.
+7. **Unverified "under 20 KB" evidence-size estimate dropped (Rev-1 Path #7).** §9 now states "no
+   numeric byte ceiling is asserted before the document exists," replacing the earlier estimate with an
+   O(test suites + CI steps) bound.
+
+## Remaining nits (Path to 100)
+
+None are blocking; the plan is approved. They separate 97 from 100:
+
+1. **Cross-Node-version parity is assumed sound but not asserted in the plan.** §4.6/§7.4 compare the
+   CI artifact (built on CI with pinned Node 24) against a local build on Node 26.3.0. This is only
+   valid because `scripts/build.mjs` emits deterministic, Node-version-independent bytes (no
+   `Date`/`now()`, raw un-gzipped `dist/index.html` — verified in the Rev-1 pass and unchanged). The
+   plan treats a mismatch as `FAIL` deferring to "nondeterminism in a later plan" (§7.4 recovery),
+   which is safe, but it never states the positive expectation that build output is version-invariant.
+   One sentence noting this would let a reviewer distinguish "expected parity" from "hoped-for parity."
+2. **`npm ci` on Node 26 is used but not explicitly noted as guard-free.** The direct-tool path opens
+   with `npm ci`; unlike `lint`/`test`/`build`, `npm ci` is not prefixed by `check-node-version.mjs`,
+   so it runs on Node 26. True and safe, but a half-sentence ("`npm ci` is unguarded and runs on the
+   current interpreter") would remove any reader doubt about why the first command isn't gated.
+3. **§6 Phase 0 step 2's approved branch runs `npm run test:unit` + `test:e2e` separately** rather than
+   the combined `npm run test` (which is `check-node-version && test:unit && test:e2e`). Harmless and
+   arguably clearer, but worth a word on why the split invocation is chosen (it isolates which gate
+   failed). Pure cosmetics.
 
 ## Scope Check
 
-**Scope is adequate — no cap applied.** Audit v34 (94/100, State 4) records **no open Required
-Actions** (RA #1–#8 all DONE, none stalled) and `BACKLOG.md` has **zero unchecked `[ ]` items**. The
-only open work items in the entire project are audit v34's two "Next Step" external-verification
-gaps, and this plan targets **exactly those two and only those** (§1 traceability to Next Step #1/#2).
-No applicable audit finding or backlog item is ignored. Integration is analyzed (§7 gives four
-contracts: repo→identity, Xcode→simulator, git→CI, CI→artifact). Alternatives are weighed (§4.1
-evidence-doc vs. wrappers/workflow edits vs. terminal-only; §4.3 UDID vs. named destination; §4.5
-exact-SHA vs. "newest run"). The plan correctly refuses to invent product scope (§1, §2 Out of scope).
+**Scope is adequate — no cap applied.** Audit v35 (93/100) records **zero open Required Actions**
+(RA #1–#8 all DONE, none stalled) and `BACKLOG.md` has **zero unchecked `[ ]` items** (15 `[x]`). The
+only open work in the project is audit v34/v35's two "Next Step" external-verification gaps, and v22
+targets **exactly those two and only those** (§1 traceability to Next Step #1/#2; §2 Out-of-scope
+forbids inventing product work). Integration is analyzed — §7 gives four contracts (repo→identity,
+Xcode→simulator, git→CI, CI→artifact). Alternatives are weighed (§4.1 evidence-doc vs.
+wrappers/workflow-edits vs. terminal-only; §4.3 UDID vs. named destination; §4.5 exact-SHA vs. "newest
+run"). CI trigger `[main, master]` (verified in `.github/workflows/ci.yml`) matches §7.3's
+"`main`/`master`" and the current `master` branch.
 
 ## Flaws of Commission
 
-1. **The "five unit suites" count is factually wrong (six exist).** See Remaining issue #1. This is
-   the one substantive commission flaw — a hardcoded number that the ground-truth tree contradicts,
-   in a plan whose entire purpose is factual evidence.
-
-No other flaws of commission: `dist-index-html` artifact name and `path: dist/index.html` match
-`.github/workflows/ci.yml:57-58`; deployment target `IPHONEOS_DEPLOYMENT_TARGET = 26.0` matches the
-"iOS 26+" requirement (§4.3); the shared `CheckIn007` scheme and the `CheckIn007Tests`/
-`CheckIn007UITests` target names exist; `build.mjs` has no `Date`/`now()` and emits the raw
-(un-gzipped) `dist/index.html`, so the §4.6 byte-parity check is deterministic and Node-version-robust
-(the gzip is size-budget-only). Exact-SHA CI selection, bounded polling, and "skipped required step =
-failure" are all correct.
+**No flaws of commission identified.** The one substantive Rev-1 commission flaw (wrong suite count) is
+fixed and now matches ground truth exactly. Re-verified: artifact name `dist-index-html` → `path:
+dist/index.html` (`ci.yml:57-58`); deployment target `IPHONEOS_DEPLOYMENT_TARGET = 26.0` matches "iOS
+26+" (§4.3); the `CheckIn007` scheme and `CheckIn007Tests`/`CheckIn007UITests` targets exist; the
+direct-tool commands mirror the guarded npm scripts precisely; exact-SHA selection, bounded 15s/30-min
+polling, and "skipped required step = failure" are all correct.
 
 ## Flaws of Omission
 
-1. **No Node-24 acquisition/bypass gate** (Remaining issue #2) — the plan gates the iOS runtime and
-   git remote but omits the equally-blocking local Node-24 prerequisite, which is false on this machine.
-2. **No BLOCKED completion path** (Remaining issue #3) — §14 cannot terminate the cycle when an
-   external gate is legitimately BLOCKED, though the rest of the plan treats BLOCKED as valid.
-3. **Two commits, one SHA — evidence-vs-target commit relationship under-specified for the CI join.**
-   §6 Phase 0 step 4 makes the docs-BLOCKED commit the "immutable target SHA" that Phase 2 pushes and
-   CI runs against; §6 Phase 3 then adds a *second* finalization commit ("do not amend the pushed
-   target commit"). This is internally consistent, but the plan never states that the finalization
-   commit is **not** pushed (or, if it is, that CI will fire a *second* run on a different SHA that
-   must be ignored). *Fix:* one sentence in §6 Phase 3 / §12 stating whether the finalization commit is
-   pushed and, if so, that its CI run is not the join target.
+**No blocking flaws of omission identified.** All three Rev-1 omissions (Node-24 gate, BLOCKED
+completion path, finalization-commit push behavior) are closed. The only residual gaps are the three
+non-blocking Path-to-100 nits above (cross-version parity expectation unstated; `npm ci` guard-free
+status unstated; split test invocation unexplained) — all cosmetic.
 
 ## Regressions
 
 **No regressions identified.** The file manifest (§5) is docs-only — `docs/VERIFICATION_EVIDENCE.md`
-(NEW), `README.md` (MOD), `IMPLEMENTATION_PLAN.md` (MOD checkboxes). §2 Out-of-scope explicitly
-forbids touching product source/tests, the Xcode project/scheme, CI jobs, dependencies, lockfiles,
-and generated `dist/`. No test coverage is removed; no API contract changes; the existing CI workflow
-and native project are only *observed*, not modified. The README verification-command edit (§6 Phase
-3) improves accuracy (links the durable record) rather than degrading it.
+(NEW), `README.md` (MOD), `IMPLEMENTATION_PLAN.md` (MOD checkboxes). §2 Out-of-scope explicitly forbids
+touching product source/tests, the Xcode project/scheme, CI jobs, dependencies, lockfiles, and
+generated `dist/`. No test coverage removed; no API contract changes; the CI workflow and native
+project are only *observed*, not modified. The README verification-status edit (§6 Phase 3) improves
+accuracy by linking the durable record.
 
-## Why 93 and not 94
+## Why 97 and not 98
 
-Two of the three issues are genuine execution blockers rather than polish: the "five suites" count
-(#1) directly corrupts the cycle's sole deliverable — accurate evidence — and the Node-24 assumption
-(#2) breaks Phase 0, the first gate, on the actual machine. The BLOCKED-completion gap (#3) is a real
-consistency defect but lower-impact. Together they are worth −7 from an otherwise near-exemplary plan.
-Had only the count and completion-gap issues remained, this would sit at ~96; the live, verified
-Node-24 blockage is what holds it firmly below the gate.
+Three genuine (if minor) specificity gaps remain: the cross-Node-version byte-parity check relies on an
+external fact (build.mjs determinism) the plan never states as a positive expectation (nit #1); the
+first direct-tool command (`npm ci`) runs unguarded on Node 26 without the plan noting why it's exempt
+(nit #2); and the approved-branch test invocation splits `test:unit`/`test:e2e` without explanation
+(nit #3). None blocks execution — an implementer can run the plan verbatim to a correct outcome — but a
+98/99 plan would name the parity assumption and the `npm ci` exemption explicitly. Every Rev-1 blocker
+is cleanly resolved, so the plan clears the gate comfortably.
 
 ## Path to ≥95
 
-Address all three in one revision pass:
-
-1. Fix the native unit-suite count to **six** in §6 Phase 1 (line 157) and §10 (line 272) — ideally by
-   naming the six suites so the number is self-checking.
-2. Add an explicit local-Node-24 gate: either an operator-approved nvm install of 24.20.0 as a named
-   §13 decision gate, or sanction the direct-tool bypass (`node --test …`, `npx playwright test`,
-   `node scripts/build.mjs`) and rewrite §6 Phase 0 step 2 + §14 item 1 accordingly, recording the
-   actual running Node version in §11 rather than assuming 24.20.0 is present.
-3. Split §14 into "plan implemented (evidence recorded as PASS/FAIL/BLOCKED, docs-only diff)" vs.
-   "audit findings closed (both external gates PASS)," and key cycle completion on the former.
+**Met.** The plan is at 97, above the ≥95 gate — no required changes remain. It is now the contract
+against which implementation will be audited.
 
 ## Path to 100
 
-Beyond the ≥95 items:
-
-4. Specify the finalization-commit push behavior (Omission #3) so the CI join SHA is unambiguous.
-5. §6 Phase 1 assumes an iPad simulator can be selected after `-downloadPlatform iOS`; state the
-   fallback if the downloaded platform ships only iPhone runtimes on this Xcode build (§8 already has
-   "No iPad device → BLOCKED," but Phase 1's happy-path narrative should cross-reference it).
-6. §4.6/§6 Phase 2 #6 should name *where* the local same-SHA parity build runs (same interpreter as the
-   local gates) so a reviewer can reproduce the byte comparison without guessing the Node line.
-7. Quantify the "under 20 KB" evidence-size claim (§9) against the actual §3 contract template, or drop
-   the number — it is currently an unverified estimate.
+Address the three Remaining nits above:
+1. State in §4.6/§7.4 that `build.mjs` output is Node-version-independent (no `Date`/`now()`, raw
+   HTML), so cross-version byte parity is *expected*, not merely hoped-for.
+2. Note in §6 Phase 0 step 2 that `npm ci` is unguarded and runs on the current interpreter.
+3. Add a half-sentence in §6 Phase 0 step 2 on why the approved branch uses split
+   `test:unit`/`test:e2e` invocations (per-gate failure isolation) rather than combined `npm run test`.
 
 ## Summary
 
-Not approval-grade yet, but close and structurally excellent. Three mechanically-fixable items hold it
-at 93: a wrong native suite count (six, not five) that undermines an evidence-fidelity cycle; a silent,
-false assumption that pinned Node 24 runs locally when the machine is Node 26 with a fail-closed guard;
-and a completion checklist with no BLOCKED terminal state despite the plan's own BLOCKED-aware design.
-Fix those three and this reaches ≥96 comfortably. Do not weaken the external gates to pass — the
-rigor there is the plan's strength.
+Approval-grade. v22 fixes all three Rev-1 blockers with ground-truth-accurate detail (six named suites
+/ 32 methods; a Node-26 direct-tool bypass that mirrors the npm scripts exactly; a BLOCKED-aware split
+completion gate) and folds in all four Rev-1 Path-to-100 items. Scope is exact — the two open external
+gaps, nothing invented. Only three cosmetic specificity nits separate it from 100. The loop advances
+**State 1 → State 2 (implement approved plan v22).** Do not weaken the external gates to pass; record
+honest `PASS`/`FAIL`/`BLOCKED` and let the evidence stand.
 
 ---
 
 *Implementation Verification: N/A — nothing implemented for Cycle 10. `docs/VERIFICATION_EVIDENCE.md`
-does not exist; the plan is not yet approved, so implementation has not begun.*
+does not exist. The plan is approved this revision; implementation has not yet begun.*
