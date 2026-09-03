@@ -207,6 +207,8 @@ No `src/` runtime code, guest data, manifest icon assets, native app production 
 
 ### Phase 1 — iOS smoke preflight and structured result output
 
+**Status:** COMPLETE in the Cycle 17 implementation commit.
+
 1. Refactor `scripts/ios-scroll-smoke.mjs` so command execution remains injectable for tests.
 2. Add `preflightIosRunner()` before `build()` and server startup.
 3. Add `normalizeIosScrollResult()` and `writeIosScrollResult()`.
@@ -225,6 +227,8 @@ Acceptance:
 
 ### Phase 2 — Cycle artifact guard for RA #16
 
+**Status:** COMPLETE in the Cycle 17 implementation commit.
+
 1. Add `scripts/check-cycle-artifacts.mjs`.
 2. Add `npm run check:cycle-artifacts`.
 3. Wire the check into `.github/workflows/ci.yml` as a separate step after dependency install and before lint/test/build.
@@ -239,6 +243,8 @@ Acceptance:
 - CI runs the guard without the override.
 
 ### Phase 3 — Tests
+
+**Status:** COMPLETE in the Cycle 17 implementation commit.
 
 1. Add `tests/unit/ios-scroll-smoke.test.mjs` covering:
    - missing `xcrun` classification,
@@ -264,6 +270,8 @@ Acceptance:
 
 ### Phase 4 — Documentation and evidence handoff
 
+**Status:** COMPLETE in the Cycle 17 implementation commit.
+
 1. Add `docs/IOS_SCROLL_RUNBOOK.md` with:
    - prerequisites for Xcode, iOS Simulator, and real-device execution,
    - exact simulator command using `CHECKIN007_IOS_DEVICE`, `CHECKIN007_IOS_RUNTIME`, and `CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll`,
@@ -282,6 +290,9 @@ Acceptance:
 - Docs do not claim RA #14 resolved unless `ios-scroll-result.json.status === "passed"` from an iPad/iOS Simulator run.
 
 ### Phase 5 — Verification gates
+
+**Status:** COMPLETE for available local gates in the Cycle 17 implementation commit; required iOS
+device PASS remains blocked until a provisioned iPad/iOS Simulator runner is available.
 
 Run and record:
 

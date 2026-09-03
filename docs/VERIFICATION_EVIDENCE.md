@@ -294,3 +294,54 @@ tests/unit/static-server.test.mjs tests/e2e/checkin.spec.mjs` passed. A full
   generated manifests intentionally keep browser install metadata separate from the machine build
   manifest. Icon entries use `purpose: "any"` to avoid claiming maskable safe-zone compliance without
   a dedicated padded maskable asset.
+
+## Cycle 17 — iPad Scroll Verification Lane and Cycle Artifact Guard
+
+- Implementation source: Cycle 17 implementation commit.
+- Scope: structured iOS scroll evidence, preflight diagnostics, cycle-artifact guard, CI wiring,
+  runbook, and focused tests. No production scroll/CSS/DOM behavior changed.
+
+### Evidence format
+
+`npm run test:ios-scroll` writes `test-results/ios-scroll-result.json`. A device-verification PASS
+must have `status: "passed"`, `required: true`, the requested `device` and `runtime`, a hashed
+`artifact` such as `check-in-007.15d6647afdf4.html`, a `url` ending in `?scrollProbe=1`, a
+`resultBundle`, and ISO `startedAt` / `finishedAt` timestamps. `skipped` and `failed` results are
+honest evidence but do not resolve RA #14.
+
+### Local non-iOS gates
+
+- Status: `PASS` for direct local gates under available Node `v26.3.0`; guarded `npm run lint` stops
+  at `scripts/check-node-version.mjs` because Node 24 is not exposed in this shell.
+- Environment: Node `v26.3.0`; npm `11.16.0`.
+- Cycle artifact guard: `npm run check:cycle-artifacts` passed with non-empty root plan, critique,
+  audit, and backlog files.
+- Formatting: `npx prettier --write` was applied to the changed Cycle 17 files. A full
+  `npx prettier --check .` reports only the pre-existing untracked
+  `Claude outputs/check-in-007-fresh.html` scratch file in this worktree.
+- Unit: `node --test tests/unit/*.test.mjs` passed 98/98.
+- E2E: `npx playwright test` passed 15/15.
+- Build: `node scripts/build.mjs` emitted `dist/check-in-007.15d6647afdf4.html` at 26,898 gzip
+  bytes.
+- Non-required iOS smoke: `npm run test:ios-scroll` wrote `test-results/ios-scroll-result.json` with
+  `status: "skipped"`, `required: false`, `code: "missing_device"`, and
+  `stage: "preflight"` for missing `iPad Pro 13-inch (M4)` simulator availability.
+- The cycle-artifact guard may use `CHECKIN007_ALLOW_EMPTY_CRITIQUE=1` only during an intentional
+  generator pre-critique planning commit. Normal CI and post-critique validation run without the
+  override.
+
+### Real iPad / iOS Simulator
+
+- Status: `BLOCKED` until a provisioned iPad/iOS Simulator runner executes required mode.
+- Required command:
+
+```sh
+CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll
+```
+
+- PASS evidence: not recorded in this environment.
+- Required-mode local check: `CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll` exited 1 and
+  reported `FAILED: iOS runner unavailable (iPad Pro 13-inch (M4) simulator is not available)`,
+  proving the fail-closed preflight behavior but not producing PASS evidence.
+- Disposition: desktop Chromium/WebKit, ordinary CI, and non-required local skips cannot resolve RA
+  #14. Use `docs/IOS_SCROLL_RUNBOOK.md` to produce valid simulator or physical-iPad evidence.

@@ -10,6 +10,7 @@
     "serve": "http-server . -p 8080 -c-1",
     "serve:https": "node scripts/serve-https.mjs",
     "check:node": "node scripts/check-node-version.mjs",
+    "check:cycle-artifacts": "node scripts/check-cycle-artifacts.mjs",
     "build": "node scripts/check-node-version.mjs && node scripts/build.mjs",
     "lint": "node scripts/check-node-version.mjs && prettier --check .",
     "test": "node scripts/check-node-version.mjs && npm run test:unit && npm run test:e2e",

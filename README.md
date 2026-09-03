@@ -101,7 +101,8 @@ including `index.html`, the hashed HTML artifact, and the manifest.
 `.github/workflows/ios-scroll.yml` is a separate self-hosted macOS/iOS lane for the iPad
 touch-scroll regression. Provision a runner with labels `self-hosted`, `macOS`, and
 `ios-touch`, Xcode command-line tools, and an iPadOS simulator such as
-`iPad Pro 13-inch (M4)`. The lane runs:
+`iPad Pro 13-inch (M4)`. Full simulator, external-URL, and manual physical-iPad procedures are in
+[`docs/IOS_SCROLL_RUNBOOK.md`](docs/IOS_SCROLL_RUNBOOK.md). The lane runs:
 
 ```bash
 CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run test:ios-scroll
@@ -112,8 +113,16 @@ helper, opens the hashed `?scrollProbe=1` URL in mobile Safari via XCUITest, per
 vertical press-drag near the right side of the web view, and fails unless the probe reports
 `scrollTop > 0`. Without `CHECKIN007_IOS_SCROLL_REQUIRED=1`, a workstation without
 `xcrun`/`xcodebuild` or the requested simulator prints a skipped status instead of claiming
-the iPad fix is verified. Use `CHECKIN007_IOS_DEVICE`, `CHECKIN007_IOS_RUNTIME`, or
-`CHECKIN007_IOS_BASE_URL` for a different simulator or pre-trusted device-farm URL.
+the iPad fix is verified. Each run writes `test-results/ios-scroll-result.json`; only a required
+`status: "passed"` result from an iPad/iOS Simulator touch path can resolve the defect. Use
+`CHECKIN007_IOS_DEVICE`, `CHECKIN007_IOS_RUNTIME`, `CHECKIN007_IOS_BASE_URL`, or
+`CHECKIN007_IOS_SCROLL_RESULT` for a different simulator, pre-trusted device-farm URL, or evidence
+path.
+
+The web CI also runs `npm run check:cycle-artifacts` after install. If a generator planning commit is
+intentionally ahead of discriminator critique restoration, the local one-off escape hatch is
+`CHECKIN007_ALLOW_EMPTY_CRITIQUE=1 npm run check:cycle-artifacts`; normal CI does not use the
+override.
 
 External native-simulator and live-CI verification status is recorded in
 [`docs/VERIFICATION_EVIDENCE.md`](docs/VERIFICATION_EVIDENCE.md). Only results explicitly marked

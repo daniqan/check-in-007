@@ -38,10 +38,12 @@ jobs:
       - name: iOS touch-scroll smoke
         run: npm run test:ios-scroll
 
-      - name: Upload Xcode results on failure
-        if: failure()
+      - name: Upload iOS scroll evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-scroll-xcresult
-          path: test-results/ios-scroll.xcresult
+          name: ios-scroll-evidence
+          path: |
+            test-results/ios-scroll-result.json
+            test-results/ios-scroll.xcresult
           if-no-files-found: ignore

@@ -1,6 +1,6 @@
 # Known Issue — Roster list does not scroll on iPadOS Safari
 
-**Status:** OPEN — handed to the generator/discriminator loop for a dedicated cycle.
+**Status:** OPEN — code fix is landed, but real iPad/iOS Simulator touch-scroll verification is still required.
 **Severity:** HIGH (primary kiosk device is an iPad; the roster is the main screen).
 **Scope:** `ROSTER` screen only. The check-in flow, data, camera, admin, and exports are unaffected.
 
@@ -106,6 +106,11 @@ touch), plus a fresh, cache-busted load (iOS Safari and standalone webapps cache
 aggressively — use a new filename or clear Website Data between tests). Any claim of "fixed"
 based only on desktop/CI evidence is invalid for this bug.
 
+Use [`docs/IOS_SCROLL_RUNBOOK.md`](IOS_SCROLL_RUNBOOK.md) for the exact simulator, external-URL, and
+manual physical-iPad verification procedures. RA #14 remains unresolved until
+`test-results/ios-scroll-result.json` records `status: "passed"` with `required: true` from a real
+iPad/iOS Simulator run, or equivalent manual physical-iPad evidence is recorded by an operator.
+
 ## Constraints
 
 - Keep the single-file self-contained build working (`npm run build` → `dist/index.html`).
@@ -125,3 +130,8 @@ Add-to-Home-Screen redeploys. The iOS regression gate is installed as
 `npm run test:ios-scroll` and `.github/workflows/ios-scroll.yml`. It requires an iPadOS
 simulator or real-device runner to prove the touch path; on machines without that runner it
 must remain recorded as skipped/unverified, not as a PASS.
+
+Cycle 17 adds structured smoke-test evidence at `test-results/ios-scroll-result.json` and preflight
+diagnostics for missing `xcrun`, `xcodebuild`, simulator runtime/device, artifact, HTTPS trust, and
+probe failures. This improves auditability only; it does not resolve the bug without a PASS from the
+iPadOS touch path.
