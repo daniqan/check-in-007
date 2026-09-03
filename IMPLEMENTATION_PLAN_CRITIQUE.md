@@ -198,3 +198,52 @@ then resubmit for re-audit. Everything else is compliant and faithful — probe 
 artifacts, fail-closed iOS lane, honest device-verification stance, and all five critique Path-to-100
 items are addressed. The iPad touch fix itself remains **correctly unverified** pending a real iPad /
 iOS-Simulator runner (not a defect — the honest, plan-mandated state).
+
+---
+
+### Implementation Verification — v20
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v28 (Cycle 15) @ approved commit `282b164` (approved score: 96)
+**Code:** `master` @ `f551d4a` ("fix(audit): stabilize non-roster entrance transition") audited on 2026-09-03
+**Re-audit of the v19 State-3 fix.** The generator's fix commit `f551d4a` closes the single blocking
+defect (RA #15 / Defect #1 from v19). Independently reproduced this cycle: `node --test tests/unit/*.test.mjs`
+(84/84), `npx playwright test` (**two full-suite runs, 15/15 each**), `npx playwright test -g "roster has
+no transform ancestor" --repeat-each=12` (**12/12**), `node scripts/build.mjs` (deterministic SHA
+`83a98b13250d` across two builds, `index.html` byte-identical to hashed twin), `node scripts/ios-scroll-smoke.mjs`
+(exit 1 when required, exit 0 skip otherwise), `npx prettier --check` (clean on both changed files).
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.1 / Phase 1 — roster transform removed in isolation | **COMPLIANT** (was DEVIATED in v19) | `f551d4a` moves the non-roster `transform` transition out of the `:not(.is-ready)`-only block into `.screen:not(.roster-screen)` (`src/styles.css:70-74`), a selector present in **both** ready and not-ready states → the non-roster scale entrance animates again (restores Phase 1.2 / §4.1). `.roster-screen { transform: none }` preserved (`:158-161`); e2e confirms `.roster-screen` computes to `transform:none` and `.loading-screen` retains a non-none entrance transform + `transform` in `transitionProperty`. The v19 minor entrance regression is repaired. |
+| §4.2 / Phase 2 — probe-only scroll oracle | **COMPLIANT** | Unchanged from v19: `readRuntimeFlags` exact `scrollProbe=1`; `createScrollProbe` no-op default, appends `#scroll-probe-status` to `list.parentElement`, updates from real `scrollTop`, throws `TypeError` on bad list, `dispose()` wired into `mountRoster` cleanup. |
+| §4.3 / Phase 4 — iOS touch-scroll CI lane | **COMPLIANT** | Unchanged from v19: `scripts/ios-scroll-smoke.mjs` fails closed (exit 1) when required, skips (exit 0) otherwise — reproduced. `WebRosterScrollUITests.swift` reads probe via `safari.webViews.staticTexts`, drives `com.apple.mobilesafari`, drags off-row at `(0.92,0.78)→(0.92,0.22)`. `.github/workflows/ios-scroll.yml` on `[self-hosted, macOS, ios-touch]`, `timeout-minutes: 20`. Lane is installed but **not execution-proven** here (no iOS simulator/device) — source-verified, plan-sanctioned. |
+| §4.4 / Phase 3 — cache-busted artifacts | **COMPLIANT** | `index.html`, `check-in-007.<hash>.html`, `check-in-007.manifest.json` from one HTML string; byte-identical twin (verified `diff -q`), deterministic hash across two builds (`83a98b13250d` — changed from v19's `9cda955cf0fb` because the CSS fix changed the emitted bytes, which is correct content-addressing), budget check precedes writes. |
+| Phase 5 — verification & honesty | **COMPLIANT** | `docs/IPAD_SCROLL_BUG.md` still records the iOS touch result as skipped/unverified (Phase 5.2 honored), git-tracked. Web gates now reliably green (the v19 blocker is gone). |
+| §5 File Manifest | **COMPLIANT** | The fix touches exactly `src/styles.css` + `tests/e2e/checkin.spec.mjs` — both `(MOD)` in the §5 manifest. No out-of-manifest drift (`git show --stat f551d4a`). |
+
+**Implementation Score:** 97/100
+
+## Defects
+
+None blocking. The v19 blocking defect (RA #15 / Defect #1 — flaky e2e gate + non-roster entrance
+snap) is **RESOLVED**: the non-roster transform transition now animates in the ready state, and the
+test awaits a stable `is-ready` before sampling, so `npm run test:e2e` is reliably green (2× full
+suite 15/15 + 12× repeat-each, independently reproduced). The implementation faithfully executes all
+five phases of approved plan v28 and addresses all five critique Path-to-100 items.
+
+**Why 97 and not higher:** the iOS touch-scroll lane (`ios-scroll-smoke.mjs`, `WebRosterScrollUITests.swift`,
+`ios-scroll.yml`) — the cycle's central real-device deliverable — is **installed and source-verified
+but never execution-proven** here, because no iPadOS simulator/device is available in this environment.
+Its correctness (XCUITest→mobile-Safari WebView drive/read, the synthesized touch-drag) rests on source
+inspection, not a green run. This is the same env-blocked posture that scored prior native cycles 96-97
+in this project (Cycle 6/7 precedent). Non-blocking and plan-sanctioned (§4.3 tradeoff, Phase 5.2), but
+it is the honest reason this is not ≥98.
+
+**Disposition — Cycle 15, State 4 (implementation VERIFIED, ≥95 gate cleared).** Plan v28 (96) is
+implemented at 97/100. The code faithfully matches the approved contract, including the plan's honest
+"unverified gate awaiting the provisioned runner" disposition. **Separate open audit action:** RA #14
+(the actual iPad touch-scroll fix) stays **IN PROGRESS** at the system-health level until a real iPad /
+iOS-Simulator touch **PASS** exists — the implementation-fidelity score being ≥95 does **not** mark the
+underlying bug proven-fixed on device. Next real-world step: provision a matching
+`CHECKIN007_IOS_DEVICE`/`CHECKIN007_IOS_RUNTIME` and run `CHECKIN007_IOS_SCROLL_REQUIRED=1 npm run
+test:ios-scroll`, or run the manual real-iPad fallback and record the result in `docs/IPAD_SCROLL_BUG.md`.

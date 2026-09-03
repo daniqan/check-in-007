@@ -27,6 +27,14 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 > `scripts/ios-scroll-smoke.mjs`, `.github/workflows/ios-scroll.yml`, and hashed build artifacts.
 > The iPad fix must be verified on a **real iPad / iOS Simulator** — never desktop/CI alone. See
 > `CONSOLIDATED_AUDIT.md` v57 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 15 Rev 1.
+>
+> **Cycle 15 State-4 (audit v59):** the State-3 fix commit `f551d4a` resolved the sole blocking defect
+> (RA #15, flaky e2e gate) — **Implementation Verification v20 = 97/100, ≥95 gate cleared, implementation
+> COMPLETE**. Gates independently reproduced green (unit 84/84; e2e 2× full suite 15/15 + 12/12 repeat-each;
+> deterministic build; iOS lane fails closed). Both robustness items stay `[x]`. **RA #14 remains IN
+> PROGRESS** — the iPad fix is code-complete but not yet verified on a real iPad / iOS Simulator (no device
+> in this environment), so system health holds at 82. See `CONSOLIDATED_AUDIT.md` v59 and
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v20.
 
 ## Deferred Features
 - [x] Roster windowing/virtualization for lists >500 rows (§2, §5 Phase 2 threshold) — done in `21e06f3`: pure `src/lib/virtual-list.mjs` window math + `roster.mjs` virtual rendering; Implementation Verification v3 = 97/100 VERIFIED (22 unit + 9 e2e green)
