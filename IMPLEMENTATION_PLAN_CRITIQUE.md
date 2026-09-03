@@ -197,3 +197,49 @@ list (Path-to-100 #2) and pinning the run event to `push` (Path-to-100 #3) can f
 Alternatively, if the operator *does* supply both exact authorizations, implement Phases 0–3 verbatim.
 
 **Implementation Score:** N/A
+
+---
+
+### Implementation Verification — v3
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v23 @ commit `d8a9949` (approved Cycle 11 Rev 1 = 96/100)
+**Code:** `master` @ HEAD `736fc85` audited on 2026-09-03
+
+**Verdict: NOT STARTED (unchanged from v2).** No implementation of approved plan v23 exists, and
+**nothing has changed since Implementation Verification v2.** HEAD is still `736fc85` — the audit-v39
+commit; there are **zero new commits** since that audit. The re-verified tree is byte-for-byte identical
+to what v2 audited:
+
+- **No Cycle-11 target commit.** `docs/VERIFICATION_EVIDENCE.md` still carries only the Cycle-10 records
+  (Local Web Gates `PASS`, Native `BLOCKED`, CI `BLOCKED`); `grep -c "Cycle 11" docs/VERIFICATION_EVIDENCE.md`
+  = **0**. README status unchanged.
+- **All 6 §14 completion boxes `[ ]`.** The three manifest files show no diff vs. their Cycle-10 state.
+- **Both hard pre-implementation gates still unsatisfiable here.** `xcrun simctl list runtimes` = empty
+  (`native-ios-sdk-not-installed`); `git remote -v` = none; this remains a non-interactive session that
+  cannot run the two §13 Q1–Q2 authorization exchanges.
+
+#### Section-by-section compliance (approved plan v23 §6)
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 0 — Authorization, local gates, target | **MISSING** | No approval obtained/recorded; no Cycle-11 evidence placeholder; no docs-only target commit; no Phase-0 preflight/inventory. |
+| §6 Phase 1 — Native iPad execution | **MISSING** | `xcodebuild -downloadPlatform iOS` not run; `simctl list runtimes` still empty; no `.xcresult`, no recorded counts/exit. |
+| §6 Phase 2 — Exact-SHA CI execution | **MISSING** | `git remote -v` = none; no push; no `CI` run observed; no `dist-index-html` parity check. |
+| §6 Phase 3 — Finalize evidence | **MISSING** | `docs/VERIFICATION_EVIDENCE.md` unchanged (Native `BLOCKED`, CI `BLOCKED`; no Cycle-11 section). README unchanged. |
+| §5 File Manifest | **UNTOUCHED** | All three manifest files at Cycle-10 state; no diff. |
+| §14 Completion Checklist | **0 / 6 checked** | Every box `[ ]`; both §13 Q1–Q2 authorization gates unsatisfied. |
+
+#### Directive (unchanged — State 2 cannot advance here; revise the plan)
+
+This remains a **not-yet-implemented, environment-blocked** cycle, not a defective one — there is no code
+to fix, and §2 forbids fabricating a `PASS` or weakening the gates. Implementation Score stays **N/A**.
+The single sanctioned lever is still to **revise plan v23 to add a bounded terminal disposition for the
+declined/unavailable-authorization branch** (Rev-1 critique Path-to-100 #1): if either authorization is
+declined or the infrastructure is unavailable, *withdraw* the plan and re-classify the two external gaps
+as permanently environment-blocked, audit-closeable Next Steps — rather than leaving the loop implementing
+a plan that cannot be implemented here. Fold in Path-to-100 #2 (§4.6 ↔ §6 Phase 2 step-5 required-step
+reconciliation) and #3 (pin the CI run event to `push`) in the same revision. Alternatively, if the
+operator supplies both exact authorizations, implement Phases 0–3 verbatim. A **third** consecutive idle
+cycle has now elapsed with no work product; the inactivity decay has advanced to −3 (see Audit v40).
+
+**Implementation Score:** N/A
