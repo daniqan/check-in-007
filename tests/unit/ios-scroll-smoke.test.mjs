@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   IOS_SCROLL_ERROR_LIMIT,
   normalizeIosScrollResult,
   preflightIosRunner,
+  runIosScrollSmoke,
+  testRunnerEnvironment,
   writeIosScrollResult,
 } from '../../scripts/ios-scroll-smoke.mjs';
 
@@ -141,6 +143,65 @@ test('normalization rejects invalid results', () => {
       }),
     /passed/,
   );
+});
+
+test('test-runner environment includes Xcode-forwarded probe variables', () => {
+  const env = testRunnerEnvironment({
+    probeUrl: 'https://127.0.0.1:9443/check-in-007.abcdef123456.html?scrollProbe=1',
+    allowSelfSignedHttps: '1',
+  });
+  assert.equal(
+    env.TEST_RUNNER_CHECKIN007_IOS_PROBE_URL,
+    'https://127.0.0.1:9443/check-in-007.abcdef123456.html?scrollProbe=1',
+  );
+  assert.equal(env.TEST_RUNNER_CHECKIN007_ALLOW_SELF_SIGNED_HTTPS, '1');
+  assert.equal(env.CHECKIN007_IOS_PROBE_URL, env.TEST_RUNNER_CHECKIN007_IOS_PROBE_URL);
+});
+
+test('runIosScrollSmoke passes probe URL into the XCTest runner launch environment', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'checkin-ios-scroll-run-'));
+  await mkdir(join(root, 'dist'), { recursive: true });
+  await writeFile(
+    join(root, 'dist/check-in-007.manifest.json'),
+    JSON.stringify({
+      artifact: 'check-in-007.abcdef123456.html',
+      sha256: 'unused',
+      gzipSize: 1,
+      byteSize: 1,
+    }),
+  );
+
+  let capturedEnv;
+  const { runCommand } = runnerFor([
+    { status: 'exit', code: 0, stdout: `-- ${runtime} --\n    ${device} (Shutdown)\n`, stderr: '' },
+    { status: 'exit', code: 0, stdout: 'Xcode 26.4\n', stderr: '' },
+    { status: 'exit', code: 0, stdout: 'Test Succeeded\n', stderr: '' },
+  ]);
+  const result = await runIosScrollSmoke({
+    root,
+    device,
+    runtime,
+    required: true,
+    outputPath: join(root, 'ios-scroll-result.json'),
+    runCommand: async (command, args, options = {}) => {
+      if (command === 'xcodebuild' && args[0] === 'test') {
+        capturedEnv = options.env;
+      }
+      return runCommand(command, args, options);
+    },
+    buildKiosk: async () => {},
+    startHttpsServer: async () => ({
+      url: 'https://127.0.0.1:9443',
+      close: async () => {},
+    }),
+  });
+
+  const expectedProbeUrl = 'https://127.0.0.1:9443/check-in-007.abcdef123456.html?scrollProbe=1';
+  assert.equal(result.status, 'passed');
+  assert.equal(result.url, expectedProbeUrl);
+  assert.equal(capturedEnv.TEST_RUNNER_CHECKIN007_IOS_PROBE_URL, expectedProbeUrl);
+  assert.equal(capturedEnv.TEST_RUNNER_CHECKIN007_ALLOW_SELF_SIGNED_HTTPS, '1');
+  assert.equal(capturedEnv.CHECKIN007_IOS_PROBE_URL, expectedProbeUrl);
 });
 
 test('writes result JSON with trailing newline', async () => {

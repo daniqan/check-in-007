@@ -49,6 +49,21 @@ function destinationFor(device) {
   return `platform=iOS Simulator,name=${device}`;
 }
 
+export function testRunnerEnvironment({ probeUrl, allowSelfSignedHttps }) {
+  if (!probeUrl || typeof probeUrl !== 'string') {
+    throw new TypeError('probeUrl is required for the iOS test runner environment');
+  }
+  const env = {
+    CHECKIN007_IOS_PROBE_URL: probeUrl,
+    TEST_RUNNER_CHECKIN007_IOS_PROBE_URL: probeUrl,
+  };
+  if (allowSelfSignedHttps !== undefined) {
+    env.CHECKIN007_ALLOW_SELF_SIGNED_HTTPS = allowSelfSignedHttps;
+    env.TEST_RUNNER_CHECKIN007_ALLOW_SELF_SIGNED_HTTPS = allowSelfSignedHttps;
+  }
+  return env;
+}
+
 async function defaultProbeUrl(root, baseUrl) {
   const manifest = JSON.parse(
     await readFile(resolve(root, 'dist/check-in-007.manifest.json'), 'utf8'),
@@ -244,10 +259,10 @@ export async function runIosScrollSmoke({
         timeoutMs,
         env: {
           ...process.env,
-          CHECKIN007_IOS_PROBE_URL: probeUrl,
-          CHECKIN007_ALLOW_SELF_SIGNED_HTTPS: server
-            ? '1'
-            : process.env.CHECKIN007_ALLOW_SELF_SIGNED_HTTPS,
+          ...testRunnerEnvironment({
+            probeUrl,
+            allowSelfSignedHttps: server ? '1' : process.env.CHECKIN007_ALLOW_SELF_SIGNED_HTTPS,
+          }),
         },
       },
     );
