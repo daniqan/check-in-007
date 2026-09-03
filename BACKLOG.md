@@ -18,7 +18,7 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 > Implementation Verification v24.
 
 ## Cycle-artifact guard polish (opened audit v63)
-- [ ] Reconcile the CI `check-cycle-artifacts` guard with the pre-critique planning window (plan v30
+- [/] Reconcile the CI `check-cycle-artifacts` guard with the pre-critique planning window (plan v30
   Path-to-100 #1). The guard runs in CI *without* the `CHECKIN007_ALLOW_EMPTY_CRITIQUE` override, so
   a generator new-cycle/plan commit — which necessarily lands with a 0-byte
   `IMPLEMENTATION_PLAN_CRITIQUE.md` before the discriminator scores — would redden CI on that commit.
