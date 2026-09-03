@@ -4,5 +4,6 @@ test-results/
 playwright-report/
 *.pem
 *.key
+.certs/
 .venv*/
 vendor/

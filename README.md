@@ -19,13 +19,41 @@ npm run serve
 runtime on its own. `serve`/`serve:https` stay unguarded so a dev server still starts for
 diagnosis.
 
-Open `http://localhost:8080`. For an iPad on the LAN, use HTTPS:
+Open `http://localhost:8080`.
+
+### Live camera on an offline iPad
+
+For an iPad on the same LAN, start the dependency-free HTTPS helper:
 
 ```bash
-mkcert -install
-mkcert localhost 127.0.0.1 <laptop-LAN-IP>
 npm run serve:https
 ```
+
+The helper generates and caches a self-signed certificate, automatically discovers the
+host's LAN IPv4 addresses, includes them in the certificate, and prints matching kiosk and
+certificate-download URLs. It needs no internet, `mkcert`, or OpenSSL. Connect the host and
+iPad with ad-hoc Wi-Fi, Personal Hotspot, or a travel router, then open the printed
+`https://<host-lan-ip>:8443/` URL. Use `npm run serve:https -- --host <name-or-extra-ip>`
+to add a resolvable custom name or address. A static IP or DHCP reservation avoids needing
+to re-trust a regenerated certificate after the host address changes.
+
+On the iPad:
+
+1. Open the printed `/checkin007-cert.pem` URL and allow the profile download.
+2. Open Settings → General → VPN & Device Management and install the downloaded profile.
+3. Open Settings → General → About → Certificate Trust Settings and enable full trust for
+   the CheckIn007 certificate.
+4. Reload the kiosk URL and allow camera access.
+
+| Origin / client    | Live camera | Requirement                                      |
+| ------------------ | ----------- | ------------------------------------------------ |
+| Trusted `https://` | Yes         | Install and fully trust the helper certificate   |
+| `http://localhost` | Yes         | Requires a web server running on the same device |
+| `http://<lan-ip>`  | No          | Not a secure context                             |
+| `file://`          | No          | Uses covert scan fallback                        |
+| Native SwiftUI app | Yes         | No HTTPS required                                |
+
+A single iPad with no companion host should use the native SwiftUI app.
 
 ## Build And Test
 

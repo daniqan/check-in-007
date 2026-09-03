@@ -244,7 +244,7 @@ dependency added or removed).
 
 ## 6. Implementation Phases
 
-### Phase 1: DER encoder (`scripts/lib/der.mjs`)
+### Phase 1: DER encoder (`scripts/lib/der.mjs`) — ✅ Complete
 
 Pure functions returning `Buffer`s. DER is deterministic TLV (tag, definite length, value).
 
@@ -288,7 +288,7 @@ ASN.1 `GeneralizedTime` for those dates instead of silently wrapping the two-dig
 - Every helper returns a `Buffer` whose first byte is the correct tag and whose length field
   round-trips (a `readTlvLength` test helper re-reads it).
 
-### Phase 2: Self-signed certificate (`scripts/lib/dev-cert.mjs`)
+### Phase 2: Self-signed certificate (`scripts/lib/dev-cert.mjs`) — ✅ Complete
 
 ```js
 // scripts/lib/dev-cert.mjs
@@ -349,7 +349,7 @@ export function ensureCert({ dir, hosts } = {}) {
 - A valid cached cert missing a newly requested LAN IP is regenerated and the new SAN covers
   it; malformed, expired, or key/cert-mismatched cache entries are likewise replaced.
 
-### Phase 3: Static handler (`scripts/lib/static-server.mjs`)
+### Phase 3: Static handler (`scripts/lib/static-server.mjs`) — ✅ Complete
 
 ```js
 // scripts/lib/static-server.mjs
@@ -397,7 +397,7 @@ export function createStaticHandler({ root, certPath, forbiddenRoots = [], certR
   `certRoute` remains 200 and there is no route that can return key bytes.
 - `HEAD /` → 200, `Content-Type` set, empty body.
 
-### Phase 4: HTTPS CLI (`scripts/serve-https.mjs`)
+### Phase 4: HTTPS CLI (`scripts/serve-https.mjs`) — ✅ Complete
 
 ```js
 // scripts/serve-https.mjs
@@ -448,7 +448,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 - Running directly on this Node-26 machine starts and serves (helper is unguarded); Ctrl-C
   shuts down cleanly.
 
-### Phase 5: Tests, wiring, and docs
+### Phase 5: Tests, wiring, and docs — ✅ Complete
 
 `package.json`:
 ```json
