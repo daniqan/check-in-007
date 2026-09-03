@@ -49,3 +49,9 @@ required success evidence.
   and publication were not authorized. Recovery: approve an exact owner/repository and normal push,
   then inspect the `CI` run whose `headSha` equals the target SHA and compare its artifact byte-for-byte
   with a fresh same-SHA local build.
+
+## Cycle 11 — External Execution Closure
+
+Cycle 11 targets the installed iOS 26.4 simulator runtime and the linked
+`daniqan/check-in-007` GitHub repository. The immutable target SHA is this commit; native and CI
+results are intentionally finalized only after both external executions pass against it.
