@@ -90,6 +90,10 @@ tests, Playwright chromium e2e, and `npm run build` — on the pinned Node 24 li
 (`ubuntu-latest`) for every push to `main`/`master` and every pull request, with npm and
 Playwright-browser caching. The built `dist/index.html` is uploaded as a per-run artifact.
 
+External native-simulator and live-CI verification status is recorded in
+[`docs/VERIFICATION_EVIDENCE.md`](docs/VERIFICATION_EVIDENCE.md). Only results explicitly marked
+`PASS` there are verified; blocked gates include their recovery requirements.
+
 ## Multi-Device Log Merge
 
 1. Export JSON or CSV from each event device.
