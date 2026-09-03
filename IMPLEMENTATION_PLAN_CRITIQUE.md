@@ -1,3 +1,192 @@
+# Native UI Interaction & Accessibility Repair Plan Critique — Cycle 13, Revision 2
+
+**Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `7c51af4`
+**Plan Under Review:** IMPLEMENTATION_PLAN.md v26 (Cycle 13 — Native UI Interaction and Accessibility Repair)
+**Score:** **96 / 100** (previous: v25 Cycle-13 Rev 1 = 72 | this is the revised plan answering that critique)
+**Status:** **APPROVED** (clears the ≥95 gate)
+
+Plan v26 is the correct State-1 response to the Rev-1 (72/100) critique. Rev 1 proved by execution that the
+native suite is red for **two independent** reasons — the `mark007` `.isButton`-vs-`otherElements` query
+mismatch (methods 3–4, RA #12) **and** the check-in scan→result transition not surfacing
+`scan.status`/`result.title` after a roster-row tap (methods 1–2, RA #13). v26 now addresses **both**, and its
+RA #13 root-cause is *more accurate than my own Rev-1 critique*: it correctly identifies that `result.title` is
+absorbed by `.accessibilityElement(children: .combine)`, which I had hand-waved as "should resolve under
+`staticTexts`." The plan is implementation-ready.
+
+## Issues resolved in revision 2 (vs Rev-1 72/100)
+
+1. **Misdiagnosed "shared cause" corrected (Rev-1 Blocking #1 / Commission #1).** §1 no longer claims all four
+   UI failures share the `mark007` cause. It explicitly separates methods 3–4 (RA #12, `mark007` query) from
+   methods 1–2 (RA #13, check-in flow), matching the executed failure locations (`CheckIn007UITests.swift:30`
+   `scan.status`, `:51` `result.title`).
+2. **Scope gap closed (Rev-1 Blocking #1/#2).** §4.1 (full-width rectangular hit target) and §4.2 (combined
+   result identity) bring the RA #13 surface into scope alongside the retained RA #12 query fix (§4.3). The §6
+   Phase 3 / §14 "four UI methods, 37 passes" gate is now backed by a change set that touches all four methods'
+   failure causes.
+3. **Scan/result failure now diagnosed (Rev-1 Omission #1).** §4.1 attributes methods 1–2 to the synthesized
+   center tap landing on dead hit-space of the intrinsic-width `.buttonStyle(.plain)` label; §4.2 attributes
+   the `result.title` miss to `.combine` child-absorption. Both are verifiable in the current source
+   (RosterView.swift:58–68 has no width/`contentShape`; ResultView.swift:23 identifier is on a `.combine`
+   child at line 35).
+4. **Diagnostic capture added (Rev-1 Path-to-100).** §4.4 adds `requireExists`, attaching
+   `app.debugDescription` only on failure — exactly the "dump the hierarchy on first failure" mechanism Rev 1
+   asked for, without weakening or retrying.
+5. **Cycle-12 framing correction scheduled (Rev-1 Consequence #2).** §Phase 4 requires recording that methods
+   1–2 failed *after* row lookup, retiring the inaccurate "all four failed initial lookup" phrasing.
+
+## Ground-truth verification (independently confirmed against `7c51af4`)
+
+1. **RA #12 fix target exact.** Precisely **two** `app.otherElements[A11yId.mark007]` sites exist
+   (`CheckIn007UITests.swift:61,80`); zero `app.buttons[...mark007]`. §4.3/Phase 2 "exactly two button queries"
+   is correct. `RosterView.swift:43–46` carries `A11y.mark007`, label `"Admin (long press)"`, `.isButton`,
+   2.0 s long-press — so `app.buttons[...]` is the right collection.
+2. **RA #13 `result.title` diagnosis is correct and precise.** `ResultView.swift:23` puts
+   `.accessibilityIdentifier(A11y.resultTitle)` on the child `Text(displayName)`, inside a VStack that applies
+   `.accessibilityElement(children: .combine)` at line 35. Combined children are absorbed → the child
+   identifier is unqueryable, so `app.staticTexts[A11yId.resultTitle]` (test lines 32/51) fails even when
+   ResultView is on screen. Moving the identifier to the combined VStack (§4.2) makes the combined `StaticText`
+   queryable. **This is the decisive RA #13 half and it is right.**
+3. **RA #13 hit-region diagnosis is consistent with the evidence.** `scan.status` (ScanView.swift:39) is a
+   plain, non-combined `Text` with its identifier → it *would* resolve under `app.staticTexts` if ScanView were
+   reached. Rev-1's run showed it is *not* found within 5 s after the tap (`:30`), which implies ScanView is
+   never reached → the tap did not fire `selectGuest`. That points to a hit-target problem, and the canonical
+   SwiftUI remedy is exactly §4.1's `.frame(maxWidth: .infinity, alignment: .leading)` + `.contentShape(Rectangle())`.
+4. **Inventory exact.** Six unit suites = 7+3+8+6+5+4 = **33** unit methods; **4** UI = **37** — matches §6
+   Phase 3 / §10 / §14.
+5. **Environment §11 accurate.** Xcode 26.4 (`17E192`), iOS 26.4 (`23E244`), iPad (A16)
+   `A155995F-EC83-41BE-95B2-1A5F390ABF59` — all as recorded across prior verified cycles.
+6. **CI disposition honest (§4.5).** Run `33711898714` retained as terminal `BLOCKED (external billing)`; not
+   banked. Consistent with §2/§8.
+7. **No assertion weakening; product accessibility preserved.** §2 forbids deleting/skipping/loosening
+   assertions and forbids removing `.isButton`; §4.1–§4.4 keep every downstream wait, gesture, and workflow
+   assertion. Manifest (§5) is test + two additive SwiftUI hit/identity modifiers + docs — no AppModel, camera,
+   timing, or styling change.
+
+## Scope Check
+
+- **Audit findings:** open P1 RAs are **#12** (native `mark007` query) and **#13** (check-in scan→result flow);
+  **#10** (CI billing) is external. v26 addresses **#12 and #13** — the full native-red surface — and correctly
+  preserves **#10** as external `BLOCKED`. No in-scope finding ignored. **No scope cap applies.**
+- **Backlog:** `BACKLOG.md` = **0 unchecked** (15 `[x]`). Nothing skipped.
+- **Integration points:** §7 now gives four contracts covering the row-geometry↔activation and
+  AppModel-state↔scan/result-accessibility paths that Rev 1 flagged as uncovered — not just `mark007`.
+- **Alternatives considered:** §4.1 rejects coordinate taps / test hooks / AppModel edits; §4.2 rejects
+  removing `.combine` / querying display text / untyped queries; §4.3 rejects dropping `.isButton`. Tradeoffs
+  stated for each key decision.
+
+## Flaws of Commission
+
+No flaws of commission identified. The `result.title` `.combine` diagnosis is provably correct; the `mark007`
+query fix is correct; the hit-target remedy is the standard SwiftUI fix; the inventory, environment, and CI
+disposition are accurate.
+
+## Flaws of Omission
+
+1. **§4.1's root cause is a strong hypothesis, not a captured-and-recorded fact (minor).** §1/§4.1 assert "a
+   fresh failure hierarchy captured after `firstRow.tap()` still shows the complete roster," but no durable
+   record of that capture exists (the Rev-1 run recorded only "`scan.status` not found," not a full
+   roster-still-present dump). The plan (rightly) demands failure-only hierarchy attachments for the
+   *implementation*; its own §4.1 diagnostic evidence should be equally traceable. Mitigated by §13 Q1's honest
+   decision-gate (focused methods decide; failure STOPs, no bypass) and by `requireExists` capturing the
+   hierarchy on the first failing run. *Non-blocking.*
+2. **No explicit branch for "§4.1 fix insufficient" (minor).** If, after full-width `contentShape`, methods 1–2
+   still fail at `scan.status`, the plan STOPs (correct) but does not pre-enumerate the next hypothesis
+   (timing / `selectGuest` / audio-unlock). §13 Q1 covers this as "failure stops rather than authorizing a
+   bypass," which is acceptable, but a named fallback would be stronger. *Non-blocking.*
+
+## Regressions
+
+No regressions identified. §2 forbids product-behavior, web, dependency, workflow, and `dist/` changes; the two
+SwiftUI modifiers are additive (row count and 44 pt min height preserved); the identifier move keeps the
+combined announcement byte-for-byte (§7.2 "announcement wording remains byte-for-byte"); the query edits do not
+weaken the two admin methods. Test coverage does not shrink (37 methods retained).
+
+## Why 96 and not 98
+
+The two diagnoses that can be *proven from source right now* — the `mark007` collection and the `result.title`
+`.combine` absorption — are 98-grade and I confirmed both. The score is held at 96 by one real gap: the §4.1
+hit-region cause (the load-bearing half of methods 1–2) rests on an asserted-but-unrecorded post-tap hierarchy
+rather than a captured artifact in the durable record (Omission #1). The fix is the canonical remedy and the
+plan STOPs honestly if it's wrong, so this is a specificity/proof gap, not a feasibility failure — hence 96,
+not the low-70s of Rev 1, and not 98+.
+
+## Path to ≥95
+
+Already cleared (96). No blocking items.
+
+## Path to 100
+
+1. **Record the §4.1 diagnostic capture.** Point to (or attach) the actual post-tap `app.debugDescription`
+   showing the roster still present and no `scan.status`, so the hit-region cause is proven, not inferred.
+2. **Name the §4.1 fallback hypothesis** (timing / `selectGuest` / audio-unlock) to run if full-width
+   `contentShape` does not restore activation — so a STOP is followed by a directed next step, not a cold stop.
+3. **State the expected combined-element type explicitly for the acceptance** (`app.staticTexts[result.title]`
+   is a `StaticText` after `.combine`) — §13 Q2 flags the risk; pinning the expected type in §10 would let a
+   type regression be caught the same way the `mark007` one was.
+
+## Summary
+
+Plan v26 is approval-grade (**96/100**). It corrects Rev-1's misdiagnosis, brings the entire native-red surface
+into scope (RA #12 + RA #13), and supplies a `result.title` `.combine` root-cause that is more accurate than my
+own prior critique and independently confirmed in the source. Its one residual gap — the §4.1 hit-region cause
+is asserted rather than captured — is handled honestly via a STOP-on-failure decision gate and the new
+failure-only hierarchy helper. The loop advances **State 1 → State 2 — implement approved plan v26.**
+Implementation Score is **N/A** — nothing is built yet (the only change since the v50 audit is `7c51af4`, which
+rewrites `IMPLEMENTATION_PLAN.md` only; `CheckIn007UITests.swift:61,80` still query `otherElements`,
+`ResultView.swift:23` still identifies the `.combine` child, `RosterView.swift:58–68` still lacks the
+full-width `contentShape`).
+
+**Plan Score:** 96/100
+
+**Implementation Score:** N/A
+
+---
+
+### Implementation Verification — v14
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v26 @ commit `7c51af4` (approved Cycle 13 Rev 2 = 96/100)
+**Code:** `master` @ HEAD `7c51af4` audited on 2026-09-03
+
+**Verdict: NOT STARTED — plan v26 approved this cycle; no implementation exists yet.** `git diff fa180f4..HEAD`
+touches only `IMPLEMENTATION_PLAN.md`; `git diff --name-only fa180f4..HEAD -- native/ src/ tests/` is empty. All
+three manifest source edits are unapplied: `CheckIn007UITests.swift:61,80` still query
+`app.otherElements[A11yId.mark007]` (no `app.buttons`, no `requireExists`); `ResultView.swift:23` still carries
+`.accessibilityIdentifier(A11y.resultTitle)` on the `.combine` child; `RosterView.swift:58–68` `rosterRow` has
+no `.frame(maxWidth: .infinity)` / `.contentShape(Rectangle())`. This is an **unstarted** cycle (State 2), not a
+defective one — Implementation Score is **N/A**.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §6 Phase 1 — Roster activation + result identity (RA #13) | **MISSING** | `RosterView`/`ResultView` unchanged; no focused UI run for a v26 fix commit. |
+| §6 Phase 2 — Admin queries + diagnostics (RA #12) | **MISSING** | Two `otherElements[mark007]` sites intact (lines 61/80); no `requireExists` helper. |
+| §6 Phase 3 — Complete regression verification | **MISSING** | Suite still red (33 unit pass / 4 UI fail from Cycle 12 stands); no fresh native or web run for a v26 commit. |
+| §6 Phase 4 — Durable evidence & status | **MISSING** | No "Cycle 13" section in `docs/VERIFICATION_EVIDENCE.md`; README native status unchanged; Cycle-12 framing not yet corrected. |
+| §14 Completion Checklist | **0 / 7 checked** | Every box `[ ]`. |
+
+**Directive (State 2 — implement approved plan v26 now):**
+1. **RA #13 — repair activation + result identity (Phase 1).** Add `.frame(maxWidth: .infinity, alignment:
+   .leading)` then `.contentShape(Rectangle())` to the `rosterRow` label after its padding; move
+   `.accessibilityIdentifier(A11y.resultTitle)` off the child `Text` onto the `.combine` VStack in
+   `ResultView`. Keep `scan.status` a plain `StaticText`. Run `testFirstCheckInFlow` and
+   `testRepeatGuestDoesNotDuplicateOneScan` separately then together per §6 acceptance.
+2. **RA #12 — repair admin queries + add diagnostics (Phase 2).** Replace exactly the two
+   `app.otherElements[A11yId.mark007]` sites with `app.buttons[A11yId.mark007]`; add `requireExists` (§4.4) for
+   required elements; revert any nonexistent-identifier probe before commit. Run the two admin methods.
+3. **Full regression (Phase 3).** All four UI methods green, then the shared `CheckIn007` scheme: both targets,
+   six suites, **33 unit + 4 UI = 37** passes, exit 0, zero skips/failures, verified via `xcresulttool`; then
+   the web gates (`npm ci`, prettier, `node --test`, playwright, build). One infra-only retry maximum.
+4. **Durable evidence + status (Phase 4).** Record the tested tree, environment, focused outcomes, full
+   inventory, and web counts/build hash; flip README native status to PASS **only** after Phase 3; keep CI
+   `BLOCKED (external billing)`, run `33711898714`, no artifact; add the correction that methods 1–2 failed
+   *after* row lookup. Do **not** weaken any assertion.
+
+If §4.1's full-width `contentShape` does not restore activation (methods 1–2 still fail at `scan.status`), STOP
+and capture the hierarchy (§13 Q1) — do not add coordinate taps or test hooks.
+
+**Implementation Score:** N/A
+
+---
+
 # Native UI Accessibility Query Repair Plan Critique — Cycle 13, Revision 1
 
 **Reviewed:** `IMPLEMENTATION_PLAN.md` @ commit `38263e6`

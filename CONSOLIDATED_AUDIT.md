@@ -1,13 +1,68 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 88/100
-**Audit Version:** v50
-**Audited:** HEAD `38263e6` (plan v25) on 2026-09-03 (Cycle 13 — Native UI Accessibility Query Repair. Plan v25 **NOT APPROVED (72/100)** and **not implemented** — the only change since the Cycle-12 audit is `38263e6`, which rewrites `IMPLEMENTATION_PLAN.md` only. **Key new finding (proved by execution):** v25's premise that `roster.mark007` is the *shared cause* of all four UI failures is **false**. I ran the two non-`mark007` UI methods on iPad (A16) `A155995F-…`: `testFirstCheckInFlow` FAILS at `CheckIn007UITests.swift:30` (`scan.status` not found after the roster-row tap) and `testRepeatGuestDoesNotDuplicateOneScan` FAILS at `:51` (`result.title` not found) — both **downstream in the check-in flow**, unrelated to `mark007`; their roster-row lookups (lines 26/48) PASS. So the native suite is red for **two independent** reasons: (a) the `mark007` `.isButton`-vs-`otherElements` mismatch (methods 3 & 4, RA #12) and (b) the scan→result transition not surfacing `scan.status`/`result.title` (methods 1 & 2, **RA #13** raised this cycle). v25 addresses only (a), so it cannot meet its own §6 Phase 3 / §14 "four UI methods, 37 total passes" gate. CI still `BLOCKED (external billing)`.)
-**Stage:** Cycle 13, **State 1 — revise plan v25 to ≥95** before implementing. v25 misdiagnoses half the UI-red surface; it must expand scope to cover both RA #12 and RA #13 (or re-scope its acceptance to what its change set delivers). RA #11 (CSV) and the camera work remain DONE.
+**Current Score**: 87/100
+**Audit Version:** v51
+**Audited:** HEAD `7c51af4` (plan v26) on 2026-09-03 (Cycle 13 — Native UI Interaction and Accessibility Repair. Plan v26 **APPROVED (96/100)** and **not yet implemented** — the only change since the v50 audit is `7c51af4`, which rewrites `IMPLEMENTATION_PLAN.md` only (`git diff --name-only fa180f4..HEAD -- native/ src/ tests/` is empty). v26 is the correct State-1 answer to the Rev-1 (72/100) critique: it now covers **both** independent native-red causes — RA #12 (`mark007` `.isButton`-vs-`otherElements` query, methods 3–4) **and** RA #13 (check-in scan→result flow not surfacing `scan.status`/`result.title` after a roster-row tap, methods 1–2). Its RA #13 `result.title` root-cause is *more accurate than the Rev-1 critique itself*: the identifier sits on a child `Text` (`ResultView.swift:23`) absorbed by `.accessibilityElement(children: .combine)` (`:35`), so `app.staticTexts[result.title]` cannot find it — verified in source. CI still `BLOCKED (external billing)`.)
+**Stage:** Cycle 13, **State 2 — implement approved plan v26**. The suite is still red (33 unit pass / 4 UI fail stands from Cycle 12) until v26's three source edits land: full-width `contentShape` on the roster row (RA #13 activation), move `result.title` onto the `.combine` VStack (RA #13 identity), and `otherElements→buttons` for `mark007` (RA #12). RA #11 (CSV) and the camera work remain DONE.
 
-**Plan Score:** 72/100
+**Plan Score:** 96/100
 **Implementation Score:** N/A
-**Current Score**: 88/100
+**Current Score**: 87/100
+
+<!-- audit-entry v51 -->
+> **STATE 2 — CYCLE-13 PLAN v26 APPROVED (96/100): BOTH NATIVE-RED CAUSES NOW IN SCOPE; AWAITING IMPLEMENTATION (v51). Score 88 → 87.**
+> The only change since v50 is commit `7c51af4` (`plan: v26 - cover both native UI failure paths`), a docs-only
+> new plan revision. `git diff --name-only fa180f4..HEAD -- native/ src/ tests/` is **empty** — no code landed.
+> - **Plan v26 is APPROVED at 96/100** (see `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-13 Rev 2). It is the correct
+>   State-1 answer to the Rev-1 (72/100) critique: it now covers **both** independent native-red causes rather
+>   than one.
+>   - **RA #12 (methods 3–4):** retains the correct `app.otherElements[A11yId.mark007]` → `app.buttons[...]`
+>     query fix. Verified: exactly two sites (`CheckIn007UITests.swift:61,80`); `RosterView.swift:43–46` carries
+>     `.isButton`, so `app.buttons` is right.
+>   - **RA #13 (methods 1–2):** §4.1 gives the roster-row label `.frame(maxWidth: .infinity, alignment:
+>     .leading)` + `.contentShape(Rectangle())` so the synthesized center `.tap()` reaches the button action
+>     (methods 1–2 fail at `scan.status`/`result.title` because the tap lands on dead hit-space of the
+>     intrinsic-width `.buttonStyle(.plain)` label); §4.2 moves `.accessibilityIdentifier(A11y.resultTitle)` off
+>     the child `Text` onto the `.accessibilityElement(children: .combine)` VStack so the combined `StaticText`
+>     is queryable.
+> - **v26's `result.title` root-cause is MORE ACCURATE than my own Rev-1 critique.** Rev 1 hand-waved that
+>   `result.title` "should resolve under `staticTexts`." Verified in source: `ResultView.swift:23` puts the
+>   identifier on the **child** `Text(displayName)`, and the enclosing VStack applies `.combine` at `:35` —
+>   combined children are absorbed, so `app.staticTexts[A11yId.resultTitle]` (test lines 32/51) cannot find it
+>   even when ResultView is on screen. This is the decisive RA #13 half and v26 gets it right.
+> - **One residual (held the plan at 96, not 98):** §4.1's hit-region cause is asserted ("a captured post-tap
+>   hierarchy still shows the roster") but not recorded in the durable evidence trail; the Rev-1 run recorded
+>   only "`scan.status` not found." Handled honestly via §13 Q1 decision-gate (STOP on failure, no bypass) and
+>   the new failure-only `requireExists` hierarchy helper (§4.4). Non-blocking.
+> - **Inventory / environment / CI verified.** Six unit suites = 7+3+8+6+5+4 = **33** + **4** UI = 37; Xcode
+>   26.4 / iOS 26.4 / iPad (A16) `A155995F-…`; run `33711898714` honestly retained as `BLOCKED (external
+>   billing)`, not banked. No assertion weakened; §2 forbids AppModel/camera/timing/styling/`.isButton` changes.
+> - **Not implemented.** `CheckIn007UITests.swift:61,80` still query `otherElements`; `ResultView.swift:23`
+>   still identifies the `.combine` child; `RosterView.swift:58–68` `rosterRow` still lacks the full-width
+>   `contentShape`. Implementation Verification **v14 = N/A** (State 2, unstarted).
+> - **RA #11 (CSV) + camera remain DONE — do not re-open. Backlog `[ ]` = 0** / 15 `[x]`.
+>
+> **Disposition — State 2 (implement approved plan v26).** Land the three source edits (RA #13 activation +
+> identity, RA #12 query), add the `requireExists` diagnostics, run all four UI methods + the full native scheme
+> (37 passes, exit 0) + web gates, and record durable evidence. Do **not** weaken any assertion, add coordinate
+> taps, or touch AppModel/camera; keep CI `BLOCKED`. If the §4.1 `contentShape` fix does not restore activation,
+> STOP and capture the hierarchy per §13 Q1.
+>
+> **Required Actions status.** **#12** (P1, `mark007` query) staleness 2 — P1 stall deduction begins at
+> staleness 3 → **−0**; now covered by an approved plan (ADDRESSED-in-plan, pending code). **#13** (P1,
+> check-in-flow UI red) staleness 1 → **−0**; now covered by approved plan v26. **#10** (CI billing) external,
+> not stalled → **−0**. #1–#9, #11 DONE.
+>
+> **Deductions.** **Base health 91** (unchanged from v50 — no code landed, so verified system health is
+> unchanged: native suite still red, CI still blocked; approving a plan does not raise health until implemented).
+> RA: **−0** (nothing stalled ≥3). Backlog `[ ]` = 0 → **−0**. **Inactivity decay −2**: second consecutive
+> no-code cycle (v50 = first at −1; the only commits in both cycles are docs-only plan revisions v25→v26).
+> Approving a rejected plan into an implementation-ready one is genuine loop progress, but the mechanical decay
+> tracks *code*, and none has landed for two cycles — the pressure to implement is legitimate. **−1** open
+> MODERATE CI-billing lock; **−1** open native UI-red gate (still two-cause, unimplemented). **Base 91 − 1 (CI
+> billing) − 1 (native UI-red) − 2 (decay) − backlog 0 − RA 0 = 87.** Score 88 → 87: the −1 is pure decay for a
+> second code-less cycle; it recovers the moment v26's fixes land and the native suite goes green. See
+> `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle-13 Rev 2 + Implementation Verification v14.
 
 <!-- audit-entry v50 -->
 > **STATE 1 — CYCLE-13 PLAN v25 NOT APPROVED (72/100): MISDIAGNOSED UI-RED; NATIVE SUITE FAILS FOR TWO INDEPENDENT REASONS, NOT ONE (v50). Score 90 → 88.**
