@@ -146,3 +146,55 @@ implementation will be audited against it. Do not revise the plan to pass a late
 audit — fix the code to match this spec. Critically: the iPad fix may NOT be marked verified on
 desktop/CI evidence alone (per `docs/IPAD_SCROLL_BUG.md` and Phase 5.2) — a real iPad / iOS Simulator
 touch result is required, or the gate stays explicitly unverified pending runner provisioning.
+
+---
+
+### Implementation Verification — v19
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v28 (Cycle 15) @ approved commit `282b164` (approved score: 96)
+**Code:** `master` @ `85854be` ("feat(§6): implement iPad scroll robustness") audited on 2026-09-03
+**Independently reproduced by the discriminator this cycle:** `node scripts/build.mjs` (deterministic
+hash), `node --test tests/unit/*.test.mjs` (84/84), `npx playwright test` (full suite), `npx prettier
+--check`, `node scripts/ios-scroll-smoke.mjs` (skip path).
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.1 / Phase 1 — roster transform removed in isolation | **DEVIATED** | `.roster-screen { transform: none }` and base `.screen` no longer transforms; non-roster scale moved to `#app…:not(.is-ready)/.is-ready .screen:not(.roster-screen)` (`src/styles.css:66-82,156`). Roster correctly computes to `transform:none`. **But** the non-roster `transform` transition is declared **only** in the `:not(.is-ready)` selector — see Defect #1: the entrance transform no longer animates in the ready state and the paired e2e assertion is nondeterministic. |
+| §4.2 / Phase 2 — probe-only scroll oracle | **COMPLIANT** | `readRuntimeFlags` exact `scrollProbe=1` gate (`src/app.mjs:15-21`); `createScrollProbe(list,{enabled})` no-ops by default, appends `#scroll-probe-status` to `list.parentElement` (outside the scroller), updates from real `scrollTop`, throws `TypeError` on bad list, `dispose()` removes listener+node and is wired into `mountRoster` cleanup (`src/screens/roster.mjs:5-40,205,217`). Resolves critique Path-to-100 issues #2 (host contract) and #3 (dispose wiring). Unit tests cover default/enabled/update/dispose/malformed (`tests/unit/roster.test.mjs`). |
+| §4.3 / Phase 4 — iOS touch-scroll CI lane | **COMPLIANT** | `scripts/ios-scroll-smoke.mjs` fails closed when `CHECKIN007_IOS_SCROLL_REQUIRED=1`, skips (exit 0) otherwise — reproduced. `WebRosterScrollUITests.swift` pins the critique's open sub-decisions: reads probe via `safari.webViews.staticTexts` `MATCHES`/`CONTAINS` (issue #1a), drives `com.apple.mobilesafari` (#1b), drags at normalized `(0.92, 0.78)→(0.92, 0.22)` — right-edge, off any `.guest-row` (#1c/#5). `.github/workflows/ios-scroll.yml` on `[self-hosted, macOS, ios-touch]`, `timeout-minutes: 20`, uploads xcresult on failure. |
+| §4.3 file placement — Swift target | **DEVIATED (plan-sanctioned, verified)** | File landed at `native/CheckIn007UITests/WebRosterScrollUITests.swift` (existing UI-test target), not the plan's speculative `native/CheckIn007WebUITests/`; `project.pbxproj`/xcscheme untouched. This is allowed by §4.3/Phase 4.2 ("add a separate target *only if* required") — the target uses `PBXFileSystemSynchronizedRootGroup` (`project.pbxproj:39-42`), so the new file is auto-compiled without a pbxproj edit. Correct call. |
+| §4.4 / Phase 3 — cache-busted artifacts | **COMPLIANT** | `artifactNameFor` (SHA-256, 12-char) + `writeBuildArtifacts` emit `index.html`, `check-in-007.<hash>.html`, `check-in-007.manifest.json` from one HTML string; byte-identical (verified `diff -q`), deterministic hash across two builds (`9cda955cf0fb`), budget check still precedes writes (`scripts/build.mjs:118-201`). `ci.yml` upload widened to `dist/`. `serve-https` `no-store` covered for both paths (`tests/unit/serve-https.test.mjs`). |
+| Phase 5 — verification & honesty | **COMPLIANT** | `docs/IPAD_SCROLL_BUG.md` Cycle-15 note records the iOS touch result as "skipped/unverified, not as a PASS" — honors Phase 5.2 / the critique's non-negotiable. The file is now **git-tracked** (`git ls-files` hit) — resolves audit F-16 / critique issue #4. |
+| §5 File Manifest | **COMPLIANT** | All 17 changed files are within the manifest; no out-of-manifest drift (`git diff --name-only c86bf3e..85854be`). `package-lock.json` unchanged (no new deps, as planned). |
+
+**Implementation Score:** 91/100
+
+## Defects
+
+1. **[BLOCKING — red gate] The new e2e test `roster has no transform ancestor while other screens
+   keep scale entrance` is nondeterministic and fails `npm run test:e2e` intermittently.** On a clean
+   full-suite run the discriminator observed **1 failed / 14 passed** at
+   `tests/e2e/checkin.spec.mjs:179` (`expect(scanTransform.transition).toContain('transform')`);
+   re-runs and isolated runs pass. Root cause (verified in `src/styles.css:66-82`): the non-roster
+   `transform` transition is declared **only** under `#app:not(.is-ready) .screen:not(.roster-screen)`.
+   The test calls `setState('LOADING')` (which toggles `is-ready` off→on via rAF, `src/app.mjs:43-44`)
+   then reads `getComputedStyle(...).transitionProperty`; whether the read lands before or after the
+   rAF decides whether the property is `opacity, transform` or just `opacity` → a race. This is not
+   merely a test bug: because the transform transition is absent from the ready-state style, the
+   non-roster **scale entrance no longer animates** — the transform snaps from `scale(0.985)` to
+   `scale(1)` while only opacity fades — a minor regression against Phase 1.2 ("keep opacity+scale
+   transition for non-roster screens") and §4.1 ("other screens retain the visual scale entrance").
+   Violated spec: Phase 5.1 ("Run … `npm run test:e2e` … web gates remain green"), Phase 1.2, §4.1.
+   *Fix (code, not plan):* declare the transform transition in a selector that is present in the
+   ready state — e.g. add `transition: opacity, transform` to a base `.screen:not(.roster-screen)`
+   rule (or to `#app.is-ready .screen:not(.roster-screen)`) so the entrance transform actually
+   animates; then the assertion is deterministic. Additionally harden the test to sample a defined
+   state (await a stable `is-ready` before reading, or assert the resting `transform` rather than the
+   transient `transitionProperty`). Re-run `npx playwright test` several times to confirm 0 flakes.
+
+**Disposition — Cycle 15, State 3 (fix the implementation).** The approved plan v28 (96) is the
+contract; do **not** revise the plan. Fix Defect #1 in code so `npm run test:e2e` is reliably green,
+then resubmit for re-audit. Everything else is compliant and faithful — probe oracle, cache-busted
+artifacts, fail-closed iOS lane, honest device-verification stance, and all five critique Path-to-100
+items are addressed. The iPad touch fix itself remains **correctly unverified** pending a real iPad /
+iOS-Simulator runner (not a defect — the honest, plan-mandated state).
