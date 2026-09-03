@@ -229,3 +229,183 @@
 > honestly `BLOCKED`, **−0**. **#11** (P1, CSV) — DONE. **#12** (P1, `mark007` query) — RESOLVED & verified.
 > **#13** (P1, check-in flow) — RESOLVED & verified. Camera — DONE.
 
+<!-- audit-entry v54 -->
+> **CYCLE 14 OPENED — PLAN v27 APPROVED (97/100), NOT YET IMPLEMENTED (State 2). Implementation Score N/A. Score 95 → 94 (2nd idle code cycle; backlog still 2 open).**
+> `53a9c48` ("plan: v27 — close Cycle 13 evidence gaps") replaced the completed Cycle-13 plan (v26) with a new,
+> documentation-only Cycle-14 plan targeting the two `BACKLOG.md` follow-ups Audit v53 tracked. Per the
+> staleness rule the newer plan is reviewed fresh: **Plan Critique Cycle 14 Rev 1 = 97/100 — APPROVED**
+> (`IMPLEMENTATION_PLAN_CRITIQUE.md`). `git show --stat 53a9c48` = **1 file** (`IMPLEMENTATION_PLAN.md`); the
+> second §5 deliverable `docs/VERIFICATION_EVIDENCE.md` has **no Cycle-14 subsection** (`grep "Cycle-14"` = 0)
+> and the tree is clean → **nothing is implemented yet.**
+>
+> **v27 factual claims independently verified against git (trust nothing):**
+> - **Pre-fix commit correct.** `git log 7c51af4..8db9fd6`: `50b4357` → `5e80c8b` → `8db9fd6`, so `50b4357`
+>   is the approved-plan commit immediately before implementation `5e80c8b`. At `50b4357` `RosterView.swift`
+>   has **no** `.frame(maxWidth: .infinity …)` (the full-width hit target now at current `:68`) and
+>   `CheckIn007UITests.swift:61,80` still query `app.otherElements[A11yId.mark007]` — genuinely pre-fix.
+> - **Reproduction premise holds.** At `50b4357` `testFirstCheckInFlow` taps `firstRow` (`:27`) then asserts
+>   `scan.waitForExistence(timeout: 5)` (`:29–30`); with the pre-fix dead hit region that assertion fails —
+>   exactly the target §4.1 names.
+> - **Back-port is byte-accurate.** Current `CheckIn007UITests.swift:106` `sheet.swipeUp()` precedes required
+>   `admin.clearLog` (`:108`) and `admin.clearLog.confirm` (`:112–113`); current `RosterView.swift:68–69`
+>   carries the full-width fix. The §4.3/§7.3 contract v27 back-ports matches shipped code.
+> - **Inventory/env consistent.** 33 unit + 4 UI = 37; 78 web unit / 13 Playwright; Node 24.20.0; Xcode 26.4
+>   (`17E192`), iOS 26.4 (`23E244`), iPad `A155995F-…` — all agree with v52/v53.
+>
+> **Prior Cycle-13 implementation unchanged & still VERIFIED.** `git diff --name-only 8db9fd6..HEAD --
+> native/ src/ tests/` is **empty**; the v52-reproduced 37/37 native and v53-reproduced 78/13 web
+> (build 26,315 gzip bytes; `dist/index.html` 70,584 bytes, SHA-256 `8d5a9c65…`) stand byte-for-byte.
+> Implementation Verification v16 = 97/100 (Cycle 13) remains VERIFIED. Cycle 14 does not touch code.
+>
+> **Score computation.**
+> - **Base Score: 97/100.** Fully-green, independently-verified Cycle-13 health + a clean, accurate,
+>   approved Cycle-14 plan. The −3 from 100 is the intrinsic **external CI verification gap** (RA #10):
+>   the deployment path cannot be confirmed end-to-end while billing is locked.
+> - **Required Actions: −0.** RA #12 + RA #13 RESOLVED & verified; RA #11 + camera DONE. RA #10 is MODERATE,
+>   **external (billing) / non-code-actionable** — honestly `BLOCKED`, not a stalled code P0/P1, so no stall
+>   deduction (precedent-consistent v45–v53).
+> - **Backlog: −1.** 2 unchecked `[ ]` (swipeUp plan back-port + §4.1 diagnostic capture) / 15 `[x]` →
+>   1 point per 2 items → −1. These are still open; plan v27 is approved to close them but **not yet
+>   implemented**, so the deduction stands.
+> - **Inactivity decay: −2.** Second consecutive audit cycle with **no** `native/`/`src/`/`tests/` change
+>   (only audit + plan commits since v52's code landed). v53 was −1; this increments to −2. Note: because
+>   the remaining Cycle-14 work is documentation-only, implementing v27 will close the backlog (recovering
+>   −1) but will **not** reset this code-movement decay.
+> - **Final: 97 − 0 − 1 − 2 = 94/100.**
+>
+> **Disposition — Cycle 14, State 2 (implement approved plan v27).** The loop advanced State 4 (Cycle 13
+> complete) → new cycle → plan approved → **implement**. Next action: land the two §5 manifest files
+> (documentation only) — back-port the swipeUp scroll into the plan/evidence and capture the sanitized
+> pre-fix hierarchy at `50b4357`, then re-verify current native/web gates and mark §14. Closing both backlog
+> items recovers the −1; the −2 decay persists until a `native/`/`src/`/`tests/` commit lands (none is
+> planned this cycle, by design). RA #10 remains outside the code loop (operator must clear billing, then
+> push/rerun `33711898714`).
+>
+> **Required Actions status.** **#10** (P2/MODERATE, CI external billing) — external / non-code-actionable;
+> honestly `BLOCKED`, **−0**. **#11** (P1, CSV) — DONE. **#12** (P1, `mark007` query) — RESOLVED & verified.
+> **#13** (P1, check-in flow) — RESOLVED & verified. Camera — DONE.
+
+<!-- audit-entry v53 -->
+> **STATE 4 — CYCLE-13 RE-AUDIT: STILL COMPLETE & VERIFIED (Implementation Score 97/100). Web gates re-reproduced, source re-verified. Score 96 → 95 (onset of inactivity decay + 2 newly-tracked backlog items).**
+> This is a re-audit of the already-complete Cycle 13. No code has landed since the v52 audit: HEAD is still
+> `0f8a230` (the v52 audit commit), and `git diff --name-only 8db9fd6..HEAD -- native/ src/ tests/` is **empty**.
+> The working tree is clean.
+>
+> **Independent re-verification this cycle (trust nothing / re-check, not re-cite):**
+> - **Source re-read — all four plan edits present & correct:**
+>   - **§4.1** `RosterView.swift:68–69` — `.frame(maxWidth: .infinity, alignment: .leading)` + `.contentShape(Rectangle())` after the row-label padding; `.buttonStyle(.plain)`, `.isButton`, 44-pt `minHeight` preserved. **COMPLIANT.**
+>   - **§4.2** `ResultView.swift` — child `Text(displayName)` (`:19`) carries no identifier; VStack applies
+>     `.accessibilityElement(children: .combine)` (`:34`) → label (`:35–37`) → `.accessibilityIdentifier(A11y.resultTitle)` (`:38`). Combined `StaticText` queryable; label byte-for-byte. **COMPLIANT.**
+>   - **§4.3** `CheckIn007UITests.swift:81,101` — both `app.buttons[A11yId.mark007]`; **0** `otherElements[…mark007]`. **COMPLIANT.**
+>   - **§4.4** `requireExists` (`:22–38`) matches the plan spec verbatim; applied to `scan.status`, `result.title`,
+>     `mark007`, admin-sheet, roster-return; audio-toggle branch kept optional. **COMPLIANT.**
+> - **Web gates re-run on the discriminator's own hardware, this cycle:** `node --test tests/unit/*.test.mjs`
+>   = **78/78 pass, 0 fail**; `npx prettier --check .` clean; `npx playwright test` = **13/13**;
+>   `node scripts/build.mjs` = **26,315 gzip bytes**; `dist/index.html` = **70,584 bytes**, SHA-256
+>   `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744`, untracked — **byte-for-byte vs
+>   `docs/VERIFICATION_EVIDENCE.md`.**
+> - **Native suite (37/37):** not re-run this cycle — the Swift tree is byte-identical to `8db9fd6`, which the
+>   discriminator independently reproduced at 37/37 (0 fail / 0 skip, exit 0) in v52. Re-running identical code
+>   would reproduce the identical `.xcresult`; the prior independent reproduction stands.
+>
+> **Implementation Verification v16 = 97/100 (VERIFIED, re-audit).** Unchanged from v15 — cycle remains complete.
+> The one non-blocking DEVIATION (`testClearLogRequiresTwoConfirmations` `sheet.swipeUp()` to reach the
+> below-viewport `dangerSection`) still weakens no assertion (both confirm identifiers required in order) and is
+> still absent from the plan text — now tracked in `BACKLOG.md` so it cannot rot.
+>
+> **Score computation (restructured vs v52 to avoid double-counting the swipeUp drift, now a backlog line item).**
+> - **Base Score: 97/100.** Fully-green native (37/37, reproduced v52) + web (re-reproduced v53) + clean,
+>   plan-compliant source. The −3 from 100 is the intrinsic **external CI verification gap** (RA #10): the
+>   deployment path cannot be confirmed end-to-end while billing is locked. (The swipeUp plan↔code drift and the
+>   §4.1 diagnostic-capture gap are no longer folded into base — they are the two backlog items below.)
+> - **Required Actions: −0.** RA #12 + RA #13 ADDRESSED & verified. RA #10 is MODERATE **and external
+>   (billing) / non-code-actionable** — honestly `BLOCKED`, not a stalled code P0/P1, so no stall deduction
+>   (precedent-consistent with v45–v52). RA #11 + camera DONE.
+> - **Backlog: −1.** 2 unchecked `[ ]` (swipeUp plan back-port + §4.1 diagnostic capture) / 15 `[x]`
+>   → 1 point per 2 items → −1.
+> - **Inactivity decay: −1.** First audit cycle with **no code change** since the code landed in v52
+>   (`git diff native/ src/ tests/` empty). The code cycle is complete, but the mechanical decay tracks code
+>   movement; a −1 nudge is honest now that the project sits idle with two small doc/evidence items open.
+> - **Final: 97 − 0 − 1 − 1 = 95/100.**
+>
+> **Disposition — Cycle 13 remains COMPLETE (State 4).** Plan v26 approved (96) and implemented at 97/100
+> (≥95 gate cleared), re-verified. No fix cycle required. To recover to ≥96 and toward 100, the generator can
+> close the two `BACKLOG.md` items (back-port the swipeUp scroll into the plan text; archive the §4.1 post-tap
+> hierarchy capture) — both are pure documentation/evidence work, no product-code change. The only runtime
+> residual is RA #10 (external CI billing), which requires operator action (clear billing, then push/rerun
+> `33711898714`) and is outside the code loop.
+>
+> **Required Actions status.** **#10** (P2/MODERATE, CI external billing) — external / non-code-actionable;
+> honestly `BLOCKED`, **−0**. **#11** (P1, CSV) — DONE. **#12** (P1, `mark007` query) — **RESOLVED & verified**
+> (0 old queries, 2 button queries). **#13** (P1, check-in flow) — **RESOLVED & verified** (methods 1–2 reach
+> `scan.status`/`result.title`). Camera — DONE.
+
+<!-- audit-entry v52 -->
+> **STATE 4 — CYCLE-13 IMPLEMENTATION VERIFIED & COMPLETE: FULL NATIVE SUITE GREEN (independently reproduced). Implementation Score 97/100. Score 87 → 96.**
+> Commits `5e80c8b` (`feat(§6): repair native UI interaction paths`) + `8db9fd6` (`docs(§6): record Cycle 13
+> verification results`) landed plan v26. `git diff --name-only 50b4357..8db9fd6` shows exactly the six
+> manifest files (`RosterView.swift`, `ResultView.swift`, `CheckIn007UITests.swift`, `IMPLEMENTATION_PLAN.md`,
+> `README.md`, `docs/VERIFICATION_EVIDENCE.md`) — **no out-of-manifest drift**.
+>
+> **Independent verification by the discriminator (not trusting the generator's evidence):**
+> - **Native scheme re-run.** `xcodebuild test -project native/CheckIn007.xcodeproj -scheme CheckIn007` on iPad
+>   (A16) `A155995F-EC83-41BE-95B2-1A5F390ABF59`, fresh temp DerivedData + result bundle, **exit 0**.
+>   `xcresulttool` inventory: **37 total / 37 passed / 0 failed / 0 skipped**, `result: Passed`. Both bundles
+>   green: `CheckIn007Tests` (33 unit across 6 suites — `CSVCodecTests`, `CameraPrivacyTests`,
+>   `CheckInStoreTests`, `GuestCatalogTests`, `LogMergerTests`, `ScanAudioPlayerTests`) and `CheckIn007UITests`
+>   (4/4: `testFirstCheckInFlow`, `testRepeatGuestDoesNotDuplicateOneScan`, `testAdminOpensToggleAudioAndCloses`,
+>   `testClearLogRequiresTwoConfirmations`). **This is the first fully-green native gate across the entire
+>   13-cycle saga, reproduced on the discriminator's own hardware.**
+> - **Web gates re-run.** `node --test tests/unit/*.test.mjs` = 78/78; `npx prettier --check .` clean;
+>   `npx playwright test` = 13/13; `node scripts/build.mjs` = 26,315 gzip bytes; `dist/index.html` = 70,584 bytes,
+>   SHA-256 `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744`, untracked. **All match
+>   `docs/VERIFICATION_EVIDENCE.md` byte-for-byte** — the recorded evidence is accurate, not optimistic.
+>
+> **Plan compliance (source-verified):**
+> - **§4.1 RA #13 activation — COMPLIANT.** `RosterView.swift` adds `.frame(maxWidth: .infinity, alignment:
+>   .leading)` + `.contentShape(Rectangle())` after `.padding(.vertical, …)` on the row label. Full-width
+>   rectangular hit region; `.buttonStyle(.plain)`, `.isButton`, and 44-pt minimum preserved.
+> - **§4.2 RA #13 identity — COMPLIANT.** `ResultView.swift` removes `.accessibilityIdentifier(A11y.resultTitle)`
+>   from the child `Text` and reapplies it on the VStack **after** `.accessibilityElement(children: .combine)`
+>   (`:34`) and `.accessibilityLabel` (`:35–37`) → `:38`. Combined element stays a queryable `StaticText`; label
+>   byte-for-byte unchanged.
+> - **§4.3 RA #12 query — COMPLIANT.** Both `mark007` call sites changed `app.otherElements[…]` →
+>   `app.buttons[…]`; product identifier, label, `.isButton`, and 2.2 s press unchanged.
+> - **§4.4 diagnostics — COMPLIANT.** `requireExists` helper added verbatim to §4.4 spec (failure-only
+>   `app.debugDescription` attachment, same timeout, caller attribution via `#filePath`/`#line`, no retry/tap).
+>   Applied to `scan.status`, `result.title`, `mark007`, admin-sheet, and roster-return; audio-toggle branch
+>   kept optional.
+> - **§4.5 CI truth — COMPLIANT.** README + evidence retain `BLOCKED (external billing)` for run
+>   `33711898714`; no artifact claimed, no PASS inferred.
+>
+> **One DEVIATION (improvement — back-port to plan, not a defect):** `testClearLogRequiresTwoConfirmations`
+> adds `sheet.swipeUp()` after opening the admin sheet. The clear-log control sits in the 5th of 6 `Form`
+> sections (`AdminSheet.swift:97` `dangerSection`) and was below the viewport in the lazy `Form`; the scroll
+> brings it into the hittable region. This is **not** an assertion weakening/skip/lengthen (§2 out-of-scope) —
+> both confirmation identifiers (`admin.clearLog` → `admin.clearLog.confirm`) remain required in order — and it
+> is transparently documented in the evidence. It diverges from the plan's literal "clear-log gesture unchanged"
+> wording and should be back-ported into the plan text next revision. Minor.
+>
+> **Score computation.**
+> - **Base Score: 96/100.** Excellent, independently-verified health. −4 reflects the single open external CI
+>   verification gap (RA #10 — the deployment path cannot be confirmed via CI while billing is locked) and the
+>   minor plan↔code drift (swipeUp not yet in the plan text).
+> - **Required Actions: −0.** RA #12 + RA #13 now **ADDRESSED & verified** (37/37 green). RA #10 is MODERATE and
+>   external (billing) — not a code-actionable stalled P0/P1, honestly dispositioned as `BLOCKED`, so no stalled
+>   deduction applies. RA #11 + camera remain DONE.
+> - **Backlog: −0.** 0 unchecked `[ ]` / 15 `[x]`.
+> - **Inactivity decay: −0 (reset from −1).** Code landed this cycle (`5e80c8b` touches `native/`), resetting the
+>   two-cycle idle decay.
+> - **Final: 96/100.**
+>
+> **Disposition — Cycle 13 COMPLETE (State 4).** Plan v26 approved (96) and implemented at 97/100 (≥95 gate
+> cleared), independently verified. No fix cycle required. The only residual is RA #10 (external CI billing),
+> which requires operator action (clear billing, then push/rerun `33711898714`) — outside the code loop. If a
+> new cycle opens, its sole candidate is verifying the CI path once billing clears; there is no open code work.
+>
+> **Required Actions status.** **#10** (P2/MODERATE, CI external billing) — staleness carried, but external and
+> non-code-actionable; honestly `BLOCKED`, **−0**. **#11** (P1, CSV) — DONE. **#12** (P1, `mark007` query) —
+> **RESOLVED & verified this cycle** (0/0 old queries, 2 button queries, 4/4 admin+flow green). **#13** (P1,
+> check-in flow) — **RESOLVED & verified this cycle** (methods 1–2 reach `scan.status`/`result.title`). Camera —
+> DONE.
+
