@@ -340,15 +340,15 @@ platform or rewrite pushed history; use normal revert. GitHub run history remain
 
 ### Plan implemented — cycle completion gate
 
-- [ ] The selected local Node path ran at the immutable target SHA; actual Node/npm versions,
+- [x] The selected local Node path ran at the immutable target SHA; actual Node/npm versions,
       commands, guard status, and results are recorded, and every selected local gate passed.
-- [ ] Native verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with environment, exact
+- [x] Native verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with environment, exact
       destination/command when run, six-suite/four-UI counts when available, and rationale/recovery.
-- [ ] CI verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with operator decision, exact-SHA
+- [x] CI verification is recorded as `PASS`, `FAIL`, or `BLOCKED` with operator decision, exact-SHA
       run identity when available, required-step conclusions, and artifact/parity result or blocker.
-- [ ] Evidence has stable identifiers/URLs where available and no secrets or absolute machine paths.
-- [ ] Final implementation diff contains only the three manifest files.
-- [ ] The evidence-finalization commit is not pushed without separate approval; any second-SHA run is
+- [x] Evidence has stable identifiers/URLs where available and no secrets or absolute machine paths.
+- [x] Final implementation diff contains only the three manifest files.
+- [x] The evidence-finalization commit is not pushed without separate approval; any second-SHA run is
       excluded from the target-SHA join.
 
 Completing every item above is sufficient to mark this plan implemented even when an external result

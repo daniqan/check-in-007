@@ -1,14 +1,14 @@
 # Verification Evidence
 
-This document is initialized in the target commit and finalized in the immediately following local
+This document was initialized in the target commit and finalized in the immediately following local
 evidence commit. External results remain blocked unless a later operator-approved run supplies the
 required success evidence.
 
 ## Target
 
-- Commit: `PENDING_TARGET_COMMIT`
+- Commit: `628a4be100015e2d302609316d1c9cdd45a26cb0`
 - Branch: `master`
-- Recorded at: `2026-09-03T01:57:30Z`
+- Recorded at: `2026-09-03T02:01:09Z`
 
 ## Local Web Gates
 
@@ -42,8 +42,8 @@ required success evidence.
 
 - Status: `BLOCKED`
 - Repository/run: no Git remote is configured; no run URL or ID exists.
-- Identity/result: intended workflow `CI`, push event, branch `master`; exact target SHA will be
-  recorded after the target commit. No workflow job or step conclusions are available.
+- Identity/result: intended workflow `CI`, push event, branch `master`, exact target SHA
+  `628a4be100015e2d302609316d1c9cdd45a26cb0`. No workflow job or step conclusions are available.
 - Artifact: expected `dist-index-html`; CI bytes/hash and local parity are unavailable.
 - Notes: GitHub CLI authentication is present, but repository selection, remote creation/addition,
   and publication were not authorized. Recovery: approve an exact owner/repository and normal push,
