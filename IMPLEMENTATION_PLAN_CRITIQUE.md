@@ -131,6 +131,79 @@ is clean).
 
 ---
 
+### Implementation Verification — v18
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v27 @ commit `53a9c48` (approved Cycle 14 Rev 1 = 97/100)
+**Code:** `master` @ HEAD `7e02de5` audited on 2026-09-03
+
+**Verdict: VERIFIED — Cycle 14 COMPLETE (documentation-only). Implementation Score 98/100 (≥95 gate cleared).**
+Commit `7e02de5` ("docs(§6): close Cycle 14 evidence gaps") implements approved plan v27 exactly as the §5
+manifest specifies: it touches **only** the two manifest files (`IMPLEMENTATION_PLAN.md` §14 completion boxes +
+`docs/VERIFICATION_EVIDENCE.md` Cycle-14 subsection) and **zero** source/test/dependency/build/dist files
+(`git diff --name-only 53a9c48..HEAD -- native/ src/ tests/ scripts/ .github/ package.json` is **empty**). Both
+Audit-v53 backlog follow-ups are now closed.
+
+**Independent verification (trust nothing / re-checked against git & source, this cycle):**
+- **§5 manifest exact.** `git show --stat 7e02de5` = exactly the two §5 files; the full `53a9c48..HEAD` code
+  diff over `native/ src/ tests/ scripts/ .github/ package.json` is empty. No out-of-manifest drift.
+- **Code tree byte-identical to the verified 37/37 tree.** `git diff --name-only 8db9fd6..HEAD -- native/ src/
+  tests/` is empty, so the v15/v52-reproduced 37/37 native + v53-reproduced 78/13 web result still stands
+  byte-for-byte. Cycle 14 changes no runtime behavior.
+- **§4.3/§7.3 swipeUp back-port present in BOTH the plan contract and the evidence.** Plan §4.3 (lines 71–75)
+  and §7.3 (lines 150–155) now state the lazy-`Form` navigation contract; `docs/VERIFICATION_EVIDENCE.md`
+  "Lazy admin Form navigation — REQUIRED CONTRACT" records that `testClearLogRequiresTwoConfirmations` must
+  `sheet.swipeUp()` after `admin.sheet` exists, then require+tap `admin.clearLog`, re-identify+require
+  `admin.clearLog.confirm`, in order with the existing 3-s waits. Byte-accurate to shipped
+  `CheckIn007UITests.swift:106` `sheet.swipeUp()` → `admin.clearLog` (:128/:129 identifiers).
+- **§4.1 pre-fix diagnostic captured & sanitized.** Evidence records: detached commit
+  `50b4357` (immediately before repair `5e80c8b`), Xcode 26.4 / iOS 26.4 / iPad (A16); a failure-only
+  `.keepAlways` `app.debugDescription` hook; focused `testFirstCheckInFlow` exited 65 failing at the unchanged
+  missing `scan.status`; machine counts over the **complete** 12,831-byte attachment = **12** `roster.row.` and
+  **0** `scan.status` (satisfies §4.1's "roster.row ≥ 1 AND scan.status = 0" invariant computed over the whole
+  payload, not the excerpt); one sanitized redacted excerpt line; temp worktree/instrumentation/DerivedData/
+  bundles deleted, none committed. Independently confirmed `50b4357:RosterView.swift` lacks
+  `.frame(maxWidth: .infinity)` (only the unrelated inner `.contentShape` at :42) while current HEAD carries
+  both :68/:69 — the pre-fix state the evidence claims. This matches the reproduction premise the discriminator
+  independently confirmed at Cycle-14 Plan Rev 1 (`50b4357` `testFirstCheckInFlow` fails at `scan.status`).
+- **§4.4/§6-P3 current health recorded as PASS, separated from historical FAIL.** Evidence "Current native and
+  web health — PASS": both focused current-tree UI methods pass independently; full `CheckIn007` scheme exit 0,
+  33 unit + 4 UI = 37/37, 0 fail/skip; `npm ci` / `prettier --check` / `node --test` 78/78 / `playwright` 13/13
+  / `build.mjs` 26,315 gzip bytes; `dist/` untracked. Historical `EXPECTED FAIL` and current `PASS` carry
+  distinct source identities and labels (§7.4 honored). CI `33711898714` kept `BLOCKED (external billing)`.
+- **Evidence is append-only.** `git show 7e02de5 -- docs/VERIFICATION_EVIDENCE.md` = 58 insertions / 0
+  deletions; the Cycle-13 subsection is preserved verbatim (§7.2 "existing evidence remains append-only").
+
+**Honest, plan-anticipated tool deviation (not a defect).** The evidence transparently records that
+`xcresulttool export attachments --only-failures` skipped the custom attachment (its manifest activity was
+`isAssociatedWithFailure: false` despite `.keepAlways`), so it was exported from the same failed method by its
+exact test identifier instead — "did not change the run, payload, or validation invariants." This is precisely
+the §7.2 recovery path ("inspect test ID/manifest") and strengthens, rather than weakens, credibility.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.3/§7.3 swipeUp back-port (backlog item 1) | **COMPLIANT** | Contract in plan §4.3+§7.3 and evidence "REQUIRED CONTRACT"; matches shipped `:106`. |
+| §4.1/§6-P1 pre-fix hierarchy capture (backlog item 2) | **COMPLIANT** | 12,831-byte attachment, roster.row=12 / scan.status=0, exit 65, `50b4357` sanitized excerpt; temp artifacts deleted. |
+| §4.2 export/validate/minimize | **COMPLIANT (documented deviation)** | Invariants computed over full attachment; `--only-failures` skip handled via exact test-ID export, honestly recorded. |
+| §4.4/§6-P3 current native+web health | **COMPLIANT** | 37/37 native, 78/13 web, build hash, `dist/` untracked; PASS labeled separately from historical FAIL. |
+| §5 File Manifest | **COMPLIANT** | Exactly the two §5 files; no `native/src/tests/scripts/.github/package.json` change. |
+| §7.4 evidence status vs consumers | **COMPLIANT** | Historical FAIL and current PASS have distinct SHAs/labels; CI `BLOCKED`. |
+| §14 Completion Checklist | **7 / 7 checked** | Each box backed by an evidence claim. |
+
+**Implementation Score:** 98/100
+
+## Defects
+
+None blocking — the ≥95 gate is cleared; **Cycle 14 is COMPLETE (State 4).** Both `BACKLOG.md` follow-ups are
+closed (discriminator marks them `[x]` this audit). The only reason the score is not 100: the pre-fix
+reproduction's specific artifact metrics (12,831-byte attachment, 12 `roster.row.` occurrences) were **not
+independently re-run** by the discriminator this cycle — a full native re-run of the detached `50b4357` tree —
+so those exact counts are trusted from the generator's honestly-documented evidence rather than re-reproduced.
+The underlying diagnosis (pre-fix `scan.status` failure; missing full-width hit region) *was* independently
+confirmed at source level and at Plan Rev 1, and the current-tree 37/37 rests on a byte-identical, previously
+reproduced tree. Non-blocking. RA #10 (CI external billing) remains outside the code loop.
+
+---
+
 ### Implementation Verification — v17
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v27 @ commit `53a9c48` (approved Cycle 14 Rev 1 = 97/100)

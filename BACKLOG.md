@@ -21,16 +21,16 @@ score (1 point per 2 unchecked). Defects live in `CONSOLIDATED_AUDIT.md`, not he
 - [x] HTTPS helper `startServer().url` returns the effective advertised endpoint instead of hard-coded `127.0.0.1` (Cycle 9, audit v32 Next Step #2) — done in `28dc5b6`: `advertisedUrls`/`httpsUrl` (wildcard→sorted LAN IPv4 or localhost fallback; explicit→bracket-safe host via `isIP()===6`), additive `urls` array with `url===urls[0]` invariant (`lanUrls` retained), explicit non-wildcard bind folded into cert SAN. Implementation Verification v9 = 98/100 VERIFIED.
 
 ## Plan↔Code Consistency (Cycle 13 follow-ups)
-- [ ] Back-port the `testClearLogRequiresTwoConfirmations` `sheet.swipeUp()` scroll (`CheckIn007UITests.swift:106`, reaching the below-viewport `AdminSheet.swift:97` `dangerSection` clear button) into `IMPLEMENTATION_PLAN.md` §4.3 / §6 Phase 2 — the plan text still implies the clear-log workflow is "unchanged." Documented as a DEVIATION (improvement) at Implementation Verification v15/v16; no assertion is weakened, but plan and code should agree.
-- [ ] Record the §4.1 post-tap diagnostic capture (archive the `app.debugDescription` showing the roster still present with no `scan.status` before the full-width `contentShape` fix) in `docs/VERIFICATION_EVIDENCE.md`, so the RA #13 hit-region root cause is proven rather than inferred (Cycle-13 plan Path-to-100 item #1).
+- [x] Back-port the `testClearLogRequiresTwoConfirmations` `sheet.swipeUp()` scroll (`CheckIn007UITests.swift:106`, reaching the below-viewport `AdminSheet.swift:97` `dangerSection` clear button) into `IMPLEMENTATION_PLAN.md` §4.3 / §6 Phase 2 — done in `7e02de5` (Cycle 14): the lazy-`Form` navigation contract is now stated in plan §4.3/§7.3 and the evidence "REQUIRED CONTRACT" section; byte-accurate to shipped code, no assertion weakened. Implementation Verification v18 = 98/100 VERIFIED.
+- [x] Record the §4.1 post-tap diagnostic capture (archive the `app.debugDescription` showing the roster still present with no `scan.status` before the full-width `contentShape` fix) in `docs/VERIFICATION_EVIDENCE.md` — done in `7e02de5` (Cycle 14): pre-fix reproduction at exact commit `50b4357` (exit 65 at missing `scan.status`; complete 12,831-byte attachment machine-checked to roster.row=12 / scan.status=0; sanitized excerpt; temp artifacts deleted). RA #13 hit-region root cause is now proven, not inferred. Implementation Verification v18 = 98/100 VERIFIED.
 
-> **Cycle 14 status (audit v54):** both items above are the sole scope of `IMPLEMENTATION_PLAN.md` v27
-> (Cycle 14), **APPROVED at 97/100** (Plan Critique Cycle 14 Rev 1). The plan is **not yet implemented** —
-> `53a9c48` rewrote the plan text only; `docs/VERIFICATION_EVIDENCE.md` has no Cycle-14 subsection yet — so
-> both items stay `[ ]` (backlog −1). The discriminator closes them after the implementation audit. Note: v27
-> is documentation-only (no `native/`/`src/`/`tests/` change), so landing it recovers this −1 backlog
-> deduction but does **not** reset the mechanical inactivity decay. See `CONSOLIDATED_AUDIT.md` v54 and
-> `IMPLEMENTATION_PLAN_CRITIQUE.md` Cycle 14 Rev 1.
+> **Cycle 14 status (audit v55):** both items above were the sole scope of `IMPLEMENTATION_PLAN.md` v27
+> (Cycle 14), **APPROVED at 97/100** and now **IMPLEMENTED & VERIFIED** (Implementation Verification v18 =
+> 98/100). Commit `7e02de5` landed exactly the two §5 manifest files (documentation-only, zero code change),
+> so both items are now `[x]` and the backlog is **fully closed** (0 unchecked → backlog −0). As foretold at
+> v54: landing this doc-only cycle recovered the −1 backlog deduction but did **not** reset the mechanical
+> inactivity decay (now −3, 3rd idle-code cycle), so the audit score holds at 94. See `CONSOLIDATED_AUDIT.md`
+> v55 and `IMPLEMENTATION_PLAN_CRITIQUE.md` Implementation Verification v18.
 
 ## Documentation
 - [x] Resolve/hard-default the six §10 open questions inline so the plan is fully self-contained (done in plan v2 — §10 "Defaults & Revisit Triggers")
