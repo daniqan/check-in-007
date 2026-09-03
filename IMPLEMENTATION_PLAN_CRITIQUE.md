@@ -142,6 +142,55 @@ full-width `contentShape`).
 
 ---
 
+### Implementation Verification — v15
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v26 @ commit `7c51af4` (approved Cycle 13 Rev 2 = 96/100)
+**Code:** `master` @ HEAD `8db9fd6` (impl `5e80c8b` + docs `8db9fd6`) audited on 2026-09-03
+
+**Verdict: VERIFIED — cycle complete.** Plan v26 is fully implemented and the entire native + web gate is green,
+**independently reproduced by the discriminator** (not merely trusting the generator's recorded evidence). The
+four-red-UI-methods problem that has blocked the last several cycles is resolved for the first time. `git diff
+--name-only 50b4357..8db9fd6` is exactly the six manifest files — no out-of-manifest drift.
+
+**Independent re-run (discriminator's own hardware):**
+- `xcodebuild test -project native/CheckIn007.xcodeproj -scheme CheckIn007` on iPad (A16)
+  `A155995F-EC83-41BE-95B2-1A5F390ABF59`, fresh temp DerivedData + result bundle → **exit 0**.
+- `xcresulttool` inventory: **37 total / 37 passed / 0 failed / 0 skipped**, `result: Passed`. `CheckIn007Tests`
+  (33 unit, 6 suites) Passed; `CheckIn007UITests` 4/4 Passed (`testFirstCheckInFlow`,
+  `testRepeatGuestDoesNotDuplicateOneScan`, `testAdminOpensToggleAudioAndCloses`,
+  `testClearLogRequiresTwoConfirmations`).
+- Web: `node --test tests/unit/*.test.mjs` 78/78; `prettier --check .` clean; `playwright test` 13/13;
+  `build.mjs` 26,315 gzip bytes; `dist/index.html` 70,584 bytes, SHA-256 `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744`, untracked — **byte-for-byte
+  matching `docs/VERIFICATION_EVIDENCE.md`.**
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §4.1 Full-row hit target (RA #13) | **COMPLIANT** | `RosterView.swift` adds `.frame(maxWidth: .infinity, alignment: .leading)` + `.contentShape(Rectangle())` after padding; `.buttonStyle(.plain)`, `.isButton`, 44-pt min preserved. |
+| §4.2 Combined result identity (RA #13) | **COMPLIANT** | `.accessibilityIdentifier(A11y.resultTitle)` moved off child `Text` onto the VStack after `.accessibilityElement(children: .combine)` (`:34`→`:38`); stays a queryable `StaticText`; label unchanged. |
+| §4.3 Admin query alignment (RA #12) | **COMPLIANT** | Both sites `app.otherElements[mark007]` → `app.buttons[mark007]`; identifier/label/`.isButton`/2.2 s press unchanged. |
+| §4.4 Failure-only diagnostics | **COMPLIANT** | `requireExists` added verbatim to spec; failure-only attachment, same timeouts, caller attribution, no retry/tap; audio-toggle branch kept optional. |
+| §4.5 CI truth | **COMPLIANT** | README + evidence retain `BLOCKED (external billing)`; no artifact/PASS inferred for run `33711898714`. |
+| §6 Phase 3 Native regression | **COMPLIANT** | 37/37, both targets, 6 unit suites, 0 skips/failures, exit 0 — reproduced independently. |
+| §6 Phase 3 Web regression | **COMPLIANT** | 78 unit / 13 e2e / prettier clean / deterministic build — reproduced independently. |
+| §6 Phase 4 Evidence & status | **COMPLIANT** | "Cycle 13" section records exact tree/env/counts; README native status → PASS; CI honestly `BLOCKED`; evidence matches reality byte-for-byte. |
+| Clear-log scroll | **DEVIATED (improvement)** | `testClearLogRequiresTwoConfirmations` adds `sheet.swipeUp()` to reach the below-viewport `dangerSection` clear button (`AdminSheet.swift:97`). Not in plan text; weakens no assertion (both confirm identifiers still required in order); transparently documented. **Back-port to plan next revision.** |
+| §14 Completion Checklist | **7 / 7 checked** | All verified true. |
+
+**Implementation Score:** 97/100
+
+## Defects
+
+None blocking. The implementation clears the ≥95 gate — **cycle complete.** Two non-blocking notes:
+
+1. **Plan↔code drift (−2, polish).** The `sheet.swipeUp()` in `testClearLogRequiresTwoConfirmations` is a
+   legitimate, necessary scroll to reach an off-screen control, but it is absent from the plan text (§4.3 / §6
+   Phase 2 imply the clear-log workflow is "unchanged"). Back-port the scroll into the plan so plan and code
+   agree. This is the only reason the score is not 99+.
+2. **RA #10 remains external (not a code defect).** The exact-SHA CI run `33711898714` is still
+   `BLOCKED (external billing)`. The deployment path cannot be end-to-end verified via CI until an operator
+   clears billing and re-runs it. Correctly out of this cycle's scope and honestly documented; noted so the
+   next cycle (if any) targets it.
+
 ### Implementation Verification — v14
 
 **Plan:** `IMPLEMENTATION_PLAN.md` v26 @ commit `7c51af4` (approved Cycle 13 Rev 2 = 96/100)
