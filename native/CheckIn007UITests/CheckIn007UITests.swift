@@ -18,25 +18,45 @@ final class CheckIn007UITests: XCTestCase {
         _ = search.waitForExistence(timeout: 5) || field.waitForExistence(timeout: 5)
     }
 
+    /// Assert that a required accessibility element appears, retaining the hierarchy only on failure.
+    @discardableResult
+    private func requireExists(
+        _ element: XCUIElement,
+        timeout: TimeInterval,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> Bool {
+        let exists = element.waitForExistence(timeout: timeout)
+        if !exists {
+            let attachment = XCTAttachment(string: app.debugDescription)
+            attachment.name = "Accessibility hierarchy after missing \(element)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        XCTAssertTrue(exists, file: file, line: line)
+        return exists
+    }
+
     func testFirstCheckInFlow() {
         waitForRoster()
         let firstRow = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", A11yId.rosterRowPrefix)
         ).firstMatch
-        XCTAssertTrue(firstRow.waitForExistence(timeout: 5))
+        requireExists(firstRow, timeout: 5)
         firstRow.tap()
 
         let scan = app.staticTexts[A11yId.scanStatus]
-        XCTAssertTrue(scan.waitForExistence(timeout: 5))
+        requireExists(scan, timeout: 5)
 
         let result = app.staticTexts[A11yId.resultTitle]
-        XCTAssertTrue(result.waitForExistence(timeout: 10))
+        requireExists(result, timeout: 10)
 
         // Returns to roster after the result timer.
-        XCTAssertTrue(
+        requireExists(
             app.buttons.matching(
                 NSPredicate(format: "identifier BEGINSWITH %@", A11yId.rosterRowPrefix)
-            ).firstMatch.waitForExistence(timeout: 10)
+            ).firstMatch,
+            timeout: 10
         )
     }
 
@@ -45,46 +65,51 @@ final class CheckIn007UITests: XCTestCase {
         let firstRow = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", A11yId.rosterRowPrefix)
         ).firstMatch
-        XCTAssertTrue(firstRow.waitForExistence(timeout: 5))
+        requireExists(firstRow, timeout: 5)
         let rowId = firstRow.identifier
         firstRow.tap()
-        XCTAssertTrue(app.staticTexts[A11yId.resultTitle].waitForExistence(timeout: 10))
+        requireExists(app.staticTexts[A11yId.resultTitle], timeout: 10)
 
         let sameRow = app.buttons[rowId]
-        XCTAssertTrue(sameRow.waitForExistence(timeout: 10))
+        requireExists(sameRow, timeout: 10)
         sameRow.tap()
-        XCTAssertTrue(app.staticTexts[A11yId.resultTitle].waitForExistence(timeout: 10))
+        requireExists(app.staticTexts[A11yId.resultTitle], timeout: 10)
     }
 
     func testAdminOpensToggleAudioAndCloses() {
         waitForRoster()
-        let mark = app.otherElements[A11yId.mark007]
-        XCTAssertTrue(mark.waitForExistence(timeout: 5))
+        let mark = app.buttons[A11yId.mark007]
+        requireExists(mark, timeout: 5)
         mark.press(forDuration: 2.2)
 
         let sheet = app.otherElements[A11yId.adminSheet]
-        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        requireExists(sheet, timeout: 5)
         let toggle = app.switches[A11yId.audioToggle]
         if toggle.waitForExistence(timeout: 3) { toggle.tap() }
 
         app.buttons[A11yId.adminClose].tap()
-        XCTAssertTrue(
+        requireExists(
             app.buttons.matching(
                 NSPredicate(format: "identifier BEGINSWITH %@", A11yId.rosterRowPrefix)
-            ).firstMatch.waitForExistence(timeout: 5)
+            ).firstMatch,
+            timeout: 5
         )
     }
 
     func testClearLogRequiresTwoConfirmations() {
         waitForRoster()
-        app.otherElements[A11yId.mark007].press(forDuration: 2.2)
-        XCTAssertTrue(app.otherElements[A11yId.adminSheet].waitForExistence(timeout: 5))
+        let mark = app.buttons[A11yId.mark007]
+        requireExists(mark, timeout: 5)
+        mark.press(forDuration: 2.2)
+        let sheet = app.otherElements[A11yId.adminSheet]
+        requireExists(sheet, timeout: 5)
+        sheet.swipeUp()
 
         let clear = app.buttons[A11yId.clearLog]
-        XCTAssertTrue(clear.waitForExistence(timeout: 3))
+        requireExists(clear, timeout: 3)
         clear.tap()
         // After the first tap the control re-identifies as the confirm affordance.
-        XCTAssertTrue(app.buttons[A11yId.clearLogConfirm].waitForExistence(timeout: 3))
+        requireExists(app.buttons[A11yId.clearLogConfirm], timeout: 3)
         app.buttons[A11yId.clearLogConfirm].tap()
     }
 }

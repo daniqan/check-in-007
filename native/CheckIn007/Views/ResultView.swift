@@ -20,7 +20,6 @@ struct ResultView: View {
                     .font(Theme.Typography.title)
                     .foregroundStyle(Theme.primaryText)
                     .multilineTextAlignment(.center)
-                    .accessibilityIdentifier(A11y.resultTitle)
                 Text(tableText)
                     .font(Theme.Typography.heading)
                     .foregroundStyle(Theme.accent)
@@ -36,6 +35,7 @@ struct ResultView: View {
             .accessibilityLabel(
                 "\(displayName), \(tableText)\(repeatVisit ? ", already on record" : "")"
             )
+            .accessibilityIdentifier(A11y.resultTitle)
         }
         .task {
             let millis = Timing.result(reduceMotion: reduceMotion)

@@ -65,6 +65,8 @@ struct RosterView: View {
                 .foregroundStyle(Theme.secondaryText)
         }
         .padding(.vertical, Theme.Spacing.tight)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private func accessibilityLabel(for guest: Guest) -> String {
