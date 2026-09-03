@@ -93,8 +93,9 @@ Playwright-browser caching. The built `dist/index.html` is uploaded as a per-run
 External native-simulator and live-CI verification status is recorded in
 [`docs/VERIFICATION_EVIDENCE.md`](docs/VERIFICATION_EVIDENCE.md). Only results explicitly marked
 `PASS` there are verified. The Cycle 12 CSV repair and all 33 native unit methods pass on the iOS
-26.4 iPad simulator; the full native gate remains failed on four pre-existing UI element-lookup
-tests, and the exact-SHA GitHub Actions run remains blocked by external billing.
+26.4 iPad simulator. Cycle 13 repairs the native interaction/accessibility paths, and the full native
+scheme now passes all 33 unit and four UI methods. The exact-SHA GitHub Actions run remains blocked
+by external billing.
 
 ## Multi-Device Log Merge
 

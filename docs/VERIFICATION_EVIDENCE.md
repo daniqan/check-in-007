@@ -148,3 +148,43 @@ completion boxes remain open pending a code-fix/re-audit cycle and a successful 
   branch `master`; exact Cycle 11 head SHA `845116d41375cd6422f49bb2a53f23bcec3109e9`.
 - The job did not start because the account was locked for billing. No step passed and no
   `dist-index-html` artifact exists. This is a terminal external block for Cycle 12; it is not a PASS.
+
+## Cycle 13 — Native UI Interaction and Accessibility Repair
+
+- Tested source commit: `5e80c8bf7721d31c96dfac081f86399e8c531dfc`
+- Branch: `master`
+- Environment: Xcode 26.4 (`17E192`); iOS 26.4 (`23E244`); iPad (A16)
+  `A155995F-EC83-41BE-95B2-1A5F390ABF59`; Node `v26.3.0`; npm `11.16.0`.
+
+### Focused native UI methods — PASS
+
+- `testFirstCheckInFlow`, `testRepeatGuestDoesNotDuplicateOneScan`, and
+  `testAdminOpensToggleAudioAndCloses` each passed independently. The initially masked
+  `testClearLogRequiresTwoConfirmations` path opened `admin.sheet`, then its retained failure
+  hierarchy showed the lazy `Form` had not instantiated the below-viewport `admin.clearLog` button;
+  after adding one sheet scroll, the method passed independently.
+- The two check-in methods passed together, and the two admin methods passed together. The complete
+  `CheckIn007UITests` target then passed 4/4, with zero failures or skips.
+- The repaired hierarchy exposes full-width roster buttons, `scan.status` and the combined
+  `result.title` as `StaticText`, and `roster.mark007` as the intentionally button-typed element.
+  Required-element failures retain `app.debugDescription` without changing waits or outcomes.
+
+### Full native scheme — PASS
+
+- Command: `xcodebuild test -quiet -project native/CheckIn007.xcodeproj -scheme CheckIn007` with the
+  iPad UDID above and fresh temporary DerivedData/result-bundle paths; exit 0.
+- Structured `.xcresult` inventory: both `CheckIn007Tests` and `CheckIn007UITests`; six unit suites
+  (`CSVCodecTests`, `CameraPrivacyTests`, `CheckInStoreTests`, `GuestCatalogTests`, `LogMergerTests`,
+  `ScanAudioPlayerTests`); exactly 33 unit + four UI methods = 37/37 passed, zero failures or skips.
+
+### Web regression — PASS
+
+- Sanctioned direct Node path: `npm ci` (exit 0, 0 vulnerabilities),
+  `npx prettier --check .` (exit 0), `node --test tests/unit/*.test.mjs` (78/78 passed),
+  `npx playwright test` (13/13 passed), and `node scripts/build.mjs` (exit 0; 26,315 gzip bytes).
+- `dist/index.html`: 70,584 bytes; SHA-256
+  `8d5a9c65f83ed417acdd48cc367ce3663e60ff35a64008c0c5687cb7b2d9a744`; remains untracked.
+
+### CI disposition — BLOCKED (external billing)
+
+- Run `33711898714` remains `BLOCKED (external billing)`; no steps ran and no artifact exists.

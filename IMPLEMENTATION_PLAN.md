@@ -232,12 +232,12 @@ None permits scope expansion or assertion weakening.
 
 ## 14. Completion Checklist
 
-- [ ] Full-width rows make methods 1–2 reach scan/result; combined `result.title` retains one announcement.
-- [ ] Both admin lookups use `app.buttons`; workflows/assertions remain.
-- [ ] Failure-only hierarchy attachments work without bypass/retry/timeout inflation.
-- [ ] Each UI method and the whole UI target pass with zero skips/failures.
-- [ ] Full native scheme proves both targets, six suites, 33 unit + 4 UI, exit 0, zero skips/failures.
-- [ ] Web formatting, unit, Playwright, and build gates pass.
-- [ ] Evidence/README name the tested tree/native PASS, correct old framing, retain CI `BLOCKED (external billing)`, and contain no leaks/placeholders/out-of-manifest changes.
+- [x] Full-width rows make methods 1–2 reach scan/result; combined `result.title` retains one announcement.
+- [x] Both admin lookups use `app.buttons`; workflows/assertions remain.
+- [x] Failure-only hierarchy attachments work without bypass/retry/timeout inflation.
+- [x] Each UI method and the whole UI target pass with zero skips/failures.
+- [x] Full native scheme proves both targets, six suites, 33 unit + 4 UI, exit 0, zero skips/failures.
+- [x] Web formatting, unit, Playwright, and build gates pass.
+- [x] Evidence/README name the tested tree/native PASS, correct old framing, retain CI `BLOCKED (external billing)`, and contain no leaks/placeholders/out-of-manifest changes.
 
 Every checkbox is required. This cycle closes RA #12 and RA #13 only; RA #10 remains externally blocked and RA #11 completed.
