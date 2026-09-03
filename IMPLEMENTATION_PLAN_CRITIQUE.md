@@ -154,5 +154,52 @@ honest `PASS`/`FAIL`/`BLOCKED` and let the evidence stand.
 
 ---
 
-*Implementation Verification: N/A — nothing implemented for Cycle 10. `docs/VERIFICATION_EVIDENCE.md`
-does not exist. The plan is approved this revision; implementation has not yet begun.*
+### Implementation Verification — v1 (Cycle 10)
+
+**Plan:** `IMPLEMENTATION_PLAN.md` v22 @ approved commit `506b590` (approved score: 97/100)
+**Code:** `master` @ target commit `628a4be` + finalization commit `0a29610`, audited on 2026-09-03
+
+Plan v22 is a **docs-only evidence-capture cycle** for the two standing external-verification gaps.
+It was implemented across two commits exactly as §6 prescribes: `628a4be` ("establish external
+verification target") created `docs/VERIFICATION_EVIDENCE.md` (with a `PENDING_TARGET_COMMIT`
+placeholder, since a commit cannot name its own SHA) and the README link, becoming the immutable
+target SHA; `0a29610` ("finalize external verification evidence") back-filled the real target SHA
+`628a4be…` and checked the completion-gate boxes. Every load-bearing claim re-verified against the
+live tree.
+
+| Section | Status | Notes |
+|---------|--------|-------|
+| §5 Manifest — docs-only, 3 files | COMPLIANT | Both impl commits touch **only** `README.md`, `docs/VERIFICATION_EVIDENCE.md`, `IMPLEMENTATION_PLAN.md`. No product/test/Xcode/CI/dep/lockfile/`dist/` edits (§2 out-of-scope honored). |
+| §6 Phase 0 — freeze target + local preflight | COMPLIANT | Direct-tool path on the actual interpreter recorded; guard bypass disclosed. Re-verified live: `node --version` = **v26.3.0**, npm **11.16.0**. |
+| §6 Phase 0 — local web gates | COMPLIANT | Every claim byte-exact on re-run: `node --test tests/unit/*.test.mjs` = **78/78 pass**; `npx playwright test` = **13 tests**; `npx prettier --check .` = clean; `node scripts/build.mjs` = **26,315 gzip bytes**; `dist/index.html` = **70,584 bytes**, SHA-256 **8d5a9c65…a744** — identical to the evidence, confirming build determinism / cross-Node-version parity is real. |
+| §6 Phase 1 — native simulator | COMPLIANT (BLOCKED, honest) | `xcrun simctl list runtimes` shows **no iOS runtime**; `native-ios-sdk-not-installed`. Read-only preflight ran; scheme + `CheckIn007Tests`/`CheckIn007UITests` targets confirmed present. Download not authorized → `BLOCKED` with recovery, per §8 "No runtime". |
+| §6 Phase 1 — native counts recorded | COMPLIANT | Evidence cites "six unit suites (32 methods) and four UI tests." Re-counted from source: 6+3+8+6+5+4 = **32** unit methods across the six named suites; UITests = **4**. Exact. |
+| §6 Phase 2 — live CI | COMPLIANT (BLOCKED, honest) | `git remote -v` = **none**; publication/repo selection not authorized → `BLOCKED` with exact intended workflow (`CI`), event (push), branch (`master`), target SHA, and recovery, per §8 "No remote/repository". |
+| §6 Phase 3 — evidence contract | COMPLIANT (+enhancement) | Document follows the §6 template (Target / Native iOS Simulator / GitHub Actions CI) and adds a **Local Web Gates** section — a plan-consistent addition satisfying §10's "record actual Node/npm versions … whether the guard was bypassed." Only `PASS` results are called verified; README (§6 Phase 3) links the record and states "Only results explicitly marked `PASS` there are verified." |
+| §14 — Plan-implemented gate | COMPLIANT | All six "Plan implemented" boxes `[x]`; both "Audit findings closed" boxes correctly **left `[ ]`** because both externals are `BLOCKED`. Matches the plan's design that BLOCKED is a legitimate terminal state for cycle completion. |
+| §12 / §14 item 6 — finalization not pushed | COMPLIANT | `master` has no upstream/remote; the finalization commit remains local. No second-SHA run exists to mis-join. |
+| Evidence hygiene | COMPLIANT | Secret/absolute-path scan of `docs/VERIFICATION_EVIDENCE.md` = clean (relative paths only, no tokens, no `/Users/`). |
+
+**Regression check:** None. Product source, tests, the Xcode project/scheme, the CI workflow,
+dependencies, lockfiles, and `dist/` are untouched. The 78 web unit tests + 13 Playwright e2e all
+still pass; no coverage removed; no API/contract change. The README edit only *adds* a status link.
+
+**Implementation Score:** 98/100
+
+## Defects
+
+No blocking defects — the plan's completion gate (§14 "Plan implemented") is fully and honestly met,
+and every verifiable claim in the evidence is byte-accurate. The 2-point gap from 100 is **not an
+execution defect** but reflects the cycle's residual reality:
+
+1. **The two audit findings remain open (not closed).** Both externals are honestly `BLOCKED`
+   (no iOS runtime; no Git remote), so the substantive goal — *observing* a native `xcodebuild test`
+   pass and a live exact-SHA CI run — is still unproven. The plan explicitly permits BLOCKED as a
+   terminal state, so this is a **State-4 cycle completion**, but the "Audit findings closed" gate
+   stays open until an operator-approved environment supplies the two success artifacts. This is an
+   environment limitation, not an implementation fault — nothing more could be produced without
+   `xcodebuild -downloadPlatform iOS` approval and a repository/push approval.
+
+**Verdict: VERIFIED — implementation score ≥95. Cycle 10 is complete (State 4).** The two external
+success items remain as forward Next Steps for whenever the runtime/remote become available; they do
+not reopen as code defects.

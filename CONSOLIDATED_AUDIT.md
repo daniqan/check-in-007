@@ -1,13 +1,63 @@
 # Consolidated Audit — Check-In 007
 
-**Current Score**: 92/100
-**Audit Version:** v36
-**Audited:** HEAD `506b590` on 2026-09-02 (Cycle 10 — External Verification Closure, plan v22 critiqued Rev 2 = 97/100 APPROVED)
-**Stage:** Cycle 10, **State 2 — implement the approved plan (Plan Rev 2 = 97/100, clears the ≥95 gate)**
+**Current Score**: 94/100
+**Audit Version:** v37
+**Audited:** HEAD `0a29610` on 2026-09-03 (Cycle 10 — External Verification Closure, plan v22 IMPLEMENTED & VERIFIED)
+**Stage:** Cycle 10, **State 4 — cycle complete (plan implemented; Impl Verification v1 = 98/100)**
 
 **Plan Score:** 97/100
-**Implementation Score:** N/A
-**Current Score**: 92/100
+**Implementation Score:** 98/100
+**Current Score**: 94/100
+
+<!-- audit-entry v37 -->
+> **STATE 4 — CYCLE COMPLETE (v37).** Approved plan **v22 (Rev 2 = 97/100)** was implemented as a
+> **docs-only evidence-capture cycle** across two commits and **VERIFIED** at **Impl Verification
+> v1 = 98/100**. `628a4be` ("establish external verification target") created
+> `docs/VERIFICATION_EVIDENCE.md` (with `PENDING_TARGET_COMMIT` placeholder) + the README link and
+> became the immutable target SHA; `0a29610` ("finalize external verification evidence") back-filled
+> the real target SHA and checked the completion-gate boxes. Every load-bearing claim re-verified
+> against the live tree:
+>
+> - **Scope exact — docs-only, 3 files.** Both impl commits touch **only** `README.md`,
+>   `docs/VERIFICATION_EVIDENCE.md`, `IMPLEMENTATION_PLAN.md`. No product/test/Xcode/CI/dep/lockfile/
+>   `dist/` edits; §2 out-of-scope honored. No regressions.
+> - **Local web gates byte-exact on re-run.** `node --test tests/unit/*.test.mjs` = **78/78 pass**;
+>   `npx playwright test` = **13 tests**; `npx prettier --check .` clean; `node scripts/build.mjs` =
+>   **26,315 gzip bytes**; `dist/index.html` = **70,584 bytes**, SHA-256 **8d5a9c65…a744** — identical
+>   to the recorded evidence, confirming build determinism (cross-Node-version parity is *real*, not
+>   hoped-for). Live interpreter re-confirmed **Node v26.3.0 / npm 11.16.0**; guard bypass disclosed.
+> - **Native = BLOCKED (honest).** `xcrun simctl list runtimes` shows no iOS runtime
+>   (`native-ios-sdk-not-installed`); read-only preflight ran, scheme + `CheckIn007Tests`/
+>   `CheckIn007UITests` targets confirmed present; download not authorized. Recorded counts re-checked
+>   from source: **six suites / 32 methods / 4 UI** (6+3+8+6+5+4=32). Recovery documented per §8.
+> - **CI = BLOCKED (honest).** `git remote -v` = none; publication not authorized. Intended workflow
+>   `CI`, push event, branch `master`, exact target SHA, and recovery all recorded. Finalization commit
+>   remains local (no upstream) — no second-SHA run to mis-join (§12/§14 item 6 honored).
+> - **§14 gates correct.** All six "Plan implemented" boxes `[x]`; both "Audit findings closed" boxes
+>   correctly left `[ ]` (both externals `BLOCKED`). Evidence secret/absolute-path scan = clean.
+>
+> **98 not higher:** the two audit findings remain **open, not closed** — the substantive goal
+> (observing a native `xcodebuild test` pass and a live exact-SHA CI run) is still unproven because the
+> environment blocks it (no iOS runtime, no Git remote). Plan v22 explicitly permits BLOCKED as a
+> legitimate terminal state, so this is a genuine State-4 completion; the two success items carry
+> forward as Next Steps, not as code defects. Nothing more was producible without
+> `xcodebuild -downloadPlatform iOS` and repository/push approvals.
+>
+> **Deductions.** This cycle **landed real non-plan/non-audit repository content** (`README.md`,
+> `docs/VERIFICATION_EVIDENCE.md`) — the approved docs-only work product — so the accruing inactivity
+> decay **resets to 0** (was −2 at v36). This is active progress, not neglect. Backlog strict-unchecked
+> `[ ]` = **0** → **−0**. RA −0 (all #1–#8 DONE, none stalled). Base health holds **94** — the two
+> env-blocked verification gaps are unchanged from v34–v36 (still unproven), but a durable, reviewable,
+> byte-accurate evidence record now documents them and the passing web gates, a modest observability
+> gain that offsets nothing negative. **Base 94 − backlog 0 − decay 0 = 94.**
+>
+> **Next Steps (unchanged, environment-gated — not Required Actions, not code defects):**
+> 1. With operator approval, `xcodebuild -downloadPlatform iOS`, select an iOS 26+ iPad UDID, run the
+>    scheme-level `xcodebuild … test`, and update the evidence Native status to `PASS`.
+> 2. With operator approval, add the exact approved remote, push the target SHA, observe the exact-SHA
+>    `CI` run + byte-parity artifact, and update the evidence CI status to `PASS`.
+>    Both findings close only when both externals reach `PASS`. See `IMPLEMENTATION_PLAN_CRITIQUE.md`
+>    Implementation Verification v1.
 
 <!-- audit-entry v36 -->
 > **STATE 2 — IMPLEMENT THE APPROVED PLAN (v36).** `IMPLEMENTATION_PLAN.md` advanced to **v22 (commit
