@@ -59,7 +59,11 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
     <section class="screen roster-screen" aria-labelledby="roster-title">
       <div class="roster-header">
         <header class="topbar">
-          <button class="logo-hit" type="button" aria-label="Open admin controls">007</button>
+          <span class="logo-slot">
+            <span class="logo-mark" aria-hidden="true"></span>
+            <span class="logo-mark-art" aria-hidden="true"></span>
+            <button class="logo-hit" type="button" aria-label="Open admin controls"></button>
+          </span>
           <div>
             <p>EVENT OPERATIONS</p>
             <h1 id="roster-title">AGENT ROSTER</h1>
@@ -82,6 +86,18 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
   let debounce = 0;
   let navigating = false;
   let hold = 0;
+  let holdOrigin = null;
+  let tapTimes = [];
+  const HOLD_SLOP_PX = 40;
+
+  /* Pointer events expose clientX directly; touch events nest it in touches. */
+  function readPoint(event) {
+    if (!event) return null;
+    const touch = event.touches?.[0] ?? event.changedTouches?.[0];
+    if (touch) return { x: touch.clientX, y: touch.clientY };
+    if (typeof event.clientX === 'number') return { x: event.clientX, y: event.clientY };
+    return null;
+  }
   let mounted = true;
   let virtualItems = [];
   let virtualFrame = 0;
@@ -240,15 +256,81 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
   list.addEventListener('click', handleListClick);
   window.addEventListener('resize', handleResize);
 
-  const startHold = () => {
+  /* Getting a long-press to survive iOS on a scrolling view took several
+     attempts. What this does now:
+     - The hit target is a plain static transparent button (.logo-hit) layered
+       over the artwork (.logo-mark). Nothing about the target animates, so
+       hit-testing can't land on a stale position.
+     - pointerdown takes pointer capture, so once the press starts, Safari
+       cannot reassign the gesture to the scroller mid-hold.
+     - touchstart is non-passive and calls preventDefault, which stops the
+       press being consumed to halt momentum scrolling.
+     - Movement tolerance is deliberately loose (40px); a stationary finger on
+       glass still drifts.
+     - Triple-tap is a fallback route in, in case a device still fights the
+       hold. Three taps inside 1.2s opens admin. */
+  const startHold = (event) => {
     window.clearTimeout(hold);
-    hold = window.setTimeout(onAdminHold, ADMIN.HOLD_MS);
+    holdOrigin = readPoint(event);
+    if (event?.pointerId !== undefined && logo.setPointerCapture) {
+      try {
+        logo.setPointerCapture(event.pointerId);
+      } catch {
+        /* capture is a nice-to-have */
+      }
+    }
+    hold = window.setTimeout(() => {
+      hold = 0;
+      tapTimes = [];
+      onAdminHold();
+    }, ADMIN.HOLD_MS);
   };
-  const cancelHold = () => window.clearTimeout(hold);
+  const cancelHold = () => {
+    holdOrigin = null;
+    window.clearTimeout(hold);
+    hold = 0;
+  };
+  const moveHold = (event) => {
+    if (!holdOrigin || !hold) return;
+    const point = readPoint(event);
+    if (!point) return;
+    if (Math.hypot(point.x - holdOrigin.x, point.y - holdOrigin.y) > HOLD_SLOP_PX) cancelHold();
+  };
+  const blockTouchDefault = (event) => {
+    event.preventDefault();
+    startHold(event);
+  };
+  const countTap = () => {
+    const now = Date.now();
+    tapTimes = [...tapTimes, now].filter((time) => now - time < 1200);
+    if (tapTimes.length >= 3) {
+      tapTimes = [];
+      cancelHold();
+      onAdminHold();
+    }
+  };
+  const releaseHold = (event) => {
+    const wasHolding = hold !== 0;
+    cancelHold();
+    if (wasHolding) countTap();
+    if (event?.pointerId !== undefined && logo.releasePointerCapture) {
+      try {
+        logo.releasePointerCapture(event.pointerId);
+      } catch {
+        /* already released */
+      }
+    }
+  };
   const preventLogoClick = (event) => event.preventDefault();
+
   logo.addEventListener('pointerdown', startHold);
-  logo.addEventListener('pointerup', cancelHold);
+  logo.addEventListener('pointermove', moveHold);
+  logo.addEventListener('pointerup', releaseHold);
   logo.addEventListener('pointercancel', cancelHold);
+  logo.addEventListener('touchstart', blockTouchDefault, { passive: false });
+  logo.addEventListener('touchmove', moveHold, { passive: true });
+  logo.addEventListener('touchend', releaseHold);
+  logo.addEventListener('touchcancel', cancelHold);
   logo.addEventListener('click', preventLogoClick);
 
   render(guests);
@@ -265,8 +347,13 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
     probe.dispose();
     window.removeEventListener('resize', handleResize);
     logo.removeEventListener('pointerdown', startHold);
-    logo.removeEventListener('pointerup', cancelHold);
+    logo.removeEventListener('pointermove', moveHold);
+    logo.removeEventListener('pointerup', releaseHold);
     logo.removeEventListener('pointercancel', cancelHold);
+    logo.removeEventListener('touchstart', blockTouchDefault);
+    logo.removeEventListener('touchmove', moveHold);
+    logo.removeEventListener('touchend', releaseHold);
+    logo.removeEventListener('touchcancel', cancelHold);
     logo.removeEventListener('click', preventLogoClick);
   };
 }

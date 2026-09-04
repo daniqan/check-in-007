@@ -160,13 +160,31 @@ h2 {
 
 /* ── Brand hook: engraved aperture ────────────────────────────── */
 
-/* Same engraved aperture as the loading screen, at hit-zone size and spinning.
-   Built from pseudo-elements only — the button has no children in roster.mjs. */
-.logo-hit {
+/* The artwork and the hit target are SEPARATE elements.
+
+   .logo-mark draws (and animates) the aperture; .logo-hit is a plain, static,
+   transparent button over it. Two hard-won rules:
+
+   1. The hit target must NOT be animated — iOS hit-tests a transformed,
+      animating element against a stale composited position.
+   2. The hit target must stay in NORMAL FLOW (position: relative, never
+      absolute). .roster-header is position: sticky, and iOS hit-tests
+      absolutely-positioned descendants of a stuck element against their
+      unstuck layout box — so an absolute button works at scroll 0 and is
+      unreachable everywhere else.
+
+   The artwork layers are the ones that get position: absolute. */
+.logo-slot {
   position: relative;
+  display: block;
   width: var(--admin-hitzone);
   height: var(--admin-hitzone);
   flex: none;
+}
+
+.logo-mark {
+  position: absolute;
+  inset: 0;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: repeating-radial-gradient(
@@ -174,13 +192,27 @@ h2 {
     rgba(201, 162, 39, 0.16) 0 1px,
     transparent 1px 5px
   );
-  color: transparent;
   overflow: hidden;
-  animation: barrel-spin 44s linear infinite;
+  pointer-events: none;
+}
+
+.logo-hit {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* aperture blades, counter-rotating */
-.logo-hit::before {
+.logo-mark::before {
   content: '';
   position: absolute;
   inset: 10%;
@@ -208,7 +240,7 @@ h2 {
 }
 
 /* lit iris at centre */
-.logo-hit::after {
+.logo-mark::after {
   content: '';
   position: absolute;
   left: 50%;
@@ -283,7 +315,7 @@ h2 {
 }
 
 /* the lit iris at centre */
-.gunbarrel span {
+.gunbarrel > span:not(.gunbarrel-art) {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -1327,6 +1359,51 @@ h2 {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--paper);
+}
+
+/* ══ LICENSED ARTWORK HOOK ═══════════════════════════════════════════════
+
+   Drop your licensed gun-barrel file at:
+
+       assets/icons/gunbarrel.png        (or .jpg / .svg / .webp)
+
+   Then delete the `display: none` line in the rule below. That is the whole
+   job — the artwork replaces the drawn aperture on the loading screen and on
+   the roster mark, and nothing else changes.
+
+   Do NOT touch `.logo-hit`. It is the invisible static button carrying the
+   admin hold gesture and it sits above the artwork either way. Keeping the
+   art in its own layer is what stopped the hold breaking.
+
+   The build inlines anything under assets/ as a data URI, so the same path
+   works in dev and in dist/. Keep the file under ~200KB or the artifact
+   budget in scripts/build.mjs will reject the build.
+
+   Transparent background? Drop `background-color`. Full-frame still rather
+   than a circular mark? Also drop `border-radius`.                         */
+
+.gunbarrel-art,
+.logo-mark-art {
+  display: none; /* ← delete this line once the file is in place */
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 50%;
+  background-color: #050403;
+  background-image: url('../assets/icons/gunbarrel.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* The roster art layer spins on its own: .logo-slot must stay static (it holds
+   the hit target), so the rotation lives here. Safe because this layer is
+   pointer-events: none and is not the button. On the loading screen the
+   parent .gunbarrel already rotates, so the art there inherits it.
+   Change 44s to taste — higher is slower. */
+.logo-mark-art {
+  animation: barrel-spin 44s linear infinite;
 }
 
 /* ── Boot failure panel ─────────────────────────────────────── */

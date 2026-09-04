@@ -10,7 +10,7 @@ export function mountScan(root, { guest, timing, onDone }) {
       <div class="scan-copy">
         <p id="scan-status" aria-live="polite">OPTICAL SENSOR SYNCING</p>
         <h1 id="scan-title">${guest.name}</h1>
-        <strong>BIOMETRIC THEATER IN PROGRESS</strong>
+        <strong>BIOMETRIC SCAN IN PROGRESS</strong>
       </div>
     </section>
   `;

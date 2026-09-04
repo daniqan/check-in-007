@@ -262,12 +262,25 @@ export async function build() {
   }
 
   let css = await readFile(join(root, 'src/styles.css'), 'utf8');
-  const fontUrls = [...css.matchAll(/url\('?(\.\.\/assets\/fonts\/[^)'"]+)'?\)/g)];
-  for (const match of fontUrls) {
-    const fontPath = match[1].replace('../', '');
-    const font = await readFile(join(root, fontPath));
-    const mime = extname(fontPath) === '.woff2' ? 'font/woff2' : 'application/octet-stream';
-    css = css.replace(match[0], `url('data:${mime};base64,${font.toString('base64')}')`);
+  /* Inline every asset the stylesheet references, not just fonts — the
+     artifact is a single self-contained HTML file, so a bare url('../assets/…')
+     would 404 in dist/. */
+  const MIME_BY_EXT = {
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+  };
+  const assetUrls = [...css.matchAll(/url\('?(\.\.\/assets\/[^)'"]+)'?\)/g)];
+  for (const match of assetUrls) {
+    const assetPath = match[1].replace('../', '');
+    const bytes = await readFile(join(root, assetPath));
+    const mime = MIME_BY_EXT[extname(assetPath).toLowerCase()] || 'application/octet-stream';
+    css = css.replace(match[0], `url('data:${mime};base64,${bytes.toString('base64')}')`);
   }
   const data = await readFile(join(root, 'data/guests.default.js'), 'utf8');
   const html = `<!doctype html>
