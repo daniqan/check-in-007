@@ -1361,15 +1361,15 @@ h2 {
   color: var(--paper);
 }
 
-/* ══ LICENSED ARTWORK HOOK ═══════════════════════════════════════════════
+/* ══ LICENSED ARTWORK ════════════════════════════════════════════════════
 
-   Drop your licensed gun-barrel file at:
+   Live. Reads from:
 
-       assets/icons/gunbarrel.png        (or .jpg / .svg / .webp)
+       assets/icons/gunbarrel.png
 
-   Then delete the `display: none` line in the rule below. That is the whole
-   job — the artwork replaces the drawn aperture on the loading screen and on
-   the roster mark, and nothing else changes.
+   Shown on the loading screen and the roster mark. To swap the file, change
+   the background-image url below; to go back to the drawn aperture, add
+   `display: none` to this rule.
 
    Do NOT touch `.logo-hit`. It is the invisible static button carrying the
    admin hold gesture and it sits above the artwork either way. Keeping the
@@ -1384,7 +1384,6 @@ h2 {
 
 .gunbarrel-art,
 .logo-mark-art {
-  display: none; /* ← delete this line once the file is in place */
   position: absolute;
   inset: 0;
   z-index: 1;
