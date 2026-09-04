@@ -69,6 +69,7 @@ export function start(root = document.getElementById('app')) {
       onRosterChanged: (nextGuests) => {
         guests = buildSearchIndex(nextGuests);
       },
+      onViewArrivals: () => setState('ARRIVALS'),
       onClose: () => {
         adminCleanup = null;
         setState('ROSTER');

@@ -35,6 +35,7 @@ export function mountAdmin(
     audioSettings = { scanBlipEnabled: false },
     onAudioSettingsChanged = (settings) => settings,
     onRosterChanged,
+    onViewArrivals,
     onClose,
   },
 ) {
@@ -58,6 +59,7 @@ export function mountAdmin(
         </section>
         <label class="audio-setting"><input class="scan-blip-input" type="checkbox" ${normalizedAudioSettings.scanBlipEnabled ? 'checked' : ''} />Scan blip audio</label>
         <div class="admin-grid">
+          <button type="button" data-action="view-arrivals" class="admin-primary">View Arrivals</button>
           <button type="button" data-action="export-csv">Export CSV</button>
           <button type="button" data-action="copy-csv">Copy CSV</button>
           <button type="button" data-action="export-json">Export JSON</button>
@@ -223,6 +225,13 @@ export function mountAdmin(
     if (!action) return;
     if (action === 'apply-merge') {
       applyMerge();
+      return;
+    }
+    if (action === 'view-arrivals') {
+      // close() calls onClose, which returns to ROSTER; navigate after so the
+      // dashboard is what the operator lands on.
+      close();
+      onViewArrivals?.();
       return;
     }
     if (action === 'export-csv')

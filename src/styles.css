@@ -1183,6 +1183,15 @@ h2 {
   }
 }
 
+/* Primary route to the arrivals dashboard, behind the 2s hold gesture. */
+.admin-grid .admin-primary {
+  grid-column: 1 / -1;
+  border-color: var(--gold);
+  background: rgba(201, 162, 39, 0.18);
+  color: var(--gold-hi);
+  letter-spacing: 0.12em;
+}
+
 .audio-setting {
   min-height: 56px;
   justify-content: space-between;
