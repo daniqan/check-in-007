@@ -1,4 +1,4 @@
-import { computeArrivals } from '../lib/arrivals.mjs';
+import { computeArrivals, shortTableLabel } from '../lib/arrivals.mjs';
 
 /* Arrivals dashboard: live count, who is still out, per-table progress, undo
    and CSV export. Everything is derived from (roster, log) on each render, so
@@ -96,7 +96,9 @@ export function mountArrivals(root, { guests, store, cloud, onClose, onExport })
                       (guest) => `
               <li>
                 <span>${escapeHtml(guest.name)}</span>
-                <small>${escapeHtml(guest.table || '—')}</small>
+                <small title="${escapeHtml(guest.table || '')}">${escapeHtml(
+                  shortTableLabel(guest.table),
+                )}</small>
               </li>`,
                     )
                     .join('')

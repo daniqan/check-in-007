@@ -87,6 +87,25 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
   let virtualFrame = 0;
   let pendingZeroViewportRemeasure = false;
   let probe = { dispose() {} };
+  let checkedIn = new Set();
+
+  /* Gold spy pen, marking a guest who has already been checked in. Inline so
+     it needs no asset and inherits the row's colour. */
+  const PEN_ICON = `<svg class="pen-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3.4 20.6l1.2-4.2 3 3z" />
+      <path d="M6.4 15.4l9-9 2.2 2.2-9 9z" />
+      <path d="M16.1 5.7l1.6-1.6 2.2 2.2-1.6 1.6z" />
+      <path d="M18.6 2.6l1.1-1.1 2.8 2.8-1.1 1.1z" />
+    </svg>`;
+
+  function refreshCheckedIn() {
+    checkedIn = new Set(
+      store
+        .loadLog()
+        .map((entry) => entry?.guestId)
+        .filter(Boolean),
+    );
+  }
 
   function createGuestRow(guest, absoluteIndex = null, total = null) {
     const item = document.createElement('li');
@@ -94,7 +113,11 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
     row.type = 'button';
     row.className = 'guest-row';
     row.dataset.guestId = guest.id;
-    row.setAttribute('aria-label', `${guest.name}, tap to verify`);
+    const isCheckedIn = checkedIn.has(guest.id);
+    row.setAttribute(
+      'aria-label',
+      isCheckedIn ? `${guest.name}, already checked in` : `${guest.name}, tap to verify`,
+    );
     if (absoluteIndex !== null && total !== null) {
       item.className = 'roster-virtual-row';
       item.style.transform = `translateY(${absoluteIndex * ROSTER.VIRTUAL_ROW_HEIGHT_PX}px)`;
@@ -103,7 +126,11 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
     }
     // The table assignment is deliberately withheld here: a guest must select
     // their name and complete the scan before the dossier screen reveals it.
-    row.innerHTML = `<span>${guest.name}</span><small>TAP TO VERIFY</small>`;
+    row.innerHTML = `<span>${guest.name}</span>${
+      isCheckedIn
+        ? `<small class="row-status is-checked-in">${PEN_ICON}Checked In</small>`
+        : '<small class="row-status">TAP TO VERIFY</small>'
+    }`;
     item.append(row);
     return item;
   }
@@ -174,6 +201,7 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
   }
 
   function render(items) {
+    refreshCheckedIn();
     count.textContent = `${items.length} agent${items.length === 1 ? '' : 's'} visible`;
     if (store.isVolatile()) {
       storageNote.textContent = 'LOG NOT PERSISTED (private mode?)';
