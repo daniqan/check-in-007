@@ -82,6 +82,11 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
   const search = root.querySelector('.search');
   const count = root.querySelector('#result-count');
   const logo = root.querySelector('.logo-hit');
+  /* Gestures are bound to the SLOT, not the button. The rotating artwork layer
+     sits inside the slot, and an animating composited layer can swallow
+     touches in WebKit even with pointer-events: none. Listening on the
+     ancestor catches the press wherever inside the mark it lands. */
+  const gestureHost = root.querySelector('.logo-slot') || logo;
   const storageNote = root.querySelector('.storage-note');
   let debounce = 0;
   let navigating = false;
@@ -272,9 +277,9 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
   const startHold = (event) => {
     window.clearTimeout(hold);
     holdOrigin = readPoint(event);
-    if (event?.pointerId !== undefined && logo.setPointerCapture) {
+    if (event?.pointerId !== undefined && gestureHost.setPointerCapture) {
       try {
-        logo.setPointerCapture(event.pointerId);
+        gestureHost.setPointerCapture(event.pointerId);
       } catch {
         /* capture is a nice-to-have */
       }
@@ -313,9 +318,9 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
     const wasHolding = hold !== 0;
     cancelHold();
     if (wasHolding) countTap();
-    if (event?.pointerId !== undefined && logo.releasePointerCapture) {
+    if (event?.pointerId !== undefined && gestureHost.releasePointerCapture) {
       try {
-        logo.releasePointerCapture(event.pointerId);
+        gestureHost.releasePointerCapture(event.pointerId);
       } catch {
         /* already released */
       }
@@ -323,15 +328,15 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
   };
   const preventLogoClick = (event) => event.preventDefault();
 
-  logo.addEventListener('pointerdown', startHold);
-  logo.addEventListener('pointermove', moveHold);
-  logo.addEventListener('pointerup', releaseHold);
-  logo.addEventListener('pointercancel', cancelHold);
-  logo.addEventListener('touchstart', blockTouchDefault, { passive: false });
-  logo.addEventListener('touchmove', moveHold, { passive: true });
-  logo.addEventListener('touchend', releaseHold);
-  logo.addEventListener('touchcancel', cancelHold);
   logo.addEventListener('click', preventLogoClick);
+  gestureHost.addEventListener('pointerdown', startHold);
+  gestureHost.addEventListener('pointermove', moveHold);
+  gestureHost.addEventListener('pointerup', releaseHold);
+  gestureHost.addEventListener('pointercancel', cancelHold);
+  gestureHost.addEventListener('touchstart', blockTouchDefault, { passive: false });
+  gestureHost.addEventListener('touchmove', moveHold, { passive: true });
+  gestureHost.addEventListener('touchend', releaseHold);
+  gestureHost.addEventListener('touchcancel', cancelHold);
 
   render(guests);
   probe = createScrollProbe(list, { enabled: runtimeFlags.scrollProbe });
@@ -346,14 +351,14 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
     list.removeEventListener('click', handleListClick);
     probe.dispose();
     window.removeEventListener('resize', handleResize);
-    logo.removeEventListener('pointerdown', startHold);
-    logo.removeEventListener('pointermove', moveHold);
-    logo.removeEventListener('pointerup', releaseHold);
-    logo.removeEventListener('pointercancel', cancelHold);
-    logo.removeEventListener('touchstart', blockTouchDefault);
-    logo.removeEventListener('touchmove', moveHold);
-    logo.removeEventListener('touchend', releaseHold);
-    logo.removeEventListener('touchcancel', cancelHold);
     logo.removeEventListener('click', preventLogoClick);
+    gestureHost.removeEventListener('pointerdown', startHold);
+    gestureHost.removeEventListener('pointermove', moveHold);
+    gestureHost.removeEventListener('pointerup', releaseHold);
+    gestureHost.removeEventListener('pointercancel', cancelHold);
+    gestureHost.removeEventListener('touchstart', blockTouchDefault);
+    gestureHost.removeEventListener('touchmove', moveHold);
+    gestureHost.removeEventListener('touchend', releaseHold);
+    gestureHost.removeEventListener('touchcancel', cancelHold);
   };
 }

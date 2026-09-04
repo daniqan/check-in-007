@@ -180,6 +180,9 @@ h2 {
   width: var(--admin-hitzone);
   height: var(--admin-hitzone);
   flex: none;
+  /* The slot carries the hold/tap listeners, so it must own the touch too. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .logo-mark {
@@ -1395,6 +1398,18 @@ h2 {
   background-repeat: no-repeat;
   pointer-events: none;
 }
+
+/* On the loading screen the art sits inside the drawn gold ring, so the black
+   backing plate reads as an extra solid disc. Let the page show through. */
+.gunbarrel-art {
+  background-color: transparent;
+}
+
+/* The drawn aperture is deliberately LEFT VISIBLE beneath the licensed art:
+   the PNG's transparent areas let the blades and iris show through, and the
+   two rotating marks together are the look we settled on. Hiding the stand-in
+   (background-image: none on .gunbarrel, display: none on ::before and the
+   iris span) is the one-line way back to a single mark. */
 
 /* The roster art layer spins on its own: .logo-slot must stay static (it holds
    the hit target), so the rotation lives here. Safe because this layer is
