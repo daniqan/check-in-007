@@ -94,14 +94,16 @@ export function mountRoster(root, { guests, onSelect, onAdminHold, store, runtim
     row.type = 'button';
     row.className = 'guest-row';
     row.dataset.guestId = guest.id;
-    row.setAttribute('aria-label', `${guest.name}, ${guest.table || 'table pending'}`);
+    row.setAttribute('aria-label', `${guest.name}, tap to verify`);
     if (absoluteIndex !== null && total !== null) {
       item.className = 'roster-virtual-row';
       item.style.transform = `translateY(${absoluteIndex * ROSTER.VIRTUAL_ROW_HEIGHT_PX}px)`;
       item.setAttribute('aria-setsize', String(total));
       item.setAttribute('aria-posinset', String(absoluteIndex + 1));
     }
-    row.innerHTML = `<span>${guest.name}</span><small>${guest.table || 'CHECK-IN DESK'}</small>`;
+    // The table assignment is deliberately withheld here: a guest must select
+    // their name and complete the scan before the dossier screen reveals it.
+    row.innerHTML = `<span>${guest.name}</span><small>TAP TO VERIFY</small>`;
     item.append(row);
     return item;
   }

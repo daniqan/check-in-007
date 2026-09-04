@@ -1,0 +1,45 @@
+rules_version = '2';
+
+/* Check-In 007 — append-only check-in mirror.
+
+   The kiosk talks to Firestore straight from the iPad with an API key that
+   ships in the bundle. These rules are what make that safe: the key can
+   CREATE check-in documents and nothing else. It cannot read the collection,
+   cannot modify a document, and cannot delete one.
+
+   Consequences to know about:
+   - An undo is written as a separate `<visitId>-retracted` document rather
+     than a delete. When you read the data back, treat a check-in as valid
+     only if no matching retraction exists.
+   - The kiosk cannot read its own writes. That is deliberate — the local
+     localStorage log is the source of truth for the dashboard.
+   - To read the data yourself, use the Firebase console, or the gcloud CLI,
+     or a service account. Never loosen `allow read` for the kiosk. */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /checkins/{visitId} {
+      allow create: if isWellFormedCheckIn();
+      allow read, update, delete: if false;
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+function isWellFormedCheckIn() {
+  let data = request.resource.data;
+  return data.keys().hasOnly([
+        'eventId', 'visitId', 'guestId', 'name', 'table', 'timestamp', 'retracted'
+      ])
+      && data.keys().hasAll(['eventId', 'visitId', 'guestId', 'name', 'timestamp'])
+      && data.eventId is string && data.eventId.size() > 0 && data.eventId.size() < 64
+      && data.visitId is string && data.visitId.size() > 0 && data.visitId.size() < 128
+      && data.guestId is string && data.guestId.size() < 128
+      && data.name is string && data.name.size() < 200
+      && data.timestamp is string && data.timestamp.size() < 40;
+}

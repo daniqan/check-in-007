@@ -22,14 +22,15 @@ export const AUDIO = {
 
 export const ADMIN = {
   HOLD_MS: 2000,
-  HITZONE_PX: 72,
+  HITZONE_PX: 84,
 };
 
 export const ROSTER = {
   SEARCH_DEBOUNCE_MS: 120,
   VIRTUALIZE_THRESHOLD: 500,
-  VIRTUAL_ROW_HEIGHT_PX: 66,
-  VIRTUAL_VISIBLE_ROW_HEIGHT_PX: 58,
+  // Single full-width column: 156px row + 12px grid gap.
+  VIRTUAL_ROW_HEIGHT_PX: 168,
+  VIRTUAL_VISIBLE_ROW_HEIGHT_PX: 156,
   VIRTUAL_OVERSCAN_ROWS: 6,
   VIRTUAL_MIN_VIEWPORT_PX: 360,
 };
@@ -39,4 +40,20 @@ export const REDUCED = {
   SCAN_MS: 2500,
   RESULT_MS: 4000,
   TRANSITION_MS: 150,
+};
+
+/* Firestore append-only backup. The kiosk is local-first: every check-in is
+   written to localStorage first and mirrored here on a best-effort basis, so
+   losing wifi never blocks check-in. Fill PROJECT_ID and API_KEY to enable;
+   left blank, the kiosk runs entirely offline and nothing is sent.
+
+   Safe to ship in the bundle: the matching security rules are create-only,
+   so this key cannot read, update or delete anything. See docs/CLOUD-SETUP.md. */
+export const CLOUD = {
+  PROJECT_ID: '',
+  API_KEY: '',
+  COLLECTION: 'checkins',
+  EVENT_ID: 'event-1',
+  RETRY_MS: 15000,
+  MAX_ATTEMPTS: 6,
 };

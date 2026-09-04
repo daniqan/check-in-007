@@ -4,7 +4,7 @@ export function mountLoading(root, { timing, onDone }) {
       <div class="gunbarrel" aria-hidden="true"><span></span></div>
       <div class="boot-copy">
         <p>MI6 EVENT OPERATIONS</p>
-        <h1>CHECK-IN 007</h1>
+        <h1>MI6 CHECK-IN</h1>
         <strong>INITIALIZING AGENT ROSTER</strong>
       </div>
     </section>

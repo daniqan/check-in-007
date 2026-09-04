@@ -13,11 +13,75 @@
   </head>
   <body>
     <div id="app" aria-live="off"></div>
+
+    <!-- Fail-loud diagnostics. A module that 404s or throws leaves #app empty,
+         which on an iPad looks like a plain black screen with no way to see the
+         cause. This paints the error on screen instead. -->
+    <div id="boot-error" hidden>
+      <h1>Terminal failed to start</h1>
+      <p id="boot-error-message"></p>
+      <p class="boot-error-hint">
+        Usually a missing file or a stale cache. In Safari: Settings &rarr;
+        Safari &rarr; Clear History and Website Data, or delete and re-add the
+        Home Screen icon.
+      </p>
+    </div>
+
+    <script>
+      (function () {
+        var panel = document.getElementById('boot-error');
+        var slot = document.getElementById('boot-error-message');
+        var shown = false;
+
+        function show(message) {
+          if (shown) return;
+          shown = true;
+          slot.textContent = String(message || 'Unknown error');
+          panel.hidden = false;
+        }
+
+        window.__bootFail = show;
+
+        window.addEventListener(
+          'error',
+          function (event) {
+            // A failed <script>/<link> fires error on the element itself.
+            if (event.target && event.target !== window && event.target.src) {
+              show('Failed to load ' + event.target.src);
+              return;
+            }
+            show(event.message);
+          },
+          true,
+        );
+
+        window.addEventListener('unhandledrejection', function (event) {
+          show('Unhandled promise rejection: ' + (event.reason && event.reason.message));
+        });
+
+        // If start() never runs, #app stays empty. Say so rather than sit black.
+        window.setTimeout(function () {
+          var app = document.getElementById('app');
+          if (app && app.children.length === 0) {
+            show(
+              'No screen rendered after 4s. A module probably failed to load — ' +
+                'check that every file in src/ was copied, including src/lib/.',
+            );
+          }
+        }, 4000);
+      })();
+    </script>
+
     <script src="./data/guests.default.js"></script>
     <script type="module">
       import { start } from './src/app.mjs';
 
-      start(document.getElementById('app'));
+      try {
+        start(document.getElementById('app'));
+      } catch (error) {
+        window.__bootFail(error && error.message ? error.message : error);
+        throw error;
+      }
     </script>
   </body>
 </html>

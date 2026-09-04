@@ -111,6 +111,16 @@ export function createStore(
       return entries;
     },
     loadLog,
+    /* Undo a mistaken check-in. Returns the removed entry so the caller can
+       report it (and so cloud sync can queue a matching retraction). */
+    removeCheckIn(visitId) {
+      const entries = loadLog();
+      const index = entries.findIndex((entry) => entry.visitId === visitId);
+      if (index === -1) return null;
+      const [removed] = entries.splice(index, 1);
+      saveLog(entries);
+      return removed;
+    },
     previewLogMerge(importedEntries) {
       return mergeLogEntrySets(loadLog(), importedEntries);
     },

@@ -5,6 +5,12 @@ import { gzipSync } from 'node:zlib';
 import * as acorn from 'acorn';
 
 const root = new URL('..', import.meta.url).pathname;
+/* Evaluation order matters: each module is an IIFE that aliases its imports
+   from window.__CHECKIN007.modules at evaluation time, so every dependency
+   MUST be listed before the module that imports it. A module missing from
+   this list does not fail the build — it throws at runtime against an
+   undefined namespace, which shows up as a black screen in dist/ only.
+   Add new modules here whenever you add a file under src/. */
 const modules = [
   'src/config.mjs',
   'src/lib/audio.mjs',
@@ -14,10 +20,14 @@ const modules = [
   'src/lib/csv.mjs',
   'src/lib/log-merge.mjs',
   'src/lib/store.mjs',
+  'src/lib/arrivals.mjs',
+  'src/lib/cloud-sync.mjs',
+  'src/lib/dev-nav.mjs',
   'src/screens/loading.mjs',
   'src/screens/roster.mjs',
   'src/screens/scan.mjs',
   'src/screens/result.mjs',
+  'src/screens/arrivals.mjs',
   'src/screens/admin.mjs',
   'src/app.mjs',
 ];
@@ -228,6 +238,21 @@ export async function build() {
   }
   chunks.push(`window.CheckIn007 = window.__CHECKIN007.modules.${namespaceFor('src/app.mjs')};`);
   const appBundle = chunks.join('\n');
+
+  /* Guard against the failure this list caused once already: if a module
+     imports something the bundle never registered, fail the BUILD instead of
+     shipping an artifact that dies silently on the iPad. */
+  const registered = new Set(modules.map((file) => namespaceFor(file)));
+  const referenced = [
+    ...appBundle.matchAll(/window\.__CHECKIN007\.modules\.([a-z0-9_]+)\./gi),
+  ].map((match) => match[1]);
+  const missing = [...new Set(referenced)].filter((name) => !registered.has(name));
+  if (missing.length) {
+    throw new Error(
+      `Modules imported but not listed in scripts/build.mjs: ${missing.join(', ')}. ` +
+        'Add them to the modules array, dependencies first.',
+    );
+  }
   const residual = collectModuleSyntax(
     acorn.parse(appBundle, { ecmaVersion: 2020, sourceType: 'script' }),
   );
@@ -246,7 +271,7 @@ export async function build() {
   }
   const data = await readFile(join(root, 'data/guests.default.js'), 'utf8');
   const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="theme-color" content="#050505"><link rel="manifest" href="./check-in-007.webmanifest"><title>Check-In 007</title><style>${css}</style></head><body><div id="app" aria-live="off"></div><script>${data}\n${appBundle}\nwindow.CheckIn007.start(document.getElementById('app'));</script></body></html>`;
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="theme-color" content="#050505"><link rel="manifest" href="./check-in-007.webmanifest"><title>Check-In 007</title><style>${css}</style></head><body><div id="app" aria-live="off"></div><div id="boot-error" hidden><h1>Terminal failed to start</h1><p id="boot-error-message"></p><p class="boot-error-hint">Usually a stale cache or a module missing from the build. Clear Safari website data, or delete and re-add the Home Screen icon.</p></div><script>(function(){var p=document.getElementById('boot-error'),s=document.getElementById('boot-error-message'),shown=false;function show(m){if(shown)return;shown=true;s.textContent=String(m||'Unknown error');p.hidden=false;}window.__bootFail=show;window.addEventListener('error',function(e){show(e.message);},true);window.addEventListener('unhandledrejection',function(e){show('Unhandled rejection: '+(e.reason&&e.reason.message));});window.setTimeout(function(){var a=document.getElementById('app');if(a&&a.children.length===0)show('No screen rendered after 4s \u2014 the bundle failed to evaluate.');},4000);})();</script><script>${data}\n${appBundle}\ntry{window.CheckIn007.start(document.getElementById('app'));}catch(error){window.__bootFail(error&&error.message?error.message:error);throw error;}</script></body></html>`;
   const gzipSize = gzipSync(html).byteLength;
   if (gzipSize > 750 * 1024 || Buffer.byteLength(html) > 1.2 * 1024 * 1024) {
     throw new Error(
